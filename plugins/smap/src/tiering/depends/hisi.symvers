@@ -1,0 +1,3 @@
+0x7c4fd0a2	hisi_soc_cache_maintain	/home/hisi/hisi_soc_cache_framework	EXPORT_SYMBOL_GPL	
+0xa765fabf	hisi_soc_comp_inst_add	/home/hisi/hisi_soc_cache_framework	EXPORT_SYMBOL_GPL	
+0x8f24292a	hisi_soc_comp_inst_del	/home/hisi/hisi_soc_cache_framework	EXPORT_SYMBOL_GPL	

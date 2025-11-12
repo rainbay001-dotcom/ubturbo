@@ -1,0 +1,32 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+#ifndef __ASM_PGTABLE_HWDEF_H
+#define __ASM_PGTABLE_HWDEF_H
+
+#include <asm/memory.h>
+
+#if CONFIG_PGTABLE_LEVELS > 2
+#define PMD_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(2)
+#define PMD_SIZE		(_AC(1, UL) << PMD_SHIFT)
+#define PUD_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(1)
+#define PUD_SIZE		(_AC(1, UL) << PUD_SHIFT)
+#endif
+
+#define CONT_PTE_SHIFT		(PAGE_SHIFT + CONFIG_ARM64_CONT_PTE_SHIFT)
+#define ARM64_HW_PGTABLE_LEVEL_SHIFT(n)	((PAGE_SHIFT - 3) * (4 - (n)) + 3)
+#define CONT_PTES		(1 << (CONT_PTE_SHIFT - PAGE_SHIFT))
+#define CONT_PMD_SHIFT		(CONFIG_ARM64_CONT_PMD_SHIFT + PMD_SHIFT)
+#define CONT_PTE_SIZE		(PAGE_SIZE * CONT_PTES)
+#define CONT_PMDS		(1 << (CONT_PMD_SHIFT - PMD_SHIFT))
+#define CONT_PTE_MASK		(~(CONT_PTE_SIZE - 1))
+#define CONT_PMD_SIZE		(CONT_PMDS * PMD_SIZE)
+
+#define PTE_ADDR_LOW		(((_AT(pteval_t, 1) << (48 - PAGE_SHIFT)) - 1) << PAGE_SHIFT)
+#define PTE_ADDR_MASK		PTE_ADDR_LOW
+
+#if CONFIG_PGTABLE_LEVELS > 2
+#define PMD_SHIFT		ARM64_HW_PGTABLE_LEVEL_SHIFT(2)
+#define PMD_SIZE		(_AC(1, UL) << PMD_SHIFT)
+#define PMD_MASK		(~(PMD_SIZE-1))
+#endif
+
+#endif

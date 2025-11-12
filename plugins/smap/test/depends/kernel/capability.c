@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * linux/kernel/capability.c
+ *
+ * Copyright (C) 1997  Andrew Main <zefram@fysh.org>
+ *
+ * Integrated into 2.1.97+,  Andrew G. Morgan <morgan@kernel.org>
+ * 30 May 2002:	Cleanup, Robert M. Love <rml@tech9.net>
+ */
+#include <linux/capability.h>
+
+bool capable(int cap)
+{
+	return true;
+}

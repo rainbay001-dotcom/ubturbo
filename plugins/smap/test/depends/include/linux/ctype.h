@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+#ifndef SMAP_MEM_SOLUTION_GPS_CTYPE_H
+#define SMAP_MEM_SOLUTION_GPS_CTYPE_H
+
+#endif // SMAP_MEM_SOLUTION_GPS_CTYPE_H

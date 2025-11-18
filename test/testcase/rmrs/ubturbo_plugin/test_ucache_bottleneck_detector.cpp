@@ -117,22 +117,22 @@ TEST_F(TestUcacheBottleneckDetector, GetTotalInactiveFilePagesTest)
     info1.isActive = false;
     info2.id = "container1";
     info2.isActive = true;
-    info2.leneckLevel = ioBottleneckLevel::Level1;
+    info2.leneckLevel = IoBottleneckLevel::LEVEL1;
     detector.containerInfoList_.push_back(info1);
     detector.containerInfoList_.push_back(info2);
 
     bool result = detector.GetTotalInactiveFilePages(containerIds, totalInactiveFileKB);
     EXPECT_EQ(result, RMRS_ERROR);
 
-    detector.containerInfoList_.back().leneckLevel = ioBottleneckLevel::Level2;
+    detector.containerInfoList_.back().leneckLevel = IoBottleneckLevel::LEVEL2;
     result = detector.GetTotalInactiveFilePages(containerIds, totalInactiveFileKB);
     EXPECT_EQ(result, RMRS_ERROR);
 
-    detector.containerInfoList_.back().leneckLevel = ioBottleneckLevel::Level3;
+    detector.containerInfoList_.back().leneckLevel = IoBottleneckLevel::LEVEL3;
     result = detector.GetTotalInactiveFilePages(containerIds, totalInactiveFileKB);
     EXPECT_EQ(result, RMRS_ERROR);
 
-    detector.containerInfoList_.back().leneckLevel = ioBottleneckLevel::Level4;
+    detector.containerInfoList_.back().leneckLevel = IoBottleneckLevel::LEVEL4;
     result = detector.GetTotalInactiveFilePages(containerIds, totalInactiveFileKB);
     EXPECT_EQ(result, RMRS_ERROR);
 
@@ -232,28 +232,28 @@ TEST_F(TestUcacheBottleneckDetector, IdentifyBottlenecksTest)
     info1.isActive = false;
     detector.containerInfoList_.push_back(info1);
     detector.IdentifyBottlenecks();
-    EXPECT_EQ(ioBottleneckLevel::NoioBottleneck, detector.containerInfoList_.back().leneckLevel);
+    EXPECT_EQ(IoBottleneckLevel::NOLOBOTTLENECK, detector.containerInfoList_.back().leneckLevel);
 
     detector.containerInfoList_.back().pageCacheInMB = BOTTLENECK_THRESHOLD_LEVEL2;
     detector.containerInfoList_.back().ioReadBandwidthMB = BOTTLENECK_THRESHOLD_LEVEL2;
     detector.containerInfoList_.back().isActive = true;
     detector.IdentifyBottlenecks();
-    EXPECT_EQ(ioBottleneckLevel::Level1, detector.containerInfoList_.back().leneckLevel);
+    EXPECT_EQ(IoBottleneckLevel::LEVEL1, detector.containerInfoList_.back().leneckLevel);
 
     detector.containerInfoList_.back().pageCacheInMB = BOTTLENECK_THRESHOLD_LEVEL2 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.containerInfoList_.back().ioReadBandwidthMB = BOTTLENECK_THRESHOLD_LEVEL2 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.IdentifyBottlenecks();
-    EXPECT_EQ(ioBottleneckLevel::Level2, detector.containerInfoList_.back().leneckLevel);
+    EXPECT_EQ(IoBottleneckLevel::LEVEL2, detector.containerInfoList_.back().leneckLevel);
 
     detector.containerInfoList_.back().pageCacheInMB = BOTTLENECK_THRESHOLD_LEVEL3 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.containerInfoList_.back().ioReadBandwidthMB = BOTTLENECK_THRESHOLD_LEVEL3 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.IdentifyBottlenecks();
-    EXPECT_EQ(ioBottleneckLevel::Level3, detector.containerInfoList_.back().leneckLevel);
+    EXPECT_EQ(IoBottleneckLevel::LEVEL3, detector.containerInfoList_.back().leneckLevel);
 
     detector.containerInfoList_.back().pageCacheInMB = BOTTLENECK_THRESHOLD_LEVEL4 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.containerInfoList_.back().ioReadBandwidthMB = BOTTLENECK_THRESHOLD_LEVEL4 + BOTTLENECK_THRESHOLD_LEVEL2;
     detector.IdentifyBottlenecks();
-    EXPECT_EQ(ioBottleneckLevel::Level4, detector.containerInfoList_.back().leneckLevel);
+    EXPECT_EQ(IoBottleneckLevel::LEVEL4, detector.containerInfoList_.back().leneckLevel);
 }
 
 TEST_F(TestUcacheBottleneckDetector, GetContainerIdFromPidsTest)

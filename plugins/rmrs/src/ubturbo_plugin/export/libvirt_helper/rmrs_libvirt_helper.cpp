@@ -77,10 +77,11 @@ uint32_t LibvirtHelper::CloseConn()
         return RMRS_ERROR;
     }
 
-    const int MAX_RETRY = 10;
-    for (int i = 0; i < MAX_RETRY; ++i) {
+    const int maxRetry = 10000;
+    const int sleepMilliseconds = 100;
+    for (int i = 0; i < maxRetry; ++i) {
         int ret = LibvirtModule::VirConnectClose()(virConnect);
-        if (ret = 0) {
+        if (ret == 0) {
             UBTURBO_LOG_INFO(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
                 << "[RmrsResourceExport] [LibvirtHelper] Libvirt connection closed successfully.";
             return RMRS_OK;
@@ -91,7 +92,7 @@ uint32_t LibvirtHelper::CloseConn()
         } else {
             UBTURBO_LOG_WARN(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
                 << "[RmrsResourceExport] [LibvirtHelper] Connection still has referencesk, retry " << (i + 1);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepMilliseconds));
         }
     }
 

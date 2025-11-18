@@ -133,7 +133,9 @@ struct DFSContext {
     std::vector<rmrs::serialization::VMMigrateOutParam> currentResult;
     std::vector<rmrs::serialization::VMMigrateOutParam> finalResult;
 
-    DFSContext(const std::vector<VmInfo> &v, const std::vector<NumaInfoWithSize> &n, uint64_t t) : vms(v), totalRequired(t)
+    DFSContext(const std::vector<VmInfo> &v, const std::vector<NumaInfoWithSize> &n, uint64_t t)
+        : vms(v),
+          totalRequired(t)
     {
         for (const auto &numa : n) {
             numaFreeMap[numa.remoteNumaId] = numa.freeSize;
@@ -202,7 +204,7 @@ public:
     static RmrsResult DoMigrateExecute(const std::vector<rmrs::serialization::VMMigrateOutParam> &vmMigrateOutParam,
         uint64_t waitingTime);
  
-    static void RollbackVmMigrate(const std::vector<rmrs::serialization::VMMigrateOutParam> &vmMigrateOutParam,
+    static void RollbackVmMigrate(const std::vector<rmrs::serialization::VMMigrateMultiOutParam> &executedParamList,
         std::unordered_map<pid_t, uint64_t> vmOriginSizeMap);
 
     static RmrsResult GetNumaData(std::vector<rmrs::NumaInfo> &numaInfos, std::vector<uint16_t> &remoteNumaIdList,
@@ -223,7 +225,8 @@ public:
 
     static bool TryMigrate(DFSContext &ctx, size_t index, uint64_t currentTotal);
 
-    static bool AllocateMemory(uint64_t totalSize, const std::vector<VmInfo> &vms, const std::vector<NumaInfoWithSize> &numas,
+    static bool AllocateMemory(uint64_t totalSize, const std::vector<VmInfo> &vms,
+                               const std::vector<NumaInfoWithSize> &numas,
                                std::vector<rmrs::serialization::VMMigrateOutParam> &result);
 
     static RmrsResult DFSGetMigrationActions(const uint64_t &memMigrateTotalSize, const NumaQueryInfo &numaQueryInfo,

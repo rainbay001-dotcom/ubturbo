@@ -24,7 +24,7 @@ namespace turbo::ipc::client {
         result: 出参，json格式的序列化后的函数返回值
 @return 0代表成功，非0代表失败
 */
-extern "C" uint32_t UBTurboFunctionCaller(const std::string &function, const TurboByteBuffer &params, 
+extern "C" uint32_t UBTurboFunctionCaller(const std::string &function, const TurboByteBuffer &params,
                                           TurboByteBuffer &result);
 
 extern "C" uint32_t SetIpcTimeLimit(uint32_t timeLimit);

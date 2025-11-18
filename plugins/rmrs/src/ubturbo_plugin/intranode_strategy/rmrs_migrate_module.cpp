@@ -437,26 +437,42 @@ RmrsResult RmrsMigrateModule::DoMigrateExecute(
 {
     // 获取迁移前虚机在远端大小
     std::unordered_map<pid_t, uint64_t> vmOriginSizeMap;
-    if (FillVmOriginSize(vmMigrateOutParam, vmOriginSizeMap)) {
+    if (waitingTime != 0 && FillVmOriginSize(vmMigrateOutParam, vmOriginSizeMap)) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[MemMigrate][MemMigrate] Fill vm origin size failed.";
         return RMRS_ERROR;
     }
-    std::vector<rmrs::serialization::VMMigrateOutParam> executedParamList;
-    for (size_t i = 0; i < vmMigrateOutParam.size(); i++) {
-        rmrs::serialization::VMMigrateOutParam param = vmMigrateOutParam[i];
+    // 这里把相同pid的拼起来
+    std::vector<rmrs::serialization::VMMigrateMultiOutParam> vmMigrateMultiOutParam;
+    std::unordered_map<pid_t, VMMigrateMultiOutParam> mergeMap;
+
+    for (const auto &item : vmMigrateOutParam) {
+        auto &multi = mergeMap[item.pid];
+        multi.pid = item.pid;
+        multi.memSize.push_back(item.memSize);
+        multi.desNumaId.push_back(item.desNumaId);
+    }
+    vmMigrateMultiOutParam.reserve(mergeMap.size());
+    for (auto &[pid, param] : mergeMap) {
+        vmMigrateMultiOutParam.push_back(std::move(param));
+    }
+    std::vector<rmrs::serialization::VMMigrateMultiOutParam> executedParamList;
+    for (size_t i = 0; i < vmMigrateMultiOutParam.size(); i++) {
+        rmrs::serialization::VMMigrateMultiOutParam param = vmMigrateMultiOutParam[i];
         executedParamList.push_back(param);
-        std::vector<uint16_t> remoteNumaIds = {param.desNumaId};
-        std::vector<pid_t> pids = {param.pid};
-        std::vector<uint64_t> memSizeList = {param.memSize};
+        std::vector<uint16_t> remoteNumaIds = param.desNumaId;
+        std::vector<pid_t> pids(remoteNumaIds.size(), param.pid);
+        std::vector<uint64_t> memSizeList = param.memSize;
         RmrsResult res = RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(remoteNumaIds, pids, memSizeList, waitingTime);
         if (res != RMRS_OK) {
             UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
                 << "[MemMigrate][MemMigrate] MigrateOutExecute failed pid=" << param.pid << ", res=" << res << ".";
-            RmrsMigrateModule::RollbackVmMigrate(executedParamList, vmOriginSizeMap);
+            if (waitingTime != 0) {
+                RmrsMigrateModule::RollbackVmMigrate(executedParamList, vmOriginSizeMap);
+            }
             return RMRS_ERROR;
         }
-        if (param.memSize == 0) {
+        if (waitingTime != 0 && param.memSize[0] == 0) {
             res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(pids);
             if (res != RMRS_OK) {
                 LOG_ERROR << "[MemMigrate][MemMigrate] Rm pid mgr failed" << res << ".";
@@ -467,12 +483,13 @@ RmrsResult RmrsMigrateModule::DoMigrateExecute(
     return RMRS_OK;
 }
 
-void RmrsMigrateModule::RollbackVmMigrate(const std::vector<rmrs::serialization::VMMigrateOutParam> &executedParamList,
+void RmrsMigrateModule::RollbackVmMigrate(
+    const std::vector<rmrs::serialization::VMMigrateMultiOutParam> &executedParamList,
     std::unordered_map<pid_t, uint64_t> vmOriginSizeMap)
 {
     for (size_t i = 0; i < executedParamList.size(); i++) {
-        rmrs::serialization::VMMigrateOutParam param = executedParamList[i];
-        std::vector<uint16_t> remoteNumaIds = {param.desNumaId};
+        rmrs::serialization::VMMigrateMultiOutParam param = executedParamList[i];
+        std::vector<uint16_t> remoteNumaIds = param.desNumaId;
         std::vector<pid_t> pids = {param.pid};
         std::vector<uint64_t> memSizeList = {vmOriginSizeMap[param.pid]};
         RmrsResult res =

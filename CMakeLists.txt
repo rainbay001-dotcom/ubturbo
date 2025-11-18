@@ -115,34 +115,34 @@ file(COPY ${PROJECT_SOURCE_DIR}/conf/
 # ------------------------------
 # 安装配置（组件化）
 # ------------------------------
-# 组件 : daemon
+# 组件 : rmrs
 install(
   TARGETS ub_turbo_exec
   DESTINATION bin
-  COMPONENT daemon
+  COMPONENT rmrs
 )
 install(
   DIRECTORY ${CMAKE_BINARY_DIR}/lib/
   DESTINATION lib
-  COMPONENT daemon
+  COMPONENT rmrs
   PATTERN "libcli_agent.so" EXCLUDE
   PATTERN "libcli_ubturbo_plugin.so" EXCLUDE
 )
 install(
   DIRECTORY ${CMAKE_BINARY_DIR}/conf/
   DESTINATION conf
-  COMPONENT daemon
+  COMPONENT rmrs
 )
 install(
   FILES ${PROJECT_SOURCE_DIR}/build/rpm/ubturbo.service
   DESTINATION scripts
-  COMPONENT daemon
+  COMPONENT rmrs
 )
 # 安装脚本文件
 install(
   PROGRAMS ${PROJECT_SOURCE_DIR}/build/rpm/cat.sh
   DESTINATION bin
-  COMPONENT daemon
+  COMPONENT rmrs
 )
 # ------------------------------
 # CPack 配置
@@ -159,22 +159,19 @@ set(OS_VERSION "oe${CMAKE_MATCH_1}${CMAKE_MATCH_2}sp${CMAKE_MATCH_3}")
 message(STATUS "OS_VERSION = ${OS_VERSION}")
 
 set(CPACK_GENERATOR "RPM")
-set(CPACK_PACKAGE_NAME "ubturbo-rmrs")
+set(CPACK_PACKAGE_NAME "ubturbo")
 set(CPACK_PACKAGE_VERSION "1.1.1")
 set(CPACK_PACKAGE_RELEASE "1")
-set(CPACK_PACKAGE_VENDOR "Huawei Technologies Co., Ltd.")
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/output")
 set(CPACK_PACKAGING_INSTALL_PREFIX "/opt/ubturbo")
-set(CPACK_COMPONENTS_ALL daemon)
+set(CPACK_COMPONENTS_ALL rmrs)
 
 # ------------------------------
 # 配置 RPM
 # ------------------------------
 # 指定不同组件的打包规则
 set(CPACK_RPM_COMPONENT_INSTALL ON)
-set(CPACK_RPM_daemon_FILE_NAME "ubturbo-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${OS_VERSION}.aarch64.rpm")
-set(CPACK_RPM_PACKAGE_REQUIRES "ubturbo-smap")
-
+set(CPACK_RPM_rmrs_FILE_NAME "ubturbo-rmrs-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${OS_VERSION}.aarch64.rpm")
 
 set(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE "${CMAKE_SOURCE_DIR}/build/rpm/pre_install.sh")
 set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE "${CMAKE_SOURCE_DIR}/build/rpm/post_install.sh")

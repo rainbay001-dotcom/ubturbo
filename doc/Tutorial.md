@@ -211,12 +211,12 @@ sh build.sh
 cd dist/release
 cpack
 ```
-执行上述命令之后，rpm包（例如ubturbo-rmrs-1.1.1-1.oe2203sp1.aarch64.rpm）位于`dist/release/output`中。
+执行上述命令之后，rpm包（例如ubturbo-rmrs-1.1.1-1.oe2403sp1.aarch64.rpm）位于`dist/release/output`中。
 
 ## Getting Started: Installation Guide
 
 ```bash
-rpm -ivh ubturbo-rmrs-1.1.1-1.oe2203sp1.aarch64.rpm
+rpm -ivh ubturbo-rmrs-1.1.1-1.oe2403sp1.aarch64.rpm
 ```
 检查ubturbo是否安装成功：
 ```bash
@@ -225,18 +225,52 @@ rpm -qa | grep ubturbo-rmrs
 返回如下信息即表示安装成功：
 ```bash
 [root@controller ~]# rpm -qa | grep ubturbo-rmrs
-ubturbo-rmrs-1.1.1-1.oe2203sp1.aarch64
+ubturbo-rmrs*
 ```
 
 安装后的目录结构：
 
 | 目录 | 用途说明 | 权限 | 所属用户组 |
 | - | - | - | - |
-| /opt/os\_turbo | 程序根目录 | 750 | ubturbo:ubturbo |
-| /opt/os\_turbo/bin                                 | 可执行文件目录 | 500 | ubturbo:ubturbo |
-| /opt/os\_turbo/conf                                | 配置文件目录 | 700 | ubturbo:ubturbo |
-| /opt/os\_turbo/lib                                 | 动态库目录 | 500 | ubturbo:ubturbo |
-| /var/log/os\_turbo                                 | 日志目录 | 700 | ubturbo:ubturbo |
+| /opt/ubturbo | 程序根目录 | 750 | ubturbo:ubturbo |
+| /opt/ubturbo/bin                                 | 可执行文件目录 | 500 | ubturbo:ubturbo |
+| /opt/ubturbo/conf                                | 配置文件目录 | 700 | ubturbo:ubturbo |
+| /opt/ubturbo/lib                                 | 动态库目录 | 500 | ubturbo:ubturbo |
+| /var/log/ubturbo                                 | 日志目录 | 700 | ubturbo:ubturbo |
+
+按实际需求将ubturbo用户添加到libvirt组：ubturbo进程框架本身不依赖libvirt，当前UBTurbo进程默认无法访问libvirt服务。如果插件依赖libvirt，则需要将ubturbo用户添加到libvirt组，命令如下：
+```bash
+usermod -aG libvirt ubturbo
+```
+检查是否添加成功，输出内容包含libvirt则表示添加成功：
+```bash
+groups ubturbo
+# 输出内容示例：ubturbo : ubturbo libvirt
+```
+
+配置免密sudo: 创建文件/etc/sudoers.d/ubturbo，依次执行：
+```bash
+# 1. 打开
+visudo -f /etc/sudoers.d/ubturbo
+# 2. 新增
+ubturbo ALL=(root) NOPASSWD:/usr/local/bin/cat.sh
+```
+
+为需要与ubturbo交互的用户添加权限，例如ubse:
+```bash
+usermod -aG ubturbo ubse
+```
+
+启动ubturbo服务：
+
+```bash
+systemctl start ubturbo
+```
+
+查询服务状态：
+```bash
+systemctl status ubturbo
+```
 
 ## Getting Started: Test Guide
  

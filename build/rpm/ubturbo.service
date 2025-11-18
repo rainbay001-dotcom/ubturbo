@@ -1,5 +1,5 @@
 [Unit]
-Description=software os turbo service
+Description=software ubturbo service
 After=network.target
 
 [Service]

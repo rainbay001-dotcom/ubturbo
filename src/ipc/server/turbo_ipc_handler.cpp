@@ -105,7 +105,6 @@ uint32_t IpcHandler::StartListen()
     if (memset_s(&addr, sizeof(addr), 0, sizeof(addr)) != 0) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Ipc][Server] Memory set failed.";
         close(listenFd);
-        listenFd = -1;
         return TURBO_ERROR;
     }
     addr.sun_family = AF_UNIX;
@@ -118,19 +117,16 @@ uint32_t IpcHandler::StartListen()
     if (bind(listenFd, static_cast<struct sockaddr *>(static_cast<void *>(&addr)), sizeof(addr)) != 0) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Ipc][Server] Bind failed.";
         close(listenFd);
-        listenFd = -1;
         return TURBO_ERROR;
     }
     if (chmod(addr.sun_path, SOCKET_MODE) != 0) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Ipc][Server] Chmod failed.";
         close(listenFd);
-        listenFd = -1;
         return TURBO_ERROR;
     }
     if (listen(listenFd, LISTEN_BUFFER_LENGTH) != 0) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Ipc][Server] Listen failed.";
         close(listenFd);
-        listenFd = -1;
         return TURBO_ERROR;
     }
     running = true;

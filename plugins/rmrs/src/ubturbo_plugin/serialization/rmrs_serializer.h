@@ -34,6 +34,12 @@ struct VMMigrateOutParam {
     uint16_t desNumaId; // 迁移远端numa
 };
 
+struct VMMigrateMultiOutParam {
+    pid_t pid;
+    std::vector<uint64_t> memSize;  // 迁出内存大小 单位kb
+    std::vector<uint16_t> desNumaId; // 迁移远端numa
+};
+
 class MemBorrowRollbackParam {
 public:
     std::string nodeId{};

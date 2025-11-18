@@ -1224,9 +1224,9 @@ TEST_F(TestRmrsMigrateModule, DoMigrateExecuteSucceed)
 
 TEST_F(TestRmrsMigrateModule, RollbackVmMigrate1)
 {
-    rmrs::serialization::VMMigrateOutParam param;
-    param.memSize = 0;
-    std::vector<rmrs::serialization::VMMigrateOutParam> vmMigrateOutParam;
+    rmrs::serialization::VMMigrateMultiOutParam param;
+    param.memSize = {0};
+    std::vector<rmrs::serialization::VMMigrateMultiOutParam> vmMigrateOutParam;
     vmMigrateOutParam.push_back(param);
     MOCKER_CPP(RmrsSmapHelper::MigrateColdDataToRemoteNumaSync,
                RmrsResult(*)(std::vector<uint16_t> &, std::vector<pid_t> &, std::vector<uint64_t>, uint64_t))
@@ -1240,9 +1240,9 @@ TEST_F(TestRmrsMigrateModule, RollbackVmMigrate1)
 
 TEST_F(TestRmrsMigrateModule, RollbackVmMigrate2)
 {
-    rmrs::serialization::VMMigrateOutParam param;
-    param.memSize = 0;
-    std::vector<rmrs::serialization::VMMigrateOutParam> vmMigrateOutParam;
+    rmrs::serialization::VMMigrateMultiOutParam param;
+    param.memSize = {0};
+    std::vector<rmrs::serialization::VMMigrateMultiOutParam> vmMigrateOutParam;
     vmMigrateOutParam.push_back(param);
     MOCKER_CPP(RmrsSmapHelper::MigrateColdDataToRemoteNumaSync,
                RmrsResult(*)(std::vector<uint16_t> &, std::vector<pid_t> &, std::vector<uint64_t>, uint64_t))
@@ -1256,9 +1256,9 @@ TEST_F(TestRmrsMigrateModule, RollbackVmMigrate2)
 
 TEST_F(TestRmrsMigrateModule, RollbackVmMigrate3)
 {
-    rmrs::serialization::VMMigrateOutParam param;
-    param.memSize = 0;
-    std::vector<rmrs::serialization::VMMigrateOutParam> vmMigrateOutParam;
+    rmrs::serialization::VMMigrateMultiOutParam param;
+    param.memSize = {0};
+    std::vector<rmrs::serialization::VMMigrateMultiOutParam> vmMigrateOutParam;
     vmMigrateOutParam.push_back(param);
     MOCKER_CPP(RmrsSmapHelper::MigrateColdDataToRemoteNumaSync,
                RmrsResult(*)(std::vector<uint16_t> &, std::vector<pid_t> &, std::vector<uint64_t>, uint64_t))
@@ -1447,8 +1447,8 @@ TEST_F(TestRmrsMigrateModule, FillVmNumaInfo_failed_1)
 {
     NumaQueryInfo numaQueryInfo;
     VMQueryInfo vmQueryInfo;
-    std::vector<vmInfo> vms;
-    std::vector<numaInfo> numas;
+    std::vector<VmInfo> vms;
+    std::vector<NumaInfoWithSize> numas;
     int index1 = 4;
     int index2 = 5;
 
@@ -1501,14 +1501,14 @@ TEST_F(TestRmrsMigrateModule, FillVmNumaInfo_failed_1)
 TEST_F(TestRmrsMigrateModule, AllocateMemory_failed_1)
 {
     uint64_t totalSize = 384 * 2048;
-    std::vector<vmInfo> vms;
-    std::vector<numaInfo> numas;
+    std::vector<VmInfo> vms;
+    std::vector<NumaInfoWithSize> numas;
     std::vector<rmrs::serialization::VMMigrateOutParam> result;
 
-    vms.push_back(vmInfo{.pid = 111, .maxSize = 266 * 2048, .desNumaId = 4});
-    vms.push_back(vmInfo{.pid = 222, .maxSize = 142 * 2048, .desNumaId = 4});
-    numas.push_back(numaInfo{.remoteNumaId = 4, .freeSize = 256 * 2048});
-    numas.push_back(numaInfo{.remoteNumaId = 5, .freeSize = 128 * 2048});
+    vms.push_back(VmInfo{.pid = 111, .maxSize = 266 * 2048, .desNumaId = 4});
+    vms.push_back(VmInfo{.pid = 222, .maxSize = 142 * 2048, .desNumaId = 4});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = 4, .freeSize = 256 * 2048});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = 5, .freeSize = 128 * 2048});
 
     RmrsResult ret =
         RmrsMigrateModule::AllocateMemory(totalSize, vms, numas, result);
@@ -1556,14 +1556,14 @@ TEST_F(TestRmrsMigrateModule, DFSGetMigrationActions_failed_2)
 TEST_F(TestRmrsMigrateModule, AllocateMemory_failed_2)
 {
     uint64_t totalSize = 384 * 2048;
-    std::vector<vmInfo> vms;
-    std::vector<numaInfo> numas;
+    std::vector<VmInfo> vms;
+    std::vector<NumaInfoWithSize> numas;
     std::vector<rmrs::serialization::VMMigrateOutParam> result;
 
-    vms.push_back(vmInfo{.pid = 111, .maxSize = 266 * 2048, .desNumaId = 0});
-    vms.push_back(vmInfo{.pid = 222, .maxSize = 142 * 2048, .desNumaId = 0});
-    numas.push_back(numaInfo{.remoteNumaId = 4, .freeSize = 256 * 2048});
-    numas.push_back(numaInfo{.remoteNumaId = 5, .freeSize = 100 * 2048});
+    vms.push_back(VmInfo{.pid = 111, .maxSize = 266 * 2048, .desNumaId = 0});
+    vms.push_back(VmInfo{.pid = 222, .maxSize = 142 * 2048, .desNumaId = 0});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = 4, .freeSize = 256 * 2048});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = 5, .freeSize = 100 * 2048});
 
     RmrsResult ret =
         RmrsMigrateModule::AllocateMemory(totalSize, vms, numas, result);
@@ -1614,8 +1614,8 @@ TEST_F(TestRmrsMigrateModule, DFSGetMigrationActions_failed_3)
 TEST_F(TestRmrsMigrateModule, AllocateMemory_failed_3)
 {
     uint64_t totalSize = 384 * 2048;
-    std::vector<vmInfo> vms;
-    std::vector<numaInfo> numas;
+    std::vector<VmInfo> vms;
+    std::vector<NumaInfoWithSize> numas;
     std::vector<rmrs::serialization::VMMigrateOutParam> result;
 
     int index1 = 111;
@@ -1626,10 +1626,10 @@ TEST_F(TestRmrsMigrateModule, AllocateMemory_failed_3)
     int memSize4 = 128 * 2048;
     int numaId1 = 4;
     int numaId2 = 5;
-    vms.push_back(vmInfo{.pid = index1, .maxSize = memSize1, .desNumaId = 0});
-    vms.push_back(vmInfo{.pid = index2, .maxSize = memSize2, .desNumaId = 0});
-    numas.push_back(numaInfo{.remoteNumaId = numaId1, .freeSize = memSize3});
-    numas.push_back(numaInfo{.remoteNumaId = numaId2, .freeSize = memSize4});
+    vms.push_back(VmInfo{.pid = index1, .maxSize = memSize1, .desNumaId = 0});
+    vms.push_back(VmInfo{.pid = index2, .maxSize = memSize2, .desNumaId = 0});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = numaId1, .freeSize = memSize3});
+    numas.push_back(NumaInfoWithSize{.remoteNumaId = numaId2, .freeSize = memSize4});
 
     RmrsResult ret =
         RmrsMigrateModule::AllocateMemory(totalSize, vms, numas, result);

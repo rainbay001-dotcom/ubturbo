@@ -158,7 +158,7 @@ TurboPluginInitFunc TurboPluginManager::GetInitFunction(const std::string &plugi
         return nullptr;
     }
 
-    auto func = reinterpret_cast<TurboPluginInitFunc>(dlsym(handle, funcName.c_str()));
+    auto func = (TurboPluginInitFunc)(dlsym(handle, funcName.c_str()));
     if (func == nullptr) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE)
             << "[Plugin] Failed to get TurboPluginInit for plugin " << pluginName << ", error: " << dlerror();

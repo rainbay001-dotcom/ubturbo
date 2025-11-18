@@ -1,0 +1,12 @@
+[submodule "test/3rdparty/mockcpp"]
+	path = test/3rdparty/mockcpp
+	url = https://gitee.com/mirrors_sinojelly/mockcpp.git
+[submodule "test/3rdparty/googletest"]
+	path = test/3rdparty/googletest
+	url = https://gitee.com/mirrors/googletest.git
+[submodule "3rdparty/libboundscheck"]
+	path = 3rdparty/libboundscheck
+	url = https://gitee.com/openeuler/libboundscheck.git
+[submodule "3rdparty/rapidjson"]
+	path = 3rdparty/rapidjson
+	url = https://gitee.com/Tencent/RapidJSON.git

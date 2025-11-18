@@ -1,0 +1,27 @@
+# Default ignored files
+cmake-build-*
+dist
+.idea
+.vscode
+.cache
+*.swp
+*.swa
+install
+comp.cmake
+coverage.info
+test.info
+output
+*.log
+/.deps
+/deps
+/component/deps
+.clion.source.upload.marker
+/3rdparty/*/source
+/3rdparty/*/deps
+__pycache__
+/test/IT/manager_log
+/test/IT/cli_log
+/test/IT/store
+/test/IT/uds
+/test/build/
+*generated.h

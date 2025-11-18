@@ -1,0 +1,19 @@
+[Unit]
+Description=software ubturbo service
+After=network.target
+
+[Service]
+Type=simple
+User=ubturbo
+Group=ubturbo
+ExecStart=/opt/ubturbo/bin/ub_turbo_exec
+Restart=on-failure
+StartLimitInterval=10s
+StartLimitBurst=5
+NoNewPrivileges=no
+AmbientCapabilities=
+MemoryMax=30G
+RuntimeDirectory=ubturbo
+
+[Install]
+WantedBy=multi-user.target

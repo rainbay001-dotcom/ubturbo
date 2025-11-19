@@ -122,6 +122,13 @@ typedef struct {
 } ActcData;
 
 typedef struct {
+    uint64_t addr;
+    actc_t freq;
+    int node;
+    uint8_t prior;
+} LevelActcData;
+
+typedef struct {
     uint16_t freqMin;
     uint16_t freqMax;
     uint32_t freqZero;
@@ -213,12 +220,14 @@ struct ProcessAttribute {
     ScanType scanType; // 标识添加进程组件
     time_t scanStart;
     SceneInfo sceneInfo; // 场景：轻载/重载/稳态/非稳态，扫描周期等
+    MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
+    int initLocalMemRatio; // 接口设置的内存比例
+    int remoteNumaCnt; // 远端numa数量
+    bool isLowMem; // 多numa虚机场景，表示目的端内存不够
     struct { // 迁移相关参数
-        int initLocalMemRatio; // 接口设置的内存比例
-        uint64_t nrMigratePage; // 算法决策出的迁移量
+        int nid;
         uint64_t memSize; // 迁移内存大小,单位为KB
-        MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
-    };
+    } migrateParam[REMOTE_NUMA_NUM];
     SeparateParam separateParam;
     NumaAttribute numaAttr;
     WalkPage walkPage;
@@ -362,13 +371,27 @@ struct ProcessMemBitmap {
 typedef struct {
     pid_t pid;
     int localMemRatio;
-    int nid;
     uint32_t scanTime;
     uint32_t duration;
     int scanType;
     MigrateMode migrateMode;
-    uint64_t memSize;
+    int count;
+    struct {
+        int nid;
+        uint64_t memSize;
+    } numaParam[REMOTE_NUMA_NUM];
 } ProcessParam;
+
+struct MigrateOutHashNode {
+    pid_t pid;
+    int count;
+    MigrateMode migrateMode;
+    int ratio;
+    struct {
+        int destNid;
+        uint64_t memSize;
+    } hashValue[REMOTE_NUMA_NUM];
+};
 
 uint64_t CalcRemoteBorrowPages(uint64_t size);
 
@@ -487,7 +510,7 @@ bool IsAllL2NodePidInState(enum ProcessState state, int l2Node);
 int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg);
 ProcessAttr *GetProcessAttrLocked(pid_t pid);
 
-bool MigOutIsDone(pid_t pid, int localMemRatio);
+bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
 FILE *OpenNumaMaps(pid_t pid);
 
 static inline uint64_t KBTo2M(uint64_t memSize)
@@ -567,10 +590,22 @@ static inline void SetAttrL2(ProcessAttr *attr, int nid)
     SetL2(&attr->numaAttr.numaNodes, nid + offset);
 }
 
+static inline void AddAttrL2(ProcessAttr *attr, int nid)
+{
+    int offset = LOCAL_NUMA_BITS - GetNrLocalNuma();
+    AddL2(&attr->numaAttr.numaNodes, nid + offset);
+}
+
 static inline void SetL2ByNid(uint32_t *nodes, int nid)
 {
     int offset = LOCAL_NUMA_BITS - GetNrLocalNuma();
     SetL2(nodes, nid + offset);
+}
+
+static inline void AddL2ByNid(uint32_t *nodes, int nid)
+{
+    int offset = LOCAL_NUMA_BITS - GetNrLocalNuma();
+    AddL2(nodes, nid + offset);
 }
 
 static inline bool EqualToAttrL2(ProcessAttr *attr, int nid)
@@ -619,4 +654,10 @@ static inline bool IsNumaMapLineHuge(char *line)
     return substr != NULL;
 }
 
+static inline bool IsMultiNumaVm(ProcessAttr *process)
+{
+    return process->type == VM_TYPE && (process->remoteNumaCnt > 1 || GetL1Count(process->numaAttr.numaNodes) > 1);
+}
+
+bool IsMemoryLow(pid_t pid);
 #endif /* __MANAGE_H__ */

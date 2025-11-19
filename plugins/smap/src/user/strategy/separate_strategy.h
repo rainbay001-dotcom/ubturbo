@@ -32,7 +32,12 @@ typedef enum {
     SEPARATE_HDT,
 } SeparateStrategyType;
 
+typedef struct {
+    uint64_t nrMig;
+    MigrateDirection dir;
+} RemoteMigInfo;
+
 int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
 int SeparateStrategy4K(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
-
+int SeparateStrategyMultiNumaVm(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
 #endif /* __SEPARATE_STRATEGY_H__ */

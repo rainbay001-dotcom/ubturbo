@@ -358,7 +358,7 @@ TEST_F(InterfaceTest, IsNidInNumastatTrue)
 }
 
 extern "C" bool IsMigParaValid(struct MigrateOutPayload *payload, uint32_t *nodeBitmap, int pidType);
-extern "C" bool IsPidRemoteNidValid(int nid, pid_t pid, uint32_t *nodeBitmap, int pidType);
+extern "C" bool IsPidRemoteNidValid(int *nidArray, int nidCnt, pid_t pid, uint32_t *nodeBitmap, int pidType);
 extern "C" bool IsDestNidVaild(int nid, pid_t pid);
 TEST_F(InterfaceTest, IsMigParaValid)
 {
@@ -520,27 +520,28 @@ TEST_F(InterfaceTest, TestIsDestNidVaild)
     EXPECT_EQ(true, ret);
 }
 
-extern "C" int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, uint32_t *nodeBitmap);
+extern "C" int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, int *pidCount);
 TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidPidTypeAndMsgCount)
 {
     struct MigrateOutMsg msg;
     int pidType = PAGETYPE_4K;
+    int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     // null input case
-    int ret = CheckMigrateOutMsg(nullptr, pidType, nullptr);
+    int ret = CheckMigrateOutMsg(nullptr, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     // invalid pidType case
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     // invalid count case
     g_processManager.tracking.pageSize = PAGESIZE_4K;
     msg.count = MAX_NR_MIGOUT + 1;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
     msg.count = 0;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -549,19 +550,20 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgMigOutCount)
     struct MigrateOutMsg msg = {.count = 1};
     msg.payload[0].pid = 1234;
     int pidType = PAGETYPE_2M;
+    int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
 
     // number of managed and non-managed PID beyond limit
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = MAX_2M_PROCESSES_CNT;
-    int ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     // PID has been managed, so not beyond limit
     ProcessAttr processes = {.pid = msg.payload[0].pid, .next = nullptr};
     g_processManager.processes = &processes;
     MOCKER(IsMigParaValid).stubs().will(returnValue(true));
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(0, ret);
 }
 
@@ -569,6 +571,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidDestNid)
 {
     struct MigrateOutMsg msg = {.count = 1};
     int pidType = PAGETYPE_2M;
+    int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = 1;
@@ -578,22 +581,14 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidDestNid)
 
     msg.payload[0].pid = 1234;
     msg.payload[0].destNid = 0;
-    int ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
-    EXPECT_EQ(-EINVAL, ret);
-
-    // IsPidRemoteNidValid failed case
-    MOCKER(IsPidRemoteNidValid).stubs()
-        .will(returnValue(false))
-        .then(returnValue(true));
-    msg.payload[0].destNid = 4;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     // nid not match numaNodes bitmap
     ProcessAttr processes = {.pid = msg.payload[0].pid, .next = nullptr};
     processes.numaAttr.numaNodes = 0x20;
     g_processManager.processes = &processes;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -603,6 +598,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
     msg.payload[0].pid = 1234;
     msg.payload[0].destNid = 4;
     int pidType = PAGETYPE_2M;
+    int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.nr[VM_TYPE] = 1;
     g_processManager.nrLocalNuma = 4;
@@ -615,11 +611,11 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
     MOCKER(IsNodeForbidden).stubs().will(returnValue(true));
 
     msg.payload[0].migrateMode = (MigrateMode)-1;
-    int ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     msg.payload[0].migrateMode = (MigrateMode)(MIG_MEMSIZE_MODE + 1);
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -627,6 +623,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
 {
     struct MigrateOutMsg msg = {.count = 1};
     int pidType = PAGETYPE_2M;
+    int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.nr[VM_TYPE] = 1;
     g_processManager.nrLocalNuma = 4;
@@ -639,16 +636,16 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
 
     msg.payload[0].destNid = 4;
     msg.payload[0].migrateMode = MIG_RATIO_MODE;
-    int ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     msg.payload[0].migrateMode = MIG_MEMSIZE_MODE;
     msg.payload[0].memSize = 2049;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     msg.payload[0].memSize = 2048;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(0, ret);
 
     GlobalMockObject::verify();
@@ -657,49 +654,40 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
     MOCKER(IsNodeForbidden).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(WATERLINE_MODE));
 
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     msg.payload[0].migrateMode = MIG_RATIO_MODE;
     msg.payload[0].ratio = 101;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
     msg.payload[0].ratio = 75;
-    ret = CheckMigrateOutMsg(&msg, pidType, nullptr);
+    ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(0, ret);
 }
 
 extern "C" int IoctlHandler(const void *msg, int pidType, const unsigned long *ioctlCommands);
+extern "C" int AddProcessNumaBitMap(struct MigrateOutHashNode *hashMsg,
+                                    int pidCount, uint32_t *nodeBitmap, int pidType);
+extern "C" int AddProcessesToGlobalManager(struct MigrateOutHashNode *hashMsg, int pidCount, int pidType,
+                                           uint32_t *nodeBitmap, bool *hasInvalidPid);
+extern "C" int ProcessAddTrackingManage(struct MigrateOutHashNode *hashMsg,
+                                        int pidCount, int pidType, uint32_t *nodeBitmap);
 TEST_F(InterfaceTest, TestSmapMigrateOut)
 {
     int ret;
     struct MigrateOutMsg msg;
-
+    msg.payload[0].pid = 1234;
     msg.count = 1;
     EnvAtomicSet(&g_status, 1);
-    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(0));
     MOCKER(AccessIoctlAddPid).stubs().will(returnValue(0));
-    MOCKER(ProcessAddManage).stubs().will(returnValue(0));
-    MOCKER(SetProcessLocalNuma).stubs().will(returnValue(0));
+    MOCKER(AddProcessesToGlobalManager).stubs().will(returnValue(0));
+    MOCKER(ProcessAddTrackingManage).stubs().will(returnValue(0));
+    MOCKER(IsMigParaValid).stubs().will(returnValue(true));
+    MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
     ret = ubturbo_smap_migrate_out(&msg, 0);
     EXPECT_EQ(0, ret);
-    EXPECT_TRUE(EnvMutexIsRelease(&g_processManager.lock));
-}
-
-extern "C" int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType);
-TEST_F(InterfaceTest, TestSmapMigrateOutOne)
-{
-    int ret;
-    struct MigrateOutMsg msg;
-    msg.count = 1;
-
-    EnvAtomicSet(&g_status, 1);
-    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(0));
-    MOCKER(ProcessAddTrackingManage).stubs().will(returnValue(-EINVAL));
-    ret = ubturbo_smap_migrate_out(&msg, 0);
-    EXPECT_EQ(-EINVAL, ret);
-    EnvAtomicSet(&g_status, 0);
     EXPECT_TRUE(EnvMutexIsRelease(&g_processManager.lock));
 }
 
@@ -720,9 +708,9 @@ TEST_F(InterfaceTest, TestSmapMigrateOutThree)
     struct MigrateOutMsg msgc;
 
     EnvAtomicSet(&g_status, 1);
-    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(-ENOENT));
+    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(-EINVAL));
     ret = ubturbo_smap_migrate_out(&msgc, 0);
-    EXPECT_EQ(-ENOENT, ret);
+    EXPECT_EQ(-EINVAL, ret);
     EnvAtomicSet(&g_status, 0);
     EXPECT_TRUE(EnvMutexIsRelease(&g_processManager.lock));
 }
@@ -732,11 +720,12 @@ TEST_F(InterfaceTest, TestSmapMigrateOutFour)
     int ret;
     struct MigrateOutMsg msgc;
     msgc.count = 1;
-
+    msgc.payload[0].pid = 1234;
     EnvAtomicSet(&g_status, 1);
-    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(0));
     MOCKER(AccessIoctlAddPid).stubs().will(returnValue(-EBADF));
     MOCKER(SetProcessLocalNuma).stubs().will(returnValue(0));
+    MOCKER(IsMigParaValid).stubs().will(returnValue(true));
+    MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
     ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_2M + 1);
     EXPECT_EQ(-EBADF, ret);
     EnvAtomicSet(&g_status, 0);
@@ -750,9 +739,9 @@ TEST_F(InterfaceTest, TestSmapMigrateOutFive)
     msgc.count = 1;
 
     EnvAtomicSet(&g_status, 1);
-    MOCKER(CheckMigrateOutMsg).stubs().will(returnValue(0));
     MOCKER(AccessIoctlAddPid).stubs().will(returnValue(0));
-    MOCKER(ProcessAddManage).stubs().will(returnValue(-EINVAL));
+    MOCKER(IsMigParaValid).stubs().will(returnValue(true));
+    MOCKER(AddProcessesToGlobalManager).stubs().will(returnValue(-EINVAL));
     ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_2M + 1);
     EXPECT_EQ(-EINVAL, ret);
     EnvAtomicSet(&g_status, 0);
@@ -2256,7 +2245,7 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrChangePidRemoteByPid)
 }
 
 extern "C" bool GetAdaptMem(void);
-extern "C" bool MigOutIsDone(pid_t pid, int localMemRatio);
+extern "C" bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
 extern "C" int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64_t maxWaitTime);
 TEST_F(InterfaceTest, TestSmapMigrateOutSyncErrMaxWaitTime)
 {
@@ -2984,7 +2973,7 @@ TEST_F(InterfaceTest, TestSmapQueryProcessConfigNormal)
 
 TEST_F(InterfaceTest, TestProcessAddTrackingManageNullMsg)
 {
-    int ret = ProcessAddTrackingManage(nullptr, VM_TYPE);
+    int ret = ProcessAddTrackingManage(nullptr, 0, VM_TYPE, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 

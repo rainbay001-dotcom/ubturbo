@@ -256,7 +256,7 @@ static int InitPidActcData(ProcessAttr *attr)
     for (int i = 0; i < MAX_NODES; i++) {
         attr->scanAttr.actcData[i] = actc[i];
     }
-    attr->nrMigratePage = 0;
+    attr->isLowMem = false;
     return 0;
 }
 
@@ -545,21 +545,39 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
     attr->scanType = param->scanType;
     attr->initLocalMemRatio = param->localMemRatio;
     attr->migrateMode = param->migrateMode;
-    int nrLocalNuma = GetNrLocalNuma();
-    if (param->nid >= nrLocalNuma && param->nid < nrLocalNuma + REMOTE_NUMA_NUM) {
+    attr->remoteNumaCnt = param->count;
+    int localNumaCnt = GetL1Count(attr->numaAttr.numaNodes);
+    SMAP_LOGGER_INFO("Pid: %d local numa cnt :%d.", attr->pid, localNumaCnt);
+    SMAP_LOGGER_INFO("Pid: %d remote numa cnt :%d.", attr->pid, attr->remoteNumaCnt);
+    if ((param->count > 1 || localNumaCnt > 1) && GetPidType(&g_processManager) == VM_TYPE) { // multinuma vm
+        for (int i = 0; i < param->count; i++) {
+            attr->migrateParam[i].nid = param->numaParam[i].nid;
+            attr->migrateParam[i].memSize = param->numaParam[i].memSize;
+            SMAP_LOGGER_INFO("Multinuma vm destNid: %d, memSize: %lu", attr->migrateParam[i].nid,
+                             attr->migrateParam[i].memSize);
+            AddAttrL2(attr, param->numaParam[i].nid);
+        }
+    } else {
+        int nrLocalNuma = GetNrLocalNuma();
+        if (param->numaParam[0].nid < nrLocalNuma || param->numaParam[0].nid >= nrLocalNuma + REMOTE_NUMA_NUM) {
+            return;
+        }
+
         for (int i = 0; i < nrLocalNuma && i < LOCAL_NUMA_NUM; i++) {
-            attr->strategyAttr.initRemoteMemRatio[i][param->nid - nrLocalNuma] = HUNDRED - param->localMemRatio;
+            attr->strategyAttr.initRemoteMemRatio[i][param->numaParam[0].nid - nrLocalNuma] =
+                HUNDRED - param->localMemRatio;
             if (EqualToAttrL1(attr, i)) {
-                attr->memSize = param->memSize;
-                attr->strategyAttr.memSize[i][param->nid - nrLocalNuma] = param->memSize;
+                attr->migrateParam[0].memSize = param->numaParam[0].memSize;
+                attr->migrateParam[0].nid = param->numaParam[0].nid;
+                attr->strategyAttr.memSize[i][param->numaParam[0].nid - nrLocalNuma] = param->numaParam[0].memSize;
             }
         }
-        SetAttrL2(attr, param->nid);
+        SetAttrL2(attr, param->numaParam[0].nid);
     }
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error");
     }
-    SMAP_LOGGER_INFO("attr->scanStart time: %s\n", ctime(&attr->scanStart));
+    SMAP_LOGGER_INFO("attr->scanStart time: %s", ctime(&attr->scanStart));
 }
 
 int AddProcess(ProcessParam *param, PidType type, uint32_t *nodeBitmap)
@@ -609,8 +627,8 @@ int AddProcess(ProcessParam *param, PidType type, uint32_t *nodeBitmap)
     if (ret) {
         SMAP_LOGGER_WARNING("Synchronize pid %d config maybe failed: %d.", param->pid, ret);
     }
-    SMAP_LOGGER_INFO("Add pid:%d success! localMemRatio:%d, migrateMode: %d, memSize: %llu.", param->pid,
-                     param->localMemRatio, attr->migrateMode, attr->memSize);
+    SMAP_LOGGER_INFO("Add pid:%d success! localMemRatio:%d, migrateMode: %d.", param->pid,
+                     attr->initLocalMemRatio, attr->migrateMode);
 
     return 0;
 }
@@ -756,9 +774,11 @@ int ProcessAddManage(ProcessParam *param, uint32_t *nodeBitmap)
     }
     current = GetProcessAttrLocked(param->pid);
     if (current) {
-        if (param->nid > 0 && NotEqualToAttrL2(current, param->nid)) {
-            SMAP_LOGGER_ERROR("pid %d destnid is different.", param->pid);
-            return -EINVAL;
+        for (int i = 0; i < param->count; ++i) {
+            if (param->numaParam[i].nid > 0 && NotInAttrL2(current, param->numaParam[i].nid)) {
+                SMAP_LOGGER_ERROR("pid %d destnid is different.", param->pid);
+                return -EINVAL;
+            }
         }
         SetProcessConfig(current, param);
         SMAP_LOGGER_INFO("Set pid %d scan cycle to %ums.", current->pid, current->scanTime);
@@ -766,9 +786,11 @@ int ProcessAddManage(ProcessParam *param, uint32_t *nodeBitmap)
         if (ret) {
             SMAP_LOGGER_WARNING("Synchronize pid %d config maybe failed: %d.", param->pid, ret);
         }
-
-        SMAP_LOGGER_INFO("Update pid:%d success! localMemRatio:%.2lf, migrateMode: %d, memSize: %llu.", param->pid,
-                         param->localMemRatio, current->migrateMode, current->memSize);
+        for (int i = 0; i < param->count; i++) {
+            SMAP_LOGGER_INFO("Update pid:%d success! localMemRatio:%d, migrateMode: %d, destnid:%d, memSize: %llu.",
+                             current->pid, current->initLocalMemRatio, current->migrateMode,
+                             current->migrateParam[i].nid, current->migrateParam[i].memSize);
+        }
     } else {
         ret = AddProcess(param, type, nodeBitmap);
         if (ret) {
@@ -1437,8 +1459,10 @@ static void CalNrPagesLocalTotal(void)
     int ret;
 
     while (attr) {
-        SMAP_LOGGER_DEBUG("CalNrPagesLocalTotal pid: %d.", attr->pid);
-        CalNrPagesLocalTotalPerPid(attr);
+        if (!IsMultiNumaVm(attr)) {
+            SMAP_LOGGER_DEBUG("CalNrPagesLocalTotal pid: %d.", attr->pid);
+            CalNrPagesLocalTotalPerPid(attr);
+        }
         attr = attr->next;
     }
 }
@@ -1604,7 +1628,6 @@ static void CalRemoteNumaSizeAllocPerNuma(void)
 static void CalcMigrateNrPagesPerPIDMuiltNuma(void)
 {
     struct RemoteNumaInfo *numaInfo = &g_processManager.remoteNumaInfo;
-    ProcessAttr *attr = g_processManager.processes;
     PidType type = GetPidType(&g_processManager);
     if (g_processManager.nr[type] == 0) {
         return;
@@ -2131,12 +2154,11 @@ int IsRemoteNumaMoveAllowed(int nid)
     return 1;
 }
 
-bool MigOutIsDone(pid_t pid, int localMemRatio)
+bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid)
 {
     bool ret = false;
     EnvMutexLock(&g_processManager.lock);
     ProcessAttr *attr = g_processManager.processes;
-    uint64_t localNum;
     uint64_t remoteNum;
 
     while (attr != NULL && attr->pid != pid) {
@@ -2144,31 +2166,43 @@ bool MigOutIsDone(pid_t pid, int localMemRatio)
     }
     if (!attr) {
         SMAP_LOGGER_ERROR("Failed to find pid %d.", pid);
+        *isMultiNumaPid = true;
         EnvMutexUnlock(&g_processManager.lock);
         return false;
     }
-    int l1Node = GetAttrL1(attr);
-    int l2Node = GetAttrL2(attr) - g_processManager.nrLocalNuma;
-    if (l1Node < 0 || l2Node < 0) {
-        SMAP_LOGGER_ERROR("Invalid l1Node %d l2Node %d of pid %d.", l1Node, l2Node, pid);
-        EnvMutexUnlock(&g_processManager.lock);
-        return false;
-    }
-    if (attr->migrateMode == MIG_RATIO_MODE) {
-        localNum = (uint64_t)((double)attr->walkPage.nrPage * localMemRatio / HUNDRED);
+
+    if (IsMultiNumaVm(attr)) {
+        *isMultiNumaPid = true;
+        for (int i = 0; i < attr->remoteNumaCnt; i++) {
+            int l2node = attr->migrateParam[i].nid;
+            remoteNum = KBTo2M(attr->migrateParam[i].memSize);
+            SMAP_LOGGER_INFO("Pid %d, l2node: %d, remoteNum: %lu, actcLen: %lu.", pid, l2node,
+                             remoteNum, attr->scanAttr.actcLen[l2node]);
+            if (attr->scanAttr.actcLen[l2node] != remoteNum) {
+                EnvMutexUnlock(&g_processManager.lock);
+                return false;
+            }
+        }
+        ret = true;
     } else {
-        remoteNum = IsHugeMode() ? KBTo2M(attr->strategyAttr.memSize[l1Node][l2Node]) :
-                                   KBTo4K(attr->strategyAttr.memSize[l1Node][l2Node]);
+        int l1Node = GetAttrL1(attr);
+        int l2Node = GetAttrL2(attr) - g_processManager.nrLocalNuma;
+        if (l1Node < 0 || l2Node < 0) {
+            SMAP_LOGGER_ERROR("Invalid l1Node %d l2Node %d of pid %d.", l1Node, l2Node, pid);
+            EnvMutexUnlock(&g_processManager.lock);
+            return false;
+        }
+        remoteNum = KBTo2M(attr->strategyAttr.memSize[l1Node][l2Node]);
         if (remoteNum > attr->walkPage.nrPage) {
             SMAP_LOGGER_WARNING("Pid %d mig memSize is larger than nrPage.", attr->pid);
         }
-        localNum = remoteNum >= attr->walkPage.nrPage ? 0 : (attr->walkPage.nrPage - remoteNum);
+        uint64_t localNum = remoteNum >= attr->walkPage.nrPage ? 0 : (attr->walkPage.nrPage - remoteNum);
+        SMAP_LOGGER_INFO("localNum %llu, attr->nrPages[l1Node] %llu.", localNum, attr->walkPage.nrPages[l1Node]);
+        if (attr->walkPage.nrPage && localNum == attr->walkPage.nrPages[l1Node]) {
+            ret = true;
+        }
     }
 
-    SMAP_LOGGER_INFO("localNum %llu, attr->nrPages[l1Node] %llu.", localNum, attr->walkPage.nrPages[l1Node]);
-    if (attr->walkPage.nrPage && localNum == attr->walkPage.nrPages[l1Node]) {
-        ret = true;
-    }
     EnvMutexUnlock(&g_processManager.lock);
     return ret;
 }
@@ -2240,4 +2274,18 @@ int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg)
     }
     EnvMutexUnlock(&g_processManager.lock);
     return 0;
+}
+
+bool IsMemoryLow(pid_t pid)
+{
+    bool isLow = false;
+    EnvMutexLock(&g_processManager.lock);
+    ProcessAttr *process = GetProcessAttrLocked(pid);
+    if (process && process->isLowMem) {
+        SMAP_LOGGER_INFO("Pid %d dest nid memory is low.", pid);
+        process->isLowMem = false;
+        isLow = true;
+    }
+    EnvMutexUnlock(&g_processManager.lock);
+    return isLow;
 }

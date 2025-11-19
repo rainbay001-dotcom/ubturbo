@@ -387,7 +387,7 @@ static void AssignProcessAttrInner(ProcessAttr *attr, struct ProcessPayload *pay
         if (bit) {
             attr->strategyAttr.initRemoteMemRatio[index][j] = HUNDRED - payload->ratio;
             if (EqualToAttrL1(attr, index)) {
-                attr->strategyAttr.memSize[index][j] = payload->memSize;
+                attr->strategyAttr.memSize[index][j] = payload->migrateParam[0].memSize;
             }
         }
     }
@@ -397,6 +397,11 @@ static void AssignProcessAttr(ProcessAttr *attr, struct ProcessPayload *payload)
 {
     attr->pid = payload->pid;
     attr->numaAttr.numaNodes = payload->numaNodes;
+    attr->remoteNumaCnt = payload->count;
+    for (int i = 0; i < payload->count; i++) {
+        attr->migrateParam[i].nid = payload->migrateParam[i].nid;
+        attr->migrateParam[i].memSize = payload->migrateParam[i].memSize;
+    }
     for (int i = 0; i < GetNrLocalNuma(); i++) {
         AssignProcessAttrInner(attr, payload, i);
     }
@@ -406,7 +411,6 @@ static void AssignProcessAttr(ProcessAttr *attr, struct ProcessPayload *payload)
     attr->scanType = payload->scanType;
     attr->scanTime = payload->scanTime;
     attr->migrateMode = payload->migrateMode;
-    attr->memSize = payload->memSize;
     attr->duration = payload->duration;
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error.");
@@ -532,8 +536,12 @@ static int BuildAllProcessPayload(struct ProcessPayload **payload, int *len)
         tmp->migrateMode = attr->migrateMode;
         tmp->numaNodes = attr->numaAttr.numaNodes;
         tmp->scanTime = attr->scanTime;
-        tmp->memSize = attr->memSize;
         tmp->duration = attr->duration;
+        tmp->count = attr->remoteNumaCnt;
+        for (int i = 0; i < tmp->count; i++) {
+            tmp->migrateParam[i].nid = attr->migrateParam[i].nid;
+            tmp->migrateParam[i].memSize = attr->migrateParam[i].memSize;
+        }
         tmp++;
     }
 

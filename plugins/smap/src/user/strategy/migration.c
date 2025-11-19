@@ -102,7 +102,6 @@ static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint
     }
     int l2Node = GetAttrL2(process);
     if (IsNodeForbidden(l2Node)) {
-        process->nrMigratePage = 0;
         SMAP_LOGGER_INFO("L2 node%d is forbiddened, pid %d stops migrate out.", l2Node, process->pid);
         return -EPERM;
     }
@@ -115,6 +114,7 @@ static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint
     ret = RunStrategy(process, migList, MAX_NODES);
     if (ret) {
         SMAP_LOGGER_ERROR("Run strategy for pid %d failed: %d.", process->pid, ret);
+        FreeMigList(migList);
         return ret;
     }
 
@@ -500,6 +500,9 @@ static void NumaSwapReduce(StrategyAttribute *strategyAttr, int32_t *numaMemSwap
 
 static void NumaSwapMemPool(ProcessAttr *current)
 {
+    if (IsMultiNumaVm(current)) {
+        return;
+    }
     for (int i = 0; i < LOCAL_NUMA_NUM; i++) {
         for (int j = 0; j < REMOTE_NUMA_NUM; j++) {
             int l2Node = GetNrLocalNuma() + j;

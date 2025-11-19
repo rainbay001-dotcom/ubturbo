@@ -110,7 +110,13 @@ int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]
         SMAP_LOGGER_ERROR("Invalid pid %d actc.", process ? process->pid : -1);
         return -EINVAL;
     }
-    if (IsHugeMode())
-        return SeparateStrategy(process, mlist);
-    return SeparateStrategy4K(process, mlist);
+    if (IsHugeMode()) {
+        if (IsMultiNumaVm(process)) {
+            return SeparateStrategyMultiNumaVm(process, mlist);
+        } else {
+            return SeparateStrategy(process, mlist);
+        }
+    } else {
+        return SeparateStrategy4K(process, mlist);
+    }
 }

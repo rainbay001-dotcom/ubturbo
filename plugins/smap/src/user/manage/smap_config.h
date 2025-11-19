@@ -73,8 +73,12 @@ struct ProcessPayload {
     uint8_t migrateMode;
     uint32_t numaNodes;
     uint32_t scanTime;
-    uint64_t memSize;
     uint32_t duration;
+    int count;
+    struct {
+        int nid;
+        uint64_t memSize;
+    } migrateParam[REMOTE_NUMA_NUM];
 };
 
 int RecoverFromConfig(void);

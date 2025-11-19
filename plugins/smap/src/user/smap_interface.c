@@ -247,8 +247,19 @@ static int InitAllThreads(struct ProcessManager *manager)
     return ret;
 }
 
+static bool IsNidInArray(int *nidArray, int nidCnt, int targetNid)
+{
+    for (int i = 0; i < nidCnt; i++) {
+        if (nidArray[i] == targetNid) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // return true if remote nid the [pid] used is different from [nid]
-static bool GetNumaInfoFromNumaMaps(char *line, int nid, pid_t pid, uint32_t *nodeBitmap, bool hugeFlag)
+static bool GetNumaInfoFromNumaMaps(char *line, int *nidArray, int nidCnt, pid_t pid,
+                                    uint32_t *nodeBitmap, bool hugeFlag)
 {
     int i, ret;
     int nrLocalNuma = GetNrLocalNuma();
@@ -259,7 +270,7 @@ static bool GetNumaInfoFromNumaMaps(char *line, int nid, pid_t pid, uint32_t *no
      * so it's necessary to traverse all node
      */
     for (i = nrLocalNuma; i < nrLocalNuma + REMOTE_NUMA_NUM; i++) {
-        if (i == nid) {
+        if (IsNidInArray(nidArray, nidCnt, i)) {
             continue;
         }
         ret = snprintf_s(pattern, sizeof(pattern), sizeof(pattern) - 1, "N%d=", i);
@@ -290,7 +301,7 @@ static bool GetNumaInfoFromNumaMaps(char *line, int nid, pid_t pid, uint32_t *no
     return false;
 }
 
-static bool IsPidRemoteNidValid(int nid, pid_t pid, uint32_t *nodeBitmap, int pidType)
+static bool IsPidRemoteNidValid(int *nidArray, int nidCnt, pid_t pid, uint32_t *nodeBitmap, int pidType)
 {
     bool ret = false;
     FILE *fp;
@@ -304,9 +315,9 @@ static bool IsPidRemoteNidValid(int nid, pid_t pid, uint32_t *nodeBitmap, int pi
     }
 
     while (fgets(line, MAX_LINE_LENGTH, fp) != NULL) {
-        ret = GetNumaInfoFromNumaMaps(line, nid, pid, nodeBitmap, pidType == VM_TYPE);
+        ret = GetNumaInfoFromNumaMaps(line, nidArray, nidCnt, pid, nodeBitmap, pidType == VM_TYPE);
         if (ret) {
-            SMAP_LOGGER_ERROR("Pid %d nid %d match numa maps line %s.", pid, nid, line);
+            SMAP_LOGGER_ERROR("Pid %d nids match numa maps line %s.", pid, line);
             break;
         }
     }
@@ -325,13 +336,13 @@ static bool IsDestNidVaild(int nid, pid_t pid)
     if (!attr) {
         return true;
     }
-    if (NotEqualToAttrL2(attr, nid)) {
+    if (NotInAttrL2(attr, nid)) {
         return false;
     }
     return true;
 }
 
-static bool IsMigParaValid(struct MigrateOutPayload *payload, uint32_t *nodeBitmap, int pidType)
+static bool IsMigParaValid(struct MigrateOutPayload *payload, int pidType)
 {
     if (!payload) {
         SMAP_LOGGER_ERROR("migrate out payload is null.");
@@ -339,10 +350,6 @@ static bool IsMigParaValid(struct MigrateOutPayload *payload, uint32_t *nodeBitm
     }
     if (!IsRemoteNidValid(payload->destNid)) {
         SMAP_LOGGER_ERROR("mig para pid:%d destnode%d invalid.", payload->pid, payload->destNid);
-        return false;
-    }
-    if (!IsPidRemoteNidValid(payload->destNid, payload->pid, nodeBitmap, pidType)) {
-        SMAP_LOGGER_ERROR("mig para pid:%d destnode%d matched.", payload->pid, payload->destNid);
         return false;
     }
     if (!IsDestNidVaild(payload->destNid, payload->pid)) {
@@ -376,7 +383,7 @@ static bool IsMigParaValid(struct MigrateOutPayload *payload, uint32_t *nodeBitm
     return true;
 }
 
-static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, uint32_t *nodeBitmap)
+static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, int *pidCount)
 {
     int i;
     if (!msg) {
@@ -391,11 +398,25 @@ static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, uint32_t *
         SMAP_LOGGER_ERROR("migrate out count: %d is invalid.", msg->count);
         return -EINVAL;
     }
-    pid_t pidArr[MAX_NR_MIGOUT];
+
+    pid_t uniquePids[MAX_NR_MIGOUT];
+    int uniqueCount = 0;
     for (i = 0; i < msg->count; i++) {
-        pidArr[i] = msg->payload[i].pid;
+        pid_t currentPid = msg->payload[i].pid;
+        bool found = false;
+        for (int j = 0; j < uniqueCount; j++) {
+            if (uniquePids[j] == currentPid) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            uniquePids[uniqueCount++] = currentPid;
+        }
     }
-    if (!IsMigOutCountValid(pidArr, msg->count, pidType)) {
+    *pidCount = uniqueCount;
+    if (!IsMigOutCountValid(uniquePids, uniqueCount, pidType)) {
         SMAP_LOGGER_ERROR("migrate out count will exceed current max pid count: %d.", GetCurrentMaxNrPid());
         return -EINVAL;
     }
@@ -403,7 +424,7 @@ static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, uint32_t *
         SMAP_LOGGER_INFO("mig out msg num:[%d] pid:%d, destNid:%d, ratio:%d, memSize:%llu, migMode:%d.", i,
                          msg->payload[i].pid, msg->payload[i].destNid, msg->payload[i].ratio, msg->payload[i].memSize,
                          msg->payload[i].migrateMode);
-        if (!IsMigParaValid(&msg->payload[i], &nodeBitmap[i], pidType)) {
+        if (!IsMigParaValid(&msg->payload[i], pidType)) {
             SMAP_LOGGER_ERROR("mig out msg num:[%d] mig para invalid.", i);
             return -EINVAL;
         }
@@ -411,20 +432,20 @@ static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, uint32_t *
     return 0;
 }
 
-static int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint32_t *nodeBitmap)
+static int ProcessAddTrackingManage(struct MigrateOutHashNode *hashMsg, int pidCount, int pidType, uint32_t *nodeBitmap)
 {
     int ret = 0;
-    if (!msg) {
-        SMAP_LOGGER_ERROR("Smap mig out msg is null.");
+    if (!hashMsg || !pidCount) {
+        SMAP_LOGGER_ERROR("Smap mig out hash msg is null.");
         return -EINVAL;
     }
     struct AccessAddPidPayload payload[MAX_NR_MIGOUT] = { 0 };
-    for (int i = 0; i < msg->count; i++) {
+    for (int i = 0; i < pidCount; ++i) {
         payload[i].type = NORMAL_SCAN;
-        payload[i].pid = msg->payload[i].pid;
+        payload[i].pid = hashMsg[i].pid;
         payload[i].scanTime = LIGHT_STABLE_SCAN_CYCLE;
-        if (!PidIsValid(msg->payload[i].pid)) {
-            SMAP_LOGGER_WARNING("pid %d doesn't exist.", msg->payload[i].pid);
+        if (!PidIsValid(hashMsg[i].pid)) {
+            SMAP_LOGGER_WARNING("pid %d doesn't exist.", hashMsg[i].pid);
             if (GetRunMode() == WATERLINE_MODE) {
                 payload[i].pid = NON_EXIST_PID;
                 continue;
@@ -433,44 +454,50 @@ static int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint
         }
         // assign values for local numa nodes
         if (!nodeBitmap) {
-            ret = SetProcessLocalNuma(msg->payload[i].pid, &payload[i].numaNodes, pidType == VM_TYPE);
+            ret = SetProcessLocalNuma(hashMsg[i].pid, &payload[i].numaNodes, pidType == VM_TYPE);
             if (ret) {
-                SMAP_LOGGER_ERROR("Query pid %d memory usage failed: %d.", msg->payload[i].pid, ret);
+                SMAP_LOGGER_ERROR("Query pid %d memory usage failed: %d.", hashMsg[i].pid, ret);
                 return ret;
             }
         } else {
             payload[i].numaNodes = nodeBitmap[i];
         }
         // assign values for remote numa nodes
-        SetL2ByNid(&payload[i].numaNodes, msg->payload[i].destNid);
-        SMAP_LOGGER_INFO("pid %d numaNodes %#x.", msg->payload[i].pid, payload[i].numaNodes);
+        for (int j = 0; j < hashMsg[i].count; ++j) {
+            SMAP_LOGGER_INFO("Add pid %d migrate dest node to %d.", payload[i].pid, hashMsg[i].hashValue[j].destNid);
+            AddL2ByNid(&payload[i].numaNodes, hashMsg[i].hashValue[j].destNid);
+        }
+        SMAP_LOGGER_INFO("pid %d numaNodes %#x.", payload[i].pid, payload[i].numaNodes);
         SMAP_LOGGER_INFO("Set pid %d scan time to %u.", payload[i].pid, payload[i].scanTime);
     }
-    ret = AccessIoctlAddPid(msg->count, payload);
+    ret = AccessIoctlAddPid(pidCount, payload);
     if (ret) {
         SMAP_LOGGER_ERROR("access module add pids error: %d.", ret);
     }
     return ret;
 }
 
-static int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType, uint32_t *nodeBitmap,
-                                       bool *hasInvalidPid)
+static int AddProcessesToGlobalManager(struct MigrateOutHashNode *hashMsg, int pidCount, int pidType,
+                                       uint32_t *nodeBitmap, bool *hasInvalidPid)
 {
     int ret = 0;
     uint32_t *nodeBitmapTmp;
-    for (int i = 0; i < msg->count; i++) {
+    for (int i = 0; i < pidCount; ++i) {
         nodeBitmapTmp = nodeBitmap ? &nodeBitmap[i] : NULL;
         ProcessParam param = { 0 };
-        param.pid = msg->payload[i].pid;
-        param.localMemRatio = HUNDRED - msg->payload[i].ratio;
-        param.nid = msg->payload[i].destNid;
+        param.pid = hashMsg[i].pid;
+        param.localMemRatio = HUNDRED - hashMsg[i].ratio;
         param.scanTime = pidType == VM_TYPE ? SCAN_TIME_2M : SCAN_TIME_4K;
         param.scanType = NORMAL_SCAN;
-        param.migrateMode = msg->payload[i].migrateMode;
-        param.memSize = msg->payload[i].memSize;
+        param.migrateMode = hashMsg[i].migrateMode;
+        param.count = hashMsg[i].count;
+        for (int j = 0; j < hashMsg[i].count; ++j) {
+            param.numaParam[j].nid = hashMsg[i].hashValue[j].destNid;
+            param.numaParam[j].memSize = hashMsg[i].hashValue[j].memSize;
+        }
         ret = ProcessAddManage(&param, nodeBitmapTmp);
         if (ret) {
-            SMAP_LOGGER_ERROR("add process %d failed: %d.", msg->payload[i].pid, ret);
+            SMAP_LOGGER_ERROR("add process %d failed: %d.", hashMsg[i].pid, ret);
             if (ret == -ESRCH && GetRunMode() == WATERLINE_MODE) {
                 *hasInvalidPid = true;
                 ret = 0;
@@ -483,64 +510,165 @@ static int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType, u
     return ret;
 }
 
-static void AddProcessLocalNumaBitMap(struct MigrateOutMsg *msg, uint32_t *nodeBitmap, int nodeBitmapLen)
+static int AddProcessNumaBitMap(struct MigrateOutHashNode *hashMsg, int pidCount, uint32_t *nodeBitmap, int pidType)
 {
-    for (int i = 0; i < msg->count && i < nodeBitmapLen; i++) {
-        int ret = SetLocalNumaByCpu(msg->payload[i].pid, &nodeBitmap[i]);
+    for (int i = 0; i < pidCount; ++i) {
+        if (hashMsg[i].count == 0) {
+            continue;
+        }
+        int *nidArray = calloc(hashMsg[i].count, sizeof(int));
+        if (!nidArray) {
+            return -ENOMEM;
+        }
+        for (int j = 0; j < hashMsg[i].count; ++j) {
+            nidArray[j] = hashMsg[i].hashValue[j].destNid;
+        }
+        if (!IsPidRemoteNidValid(nidArray, hashMsg[i].count, hashMsg[i].pid, &nodeBitmap[i], pidType)) {
+            SMAP_LOGGER_ERROR("Pid %d remote nid conflict.", hashMsg[i].pid);
+            free(nidArray);
+            return -EINVAL;
+        }
+        int ret = SetLocalNumaByCpu(hashMsg[i].pid, &nodeBitmap[i]);
         if (ret) {
-            SMAP_LOGGER_WARNING("Set pid %d local numa by cpu failed: %d.", msg->payload[i].pid, ret);
+            SMAP_LOGGER_WARNING("Set pid %d local numa by cpu failed: %d.", hashMsg[i].pid, ret);
         }
         // has no local numa, set all local numa 1
         if (nodeBitmap[i] & LOCAL_NUMA_BIT_MAP_MASK == 0) {
-            SMAP_LOGGER_WARNING("Set pid %d all local numa.", msg->payload[i].pid);
+            SMAP_LOGGER_WARNING("Set pid %d all local numa.", hashMsg[i].pid);
             nodeBitmap[i] |= LOCAL_NUMA_BIT_MAP_MASK;
         }
-        SMAP_LOGGER_INFO("Set pid:%d local numa bitmap: %#x.", msg->payload[i].pid, nodeBitmap[i]);
+        SMAP_LOGGER_INFO("Set pid:%d local numa bitmap: %#x.", hashMsg[i].pid, nodeBitmap[i]);
+        free(nidArray);
+    }
+    return 0;
+}
+
+static bool IsPidInHashmsg(struct MigrateOutHashNode *hashMsg, int hashCount, pid_t pid, int *index)
+{
+    for (int i = 0; i < hashCount; i++) {
+        if (hashMsg[i].pid == pid) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool IsDestNidExists(const struct MigrateOutHashNode *node, int destNid)
+{
+    for (int i = 0; i < node->count; i++) {
+        if (destNid == node->hashValue[i].destNid) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int TransformMsgToHash(struct MigrateOutMsg *msg, struct MigrateOutHashNode *hashMsg)
+{
+    int hashCount = 0;
+
+    for (int i = 0; i < msg->count; i++) {
+        int index = 0;
+        if (IsPidInHashmsg(hashMsg, hashCount, msg->payload[i].pid, &index)) {
+            struct MigrateOutHashNode *node = &hashMsg[index];
+            if (IsDestNidExists(node, msg->payload[i].destNid)) {
+                SMAP_LOGGER_ERROR("pid %d duplicate destNid %d.", node->pid, msg->payload[i].destNid);
+                return -EINVAL;
+            }
+
+            if (msg->payload[i].migrateMode != MIG_MEMSIZE_MODE) {
+                SMAP_LOGGER_ERROR("Multinuma vm pid %d not support migrateMode %d.",
+                                  node->pid, msg->payload[i].migrateMode);
+                return -EINVAL;
+            }
+            node->hashValue[node->count].destNid = msg->payload[i].destNid;
+            node->hashValue[node->count].memSize = msg->payload[i].memSize;
+            node->count++;
+            if (node->count >= REMOTE_NUMA_NUM) {
+                SMAP_LOGGER_ERROR("pid %d destNid num more than max.", node->pid);
+                return -EINVAL;
+            }
+        } else {
+            struct MigrateOutHashNode *node = &hashMsg[hashCount];
+            node->pid = msg->payload[i].pid;
+            node->count = 1;
+            node->hashValue[0].destNid = msg->payload[i].destNid;
+            node->hashValue[0].memSize = msg->payload[i].memSize;
+            node->migrateMode = msg->payload[i].migrateMode;
+            node->ratio = msg->payload[i].ratio;
+            hashCount++;
+        }
+    }
+    return 0;
+}
+
+static inline void FreeMigOutResources(struct MigrateOutHashNode *hashMsg, uint32_t *nodeBitmap)
+{
+    if (hashMsg) {
+        free(hashMsg);
+    }
+    if (nodeBitmap) {
+        free(nodeBitmap);
     }
 }
 
 int ubturbo_smap_migrate_out(struct MigrateOutMsg *msg, int pidType)
 {
-    int ret;
     struct ProcessManager *manager = GetProcessManager();
     bool hasInvalidPid = false;
-    uint32_t nodeBitmap[MAX_NR_MIGOUT] = { 0 };
 
     SMAP_LOGGER_INFO("Receive ubturbo_smap_migrate_out msg.");
     if (!ubturbo_smap_is_running()) {
         SMAP_LOGGER_ERROR("Smap already stopped, ubturbo_smap_migrate_out failed.");
         return -EPERM;
     }
+
     EnvMutexLock(&manager->lock);
-    ret = CheckMigrateOutMsg(msg, pidType, nodeBitmap);
-    if (ret) {
-        SMAP_LOGGER_ERROR("Migrate out msg check failed: %d.", ret);
+    int pidCount = 0;
+    int ret = CheckMigrateOutMsg(msg, pidType, &pidCount);
+    if (ret || pidCount <= 0 || pidCount > MAX_NR_MIGOUT) {
+        SMAP_LOGGER_ERROR("Migrate out msg check failed, ret: %d, pidCount: %d.", ret, pidCount);
         EnvMutexUnlock(&manager->lock);
-        return ret;
+        return -EINVAL;
     }
-    AddProcessLocalNumaBitMap(msg, nodeBitmap, MAX_NR_MIGOUT);
+
+    struct MigrateOutHashNode *hashMsg = calloc(pidCount, sizeof(struct MigrateOutHashNode));
+    uint32_t *nodeBitmap = calloc(pidCount, sizeof(uint32_t));
+    if (!hashMsg || !nodeBitmap) {
+        ret = -ENOMEM;
+        goto EXIT;
+    }
+
+    ret = TransformMsgToHash(msg, hashMsg);
+    if (ret) {
+        SMAP_LOGGER_ERROR("Transform migrate out msg to hash failed: %d.", ret);
+        goto EXIT;
+    }
+
+    ret = AddProcessNumaBitMap(hashMsg, pidCount, nodeBitmap, pidType);
+    if (ret) {
+        SMAP_LOGGER_ERROR("Pid remote nid check failed: %d.", ret);
+        goto EXIT;
+    }
 
     // send ioctl to add pid to access pid list
-    ret = ProcessAddTrackingManage(msg, pidType, nodeBitmap);
+    ret = ProcessAddTrackingManage(hashMsg, pidCount, pidType, nodeBitmap);
     if (ret) {
         SMAP_LOGGER_ERROR("Add process tracking failed: %d.", ret);
-        EnvMutexUnlock(&manager->lock);
-        return ret;
+        goto EXIT;
     }
 
     // add pid to process manager
-    ret = AddProcessesToGlobalManager(msg, pidType, nodeBitmap, &hasInvalidPid);
+    ret = AddProcessesToGlobalManager(hashMsg, pidCount, pidType, nodeBitmap, &hasInvalidPid);
     if (ret) {
         SMAP_LOGGER_ERROR("Add processes to global manager failed: %d.", ret);
-        EnvMutexUnlock(&manager->lock);
-        return ret;
     }
 
+EXIT:
+    FreeMigOutResources(hashMsg, nodeBitmap);
     EnvMutexUnlock(&manager->lock);
-    if (ret == 0 && hasInvalidPid) {
-        ret = -ESRCH;
-    }
-    return ret;
+    return (ret == 0 && hasInvalidPid) ? -ESRCH : ret;
 }
 
 static int CheckMigrateBackMsg(struct MigrateBackMsg *msg)
@@ -1265,7 +1393,7 @@ int ubturbo_smap_process_tracking_add(pid_t *pidArr, uint32_t *scanTime, uint32_
         EnvMutexUnlock(&manager->lock);
         return ret;
     }
-    SMAP_LOGGER_INFO("Check ubturbo_smap_process_tracking_add msg done.");
+
     ret = AddProcessTracking(pidArr, scanTime, duration, len, scanType);
     if (ret) {
         SMAP_LOGGER_ERROR("Smap module add process tracking failed.");
@@ -1276,14 +1404,15 @@ int ubturbo_smap_process_tracking_add(pid_t *pidArr, uint32_t *scanTime, uint32_
     // add pid to process manager
     for (int i = 0; i < len; i++) {
         ProcessParam param = { 0 };
+        param.count = 1;
         param.pid = pidArr[i];
         ProcessAttr *attr = GetProcessAttrLocked(pidArr[i]);
         if (attr) {
             param.localMemRatio = attr->initLocalMemRatio;
-            param.nid = GetAttrL2(attr);
+            param.numaParam[0].nid = GetAttrL2(attr);
         } else {
             param.localMemRatio = HUNDRED;
-            param.nid = DEFAULT_L2_NODE;
+            param.numaParam[0].nid = DEFAULT_L2_NODE;
         }
         param.scanTime = scanTime[i];
         param.duration = duration[i];
@@ -1462,7 +1591,7 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
     int localMemRatio = 0;
 
     SMAP_LOGGER_INFO("received ubturbo_smap_migrate_out_sync msg, maxWaitTime:%llu.", maxWaitTime);
-    if (maxWaitTime < MIN_WAIT_TIME || maxWaitTime > MAX_WAIT_TIME) {
+    if ((maxWaitTime < MIN_WAIT_TIME || maxWaitTime > MAX_WAIT_TIME) && maxWaitTime != 0) {
         SMAP_LOGGER_ERROR("The maxWaitTime parameter is improper,The maxWaitTime from 10s to 1 min, ret %d.", ret);
         return -EINVAL;
     }
@@ -1484,12 +1613,21 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
     }
     SMAP_LOGGER_INFO("Smap migrate out done.");
 
-    while (waitTime < maxWaitTime) {
+    while (maxWaitTime == 0 || waitTime < maxWaitTime) {
         waitTime += WAIT_TIME;
         for (int i = 0; i < msg->count; i++) {
-            localMemRatio = HUNDRED - msg->payload[i].ratio;
-            allPidSuccess &= MigOutIsDone(msg->payload[i].pid, localMemRatio);
+            bool isMultiNumaPid = false;
+            bool isSuccess = MigOutIsDone(msg->payload[i].pid, &isMultiNumaPid);
+            allPidSuccess &= isSuccess;
             SMAP_LOGGER_INFO("pid %d, waitTime %llu.", msg->payload[i].pid, waitTime);
+            if (!isSuccess && IsMemoryLow(msg->payload[i].pid) && maxWaitTime == 0) {
+                SMAP_LOGGER_ERROR("Dest numa memory is not enough.");
+                return -EBUSY;
+            }
+            if (maxWaitTime == 0 && !isMultiNumaPid) {
+                SMAP_LOGGER_ERROR("Pid %d is single numa pid.", msg->payload[i].pid);
+                return -EINVAL;
+            }
         }
         if (allPidSuccess) {
             SMAP_LOGGER_INFO("ubturbo_smap_migrate_out_sync all pid success.", pidType, ret);
@@ -1652,7 +1790,7 @@ static int AssignOldProcessPayload(struct OldProcessPayload *result, ProcessAttr
     result->l2Node[0] = l2Node;
     result->scanTime = attr->scanTime;
     result->migrateMode = attr->migrateMode;
-    result->memSize = attr->memSize;
+    result->memSize = attr->migrateParam[0].memSize;
     // only the first elem of l1Node and l2Node is used, so assign invalid nid to other elems
     for (int i = 1; i < len; i++) {
         result->l1Node[i] = result->l2Node[i] = NUMA_NO_NODE;

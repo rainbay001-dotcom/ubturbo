@@ -89,6 +89,11 @@ static inline void SetL2(uint32_t *nodes, int pos)
     *nodes |= (1 << pos);
 }
 
+static inline void AddL2(uint32_t *nodes, int pos)
+{
+    *nodes |= (1 << pos);
+}
+
 static inline bool EqualToL2(uint32_t nodes, int pos)
 {
     return pos >= LOCAL_NUMA_BITS && pos < MAX_NODES && (GetL2(nodes) == pos);
@@ -103,6 +108,17 @@ static inline bool InL2(uint32_t nodes, int pos)
 {
     unsigned long bitmap = nodes;
     return pos >= LOCAL_NUMA_BITS && pos < MAX_NODES && !!TestBit(pos, &bitmap);
+}
+
+static inline int GetL1Count(uint32_t nodes)
+{
+    int count = 0;
+    for (int i = 0; i < LOCAL_NUMA_BITS; i++) {
+        if (nodes & (1U << i)) {
+            count++;
+        }
+    }
+    return count;
 }
 
 #endif /* __NUMA_NODES_H__ */

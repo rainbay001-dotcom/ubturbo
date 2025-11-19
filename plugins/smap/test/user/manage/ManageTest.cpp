@@ -390,8 +390,9 @@ TEST_F(ManageTest, TestSetProcessConfig)
     ProcessParam param = {
         .pid = 1,
         .localMemRatio = 50,
-        .nid = 4,
+        .count = 1,
     };
+    param.numaParam[0].nid = 4;
     attr.numaAttr.numaNodes = 1;
     SetProcessConfig(&attr, &param);
     EXPECT_EQ(attr.pid, 1);
@@ -466,11 +467,11 @@ TEST_F(ManageTest, TestProcessAddManageResetPidConfig)
     ProcessParam param = {
         .pid = pid,
         .localMemRatio = 50,
-        .nid = 5,
         .scanTime = 50,
         .duration = 1,
+        .count = 1,
     };
-
+    param.numaParam[0].nid = 5;
     EnvMutexInit(&g_processManager.lock);
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));
     MOCKER(CheckPid).stubs().will(returnValue(0));
@@ -494,11 +495,12 @@ TEST_F(ManageTest, TestProcessAddManageNewPid)
     ProcessParam param = {
         .pid = 123,
         .localMemRatio = 50,
-        .nid = 4,
         .scanTime = 50,
         .duration = 1,
         .scanType = NORMAL_SCAN,
+        .count = 1,
     };
+    param.numaParam[0].nid = 4;
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = 0;
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));
@@ -541,9 +543,10 @@ TEST_F(ManageTest, TestProcessAddManageNewPidFailed)
     ProcessParam param = {
         .pid = 123,
         .localMemRatio = 50,
-        .nid = 1,
         .scanType = NORMAL_SCAN,
+        .count = 1,
     };
+    param.numaParam[0].nid = 1;
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = 0;
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));
@@ -753,7 +756,6 @@ TEST_F(ManageTest, TestInitPidActcData)
     attr->walkPage.nrPage = 1;
     MOCKER(ResetActcDataForPid).stubs().will(ignoreReturnValue());
     ret = InitPidActcData(attr);
-    EXPECT_EQ(0, attr->nrMigratePage);
     EXPECT_EQ(0, ret);
 
     MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(nullptr)));
@@ -1873,48 +1875,29 @@ TEST_F(ManageTest, TestIsPidArrRemoteNumaMatchTwo)
     free(pidArr);
 }
 
-extern "C" bool MigOutIsDone(pid_t pid, int localMemRatio);
+extern "C" bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
 const int NR_PAGES_L1 = 5;
 const int NR_PAGE = 10;
 const pid_t PID = 123;
-TEST_F(ManageTest, TestMigOutIsDoneSuccessRatio)
-{
-    bool ret;
-    int localMemRatio = 50;
-    pid_t pid = PID;
-
-    ProcessAttr attr = {};
-    attr.walkPage.nrPages[0] = NR_PAGES_L1;
-    attr.walkPage.nrPage = NR_PAGE;
-    attr.pid = PID;
-    attr.migrateMode = MIG_RATIO_MODE;
-    g_processManager.processes = nullptr;
-    ret = MigOutIsDone(pid, localMemRatio);
-    EXPECT_EQ(false, ret);
-
-    attr.numaAttr.numaNodes = 0b00010001;
-    g_processManager.processes = &attr;
-    ret = MigOutIsDone(pid, localMemRatio);
-    EXPECT_EQ(true, ret);
-}
-
 TEST_F(ManageTest, TestMigOutIsDoneSuccess)
 {
     bool ret;
-    int localMemRatio = 10;
     pid_t pid = PID;
-
+    bool isMultiNumaPid = false;
     ProcessAttr attr = {};
     attr.walkPage.nrPages[0] = NR_PAGES_L1;
     attr.walkPage.nrPage = NR_PAGE;
     attr.pid = PID;
     attr.migrateMode = MIG_MEMSIZE_MODE;
-    attr.numaAttr.numaNodes = 0b00010001;
-    attr.strategyAttr.memSize[0][0] = 20;
-    g_processManager.processes = &attr;
-    g_processManager.tracking.pageSize = PAGESIZE_4K;
+    attr.strategyAttr.memSize[0][0] = 10240;
+    g_processManager.processes = nullptr;
+    ret = MigOutIsDone(pid, &isMultiNumaPid);
+    EXPECT_EQ(false, ret);
 
-    ret = MigOutIsDone(pid, localMemRatio);
+    attr.numaAttr.numaNodes = 0b00010001;
+    attr.remoteNumaCnt = 1;
+    g_processManager.processes = &attr;
+    ret = MigOutIsDone(pid, &isMultiNumaPid);
     EXPECT_EQ(true, ret);
 }
 

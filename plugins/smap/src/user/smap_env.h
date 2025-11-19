@@ -97,6 +97,11 @@ static inline void EnvMutexLock(EnvMutex *mutex)
     pthread_mutex_lock(&mutex->lock);
 }
 
+static inline void EnvMutexUnlock(EnvMutex *mutex)
+{
+    pthread_mutex_unlock(&mutex->lock);
+}
+
 typedef struct {
     atomic_int counter;
 } EnvAtomic;

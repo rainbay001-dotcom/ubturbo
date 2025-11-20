@@ -26,6 +26,11 @@
 #define MAX_MIGRATE_DIVISOR_2M 1
 #define MULTI_NUMA_VM_OOM 66
 
+typedef struct NumaInfo {
+    int localNid;
+    int remoteNid;
+} NumaInfo;
+
 static int InitSeparateParam(ProcessAttr *process)
 {
     process->separateParam.freqWt = DEFAULT_FREQ_WT_2M;
@@ -502,24 +507,24 @@ static int BuildSelectKMlistAddr(ProcessAttr *process, struct MigList mlist[MAX_
 }
 
 static int SeparateStrategy4KInner(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
-                                   uint64_t numaOffset[MAX_NODES], uint64_t numaFreePage[MAX_NODES], int localNid,
-                                   int remoteNid)
+                                   uint64_t numaOffset[MAX_NODES], uint64_t numaFreePage[MAX_NODES],
+                                   struct NumaInfo info, uint64_t swapNum)
 {
     int ret = 0;
+    int localNid = info.localNid;
+    int remoteNid = info.remoteNid;
     StrategyAttribute *strat = &process->strategyAttr;
-    uint64_t swapNum = CalcSwapNum4K(process, localNid, remoteNid, numaOffset, numaFreePage);
-
     uint32_t demotePageNr = strat->nrMigratePages[localNid][remoteNid];
     uint32_t promotePageNr = strat->nrMigratePages[remoteNid][localNid];
     SMAP_LOGGER_INFO("Pid %lld NUMA%u to NUMA%u swap %llu demote %u promote %u\n", process->pid, localNid, remoteNid,
                      swapNum, demotePageNr, promotePageNr);
 
     if (demotePageNr > 0) {
-        mlist[localNid][remoteNid].nr = MAX(swapNum, demotePageNr);
-        mlist[remoteNid][localNid].nr = mlist[localNid][remoteNid].nr - demotePageNr;
+        mlist[localNid][remoteNid].nr = swapNum + demotePageNr;
+        mlist[remoteNid][localNid].nr = swapNum;
     } else if (promotePageNr > 0) {
-        mlist[remoteNid][localNid].nr = MAX(swapNum, promotePageNr);
-        mlist[localNid][remoteNid].nr = mlist[remoteNid][localNid].nr - promotePageNr;
+        mlist[remoteNid][localNid].nr = swapNum + promotePageNr;
+        mlist[localNid][remoteNid].nr = swapNum;
     } else {
         mlist[remoteNid][localNid].nr = mlist[localNid][remoteNid].nr = swapNum;
     }
@@ -552,6 +557,30 @@ static int SeparateStrategy4KInner(ProcessAttr *process, struct MigList mlist[MA
     return ret;
 }
 
+static void UpdateSwapNum(ProcessAttr *process, uint64_t swapNum[LOCAL_NUMA_BITS][MAX_NODES], int localNumaNum,
+                          uint64_t numaFreePage[MAX_NODES])
+{
+    uint64_t numaOffset[MAX_NODES] = { 0 };
+    for (int nid1 = 0; nid1 < MAX_NODES; nid1++) {
+        for (int nid2 = 0; nid2 < MAX_NODES; nid2++) {
+            numaOffset[nid1] += process->strategyAttr.nrMigratePages[nid1][nid2];
+        }
+    }
+    for (int localNid = 0; localNid < localNumaNum; localNid++) {
+        if (NotInAttrL1(process, localNid)) {
+            continue;
+        }
+        for (int remoteNid = localNumaNum; remoteNid < localNumaNum + REMOTE_NUMA_NUM; remoteNid++) {
+            if (NotInAttrL2(process, remoteNid)) {
+                continue;
+            }
+            swapNum[localNid][remoteNid] = CalcSwapNum4K(process, localNid, remoteNid, numaOffset, numaFreePage);
+            numaOffset[localNid] += swapNum[localNid][remoteNid];
+            numaOffset[remoteNid] += swapNum[localNid][remoteNid];
+        }
+    }
+}
+
 int SeparateStrategy4K(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES])
 {
     int ret = 0;
@@ -563,6 +592,7 @@ int SeparateStrategy4K(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX
         return 0;
     }
     uint64_t numaOffset[MAX_NODES] = { 0 };
+    uint64_t swapNum[LOCAL_NUMA_BITS][MAX_NODES] = { 0 };
     uint64_t numaFreePages[MAX_NODES] = { 0 };
     for (int nid = 0; nid < MAX_NODES; ++nid) {
         if (InAttrL1(process, nid) || InAttrL2(process, nid)) {
@@ -571,15 +601,19 @@ int SeparateStrategy4K(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX
     }
 
     int localNumaNum = GetNrLocalNuma();
-    for (int localNid = 0; localNid < localNumaNum; localNid++) {
-        if (NotInAttrL1(process, localNid)) {
+    NumaInfo info;
+    UpdateSwapNum(process, swapNum, localNumaNum, numaFreePages);
+    for (info.localNid = 0; info.localNid < localNumaNum; info.localNid++) {
+        if (NotInAttrL1(process, info.localNid)) {
             continue;
         }
-        for (int remoteNid = localNumaNum; remoteNid < localNumaNum + REMOTE_NUMA_NUM; remoteNid++) {
-            if (NotInAttrL2(process, remoteNid)) {
+        for (info.remoteNid = localNumaNum; info.remoteNid < localNumaNum + REMOTE_NUMA_NUM; info.remoteNid++) {
+            if (NotInAttrL2(process, info.remoteNid)) {
                 continue;
             }
-            if ((ret = SeparateStrategy4KInner(process, mlist, numaOffset, numaFreePages, localNid, remoteNid)) != 0) {
+            if ((ret = SeparateStrategy4KInner(process, mlist, numaOffset, numaFreePages, info,
+                                               swapNum[info.localNid][info.remoteNid])) != 0) {
+                FreeMlist(mlist);
                 return ret;
             }
         }

@@ -32,6 +32,7 @@
 #define pr_fmt(fmt) "HAM: " fmt
 #define HAM_DEV_COUNT 1
 #define HAM_4k_to_2M 9
+#define DECIMAL 10
 
 #define TIME_LENTH (msecs_to_jiffies(2000))
 #define FINISH_LENGTH ((jiffies) + (msecs_to_jiffies(60000)))
@@ -49,9 +50,12 @@ typedef struct folio *get_migration_folio_t(struct ham_page_map *hpm);
 static struct cdev g_ham_cdev;
 static dev_t g_ham_dev;
 static struct class *g_ham_class;
+static struct device *g_ham_device;
 
 static struct workqueue_struct *ham_wq;
 static struct delayed_work ham_work;
+
+static bool global_cache_mnt = false;
 
 struct folio *ham_alloc_huge_page_node(int nid)
 {
@@ -161,8 +165,8 @@ static int init_numa_page_map(struct ham_migrate_task *mig_task,
 		mig_task->ram_maps[i].hva_start = rbi->hva_start;
 		page_num = rbi->size / PAGE_SIZE_2M;
 		mig_task->ram_maps[i].page_num = page_num;
-		mig_task->ram_maps[i].hpms = kzalloc(
-			page_num * sizeof(struct ham_page_map), GFP_KERNEL);
+		mig_task->ram_maps[i].hpms = vzalloc(
+			page_num * sizeof(struct ham_page_map));
 		if (!mig_task->ram_maps[i].hpms) {
 			pr_err("unable to allocate memory for HAM page map\n");
 			ret = -ENOMEM;
@@ -173,7 +177,7 @@ static int init_numa_page_map(struct ham_migrate_task *mig_task,
 out_err:
 	for (i = 0; i < arg->cnt; i++) {
 		if (mig_task->ram_maps[i].hpms) {
-			kfree(mig_task->ram_maps[i].hpms);
+			vfree(mig_task->ram_maps[i].hpms);
 			mig_task->ram_maps[i].hpms = NULL;
 		}
 	}
@@ -580,6 +584,11 @@ static int ham_cache_clear(pid_t pid, struct ham_migrate_task *mig_task)
 {
 	unsigned int i;
 	int ret = 0;
+
+	if (global_cache_mnt) {
+		return flush_cache_global(HISI_CACHE_MAINT_CLEANINVALID);
+	}
+
 	for (i = 0; i < mig_task->numa_cnt; i++) {
 		ret = flush_cache_by_pa(mig_task->ram_maps[i].rmt_numa_start,
 					mig_task->ram_maps[i].size,
@@ -596,10 +605,14 @@ static int src_suspend_pgtable_maintain(struct ham_migrate_task *mig_task)
 {
 	int ret;
 	unsigned int i;
+	ktime_t t1, t2, t3;
+	s64 elapsed_kernel, elapsed_task;
 	struct ram_block_map *ram_map;
 
 	for (i = 0; i < mig_task->numa_cnt; i++) {
 		ram_map = &mig_task->ram_maps[i];
+
+		t1 = ktime_get();
 		ret = kernel_pgtable_within_pa_set_cacheable(
 			ram_map->rmt_numa_start, ram_map->size, false);
 		if (ret) {
@@ -608,6 +621,7 @@ static int src_suspend_pgtable_maintain(struct ham_migrate_task *mig_task)
 			return ret;
 		}
 
+		t2 = ktime_get();
 		ret = task_pgtable_within_pid_set_cacheable(mig_task->pid,
 							    ram_map->hva_start,
 							    ram_map->size,
@@ -617,6 +631,13 @@ static int src_suspend_pgtable_maintain(struct ham_migrate_task *mig_task)
 			       mig_task->pid, ram_map->size, ret);
 			return ret;
 		}
+
+		t3 = ktime_get();
+		elapsed_kernel = ktime_to_us(ktime_sub(t2, t1));
+		elapsed_task = ktime_to_us(ktime_sub(t3, t2));
+		pr_info("[KERNEL_PGTABLE_MNT] elapsed time: %lld us\n"
+			"[TASK_PGTABLE_MNT] elapsed time: %lld us\n", elapsed_kernel, elapsed_task);
+
 		ram_map->cacheable = false;
 	}
 	return 0;
@@ -1065,7 +1086,10 @@ static long ioctl_cache_clear(unsigned long arg)
 {
 	pid_t pid;
 	int ret;
+	ktime_t t1, t2;
+	s64 elapsed_cache;
 	struct ham_migrate_task *mig_task;
+
 	pr_info("start to clear cache\n");
 	if (copy_from_user(&pid, (void __user *)arg, sizeof(pid_t))) {
 		pr_err("failed to copy pid to clear cache from user space\n");
@@ -1084,31 +1108,17 @@ static long ioctl_cache_clear(unsigned long arg)
 		return ret;
 	}
 
+	t1 = ktime_get();
 	ret = ham_cache_clear(pid, mig_task);
 	if (ret) {
 		pr_err("failed to clear cache, pid: %d\n", pid);
 		return ret;
 	}
-	pr_info("clear cache successfully, pid: %d\n", pid);
-	put_migrate_task(mig_task, mig_task->status);
-	return 0;
-}
+	t2 = ktime_get();
+	elapsed_cache = ktime_to_us(ktime_sub(t2, t1));
+	pr_info("[CACHE_MNT] elapsed time: %lld us\n", elapsed_cache);
 
-static long ioctl_ub_mem_drain(unsigned long arg)
-{
-	unsigned short scna;
-	int ret;
-	if (copy_from_user(&scna, (void __user *)arg, sizeof(unsigned short))) {
-		pr_err("failed to copy SCNA from user space\n");
-		return -EFAULT;
-	}
-	pr_info("start UB mem drain, SCNA: %u\n", scna);
-	ret = ub_mem_drain_sync((u32)scna);
-	if (ret) {
-		pr_info("UB mem drain timeout, SCNA: %u\n", scna);
-		return ret;
-	}
-	pr_info("UB mem drain successfully, SCNA: %u\n", scna);
+	put_migrate_task(mig_task, mig_task->status);
 	return 0;
 }
 
@@ -1149,8 +1159,6 @@ static long ham_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return ioctl_modify_pagetable(arg);
 	case HAM_CACHE_CLEAR:
 		return ioctl_cache_clear(arg);
-	case HAM_UB_DRAIN:
-		return ioctl_ub_mem_drain(arg);
 	default:
 		return -EINVAL;
 	}
@@ -1165,9 +1173,27 @@ static const struct file_operations g_ham_fops = {
 	.unlocked_ioctl = ham_ioctl,
 };
 
+static ssize_t global_cache_mnt_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", global_cache_mnt);
+}
+
+static ssize_t global_cache_mnt_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int val;
+	if (kstrtoint(buf, DECIMAL, &val) == 0)
+		global_cache_mnt = val ? true : false;
+	return count;
+}
+
+static DEVICE_ATTR(global_cache_mnt, 0664, global_cache_mnt_show,
+			global_cache_mnt_store);
+
 int ham_init(void)
 {
-	struct device *ham_device;
 	dev_t dev_id;
 	int ret;
 
@@ -1191,22 +1217,28 @@ int ham_init(void)
 		goto class_create_err;
 	}
 
-	ham_device = device_create(g_ham_class, NULL, g_ham_dev, NULL,
+	g_ham_device = device_create(g_ham_class, NULL, g_ham_dev, NULL,
 				   "ham_migrate");
-	if (IS_ERR(ham_device)) {
+	if (IS_ERR(g_ham_device)) {
 		ret = -EBUSY;
 		pr_err("failed to init HAM device\n");
 		goto dev_create_err;
 	}
 
+	ret = device_create_file(g_ham_device, &dev_attr_global_cache_mnt);
+	if (ret)
+		goto dev_attr_err;
+
 	ret = init_global_task_list();
-	if (ret) {
+	if (ret)
 		goto init_task_err;
-	}
+
 	pr_info("Module loaded\n");
 	return 0;
 
 init_task_err:
+	device_remove_file(g_ham_device, &dev_attr_global_cache_mnt);
+dev_attr_err:
 	device_destroy(g_ham_class, g_ham_dev);
 dev_create_err:
 	class_destroy(g_ham_class);
@@ -1223,6 +1255,7 @@ void ham_exit(void)
 	cancel_delayed_work_sync(&ham_work);
 	flush_workqueue(ham_wq);
 	destroy_workqueue(ham_wq);
+	device_remove_file(g_ham_device, &dev_attr_global_cache_mnt);
 	device_destroy(g_ham_class, g_ham_dev);
 	class_destroy(g_ham_class);
 	cdev_del(&g_ham_cdev);

@@ -85,6 +85,11 @@ struct device *device_create(struct class_stub *cls, struct device *parent,
     dev_t devt, void *drvdata, const char *fmt, ...);
 void device_destroy(struct class_stub *cls, dev_t devt);
 
+int device_create_file(struct device *device,
+			const struct device_attribute *entry);
+void device_create_file(struct device *device,
+			const struct device_attribute *entry);
+
 #define DEVICE_ATTR(_name, _mode, _show, _store) \
 	struct device_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)
 

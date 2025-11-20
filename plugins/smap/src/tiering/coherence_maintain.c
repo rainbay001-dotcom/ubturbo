@@ -17,8 +17,6 @@
 #define MAX_FLUSH_SIZE (1UL << 29)
 #define MAX_RESCHED_ROUND 1
 #define MAX_CM_RETRY 20
-#define UB_DRAIN_SLEEP_US 10
-#define UB_DRAIN_TIMEOUT_SECS 1
 
 struct pfn_range {
 	unsigned long start_pfn;
@@ -34,8 +32,6 @@ struct modify_info {
 	bool cacheable;
 	int ret;
 };
-
-#define UB_DRAIN_TIMEOUT_US (jiffies_to_usecs(HZ) * UB_DRAIN_TIMEOUT_SECS)
 
 /* Flush the entire process address space */
 void ham_flush_tlb(struct mm_struct *mm)
@@ -332,20 +328,4 @@ int flush_cache_by_pa(phys_addr_t addr, size_t size,
 			__func__, remain_size, ret);
 
 	return ret;
-}
-
-/**
- * ub_mem_drain_sync - Drain ub memory and return only after
- *          completion or timeout
- * @scna: identifier of ub controller
- *
- * Returns 0 on success and -ETIMEDOUT upon a timeout.
- */
-int ub_mem_drain_sync(u32 scna)
-{
-	int state;
-	ub_mem_drain_start(scna);
-	return read_poll_timeout(ub_mem_drain_state, state, state,
-				 UB_DRAIN_SLEEP_US, UB_DRAIN_TIMEOUT_US, false,
-				 scna);
 }

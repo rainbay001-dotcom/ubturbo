@@ -6,8 +6,6 @@ obj-m   := $(MODULE_NAME).o
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 KBUILD_EXTRA_SYMBOLS = $(src)/depends/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(src)/depends/hisi.symvers
-KBUILD_EXTRA_SYMBOLS += $(src)/depends/ubus.symvers
 
 ccflags-y += -DENV_USER
 .PHONY: modules

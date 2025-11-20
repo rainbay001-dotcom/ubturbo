@@ -55,11 +55,10 @@ extern int hisi_soc_cache_maintain(phys_addr_t addr, size_t size,
 int flush_cache_by_pa(phys_addr_t addr, size_t size,
 		      enum hisi_soc_cache_maint_type maint_type);
 
-extern void ub_mem_drain_start(u32 scna);
-
-extern int ub_mem_drain_state(u32 scna);
-
-int ub_mem_drain_sync(u32 scna);
+static inline int flush_cache_global(enum hisi_soc_cache_maint_type maint_type)
+{
+	return hisi_soc_cache_maintain(0, ~((size_t)0), maint_type);
+}
 
 #ifdef __cplusplus
 }

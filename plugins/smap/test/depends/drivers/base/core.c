@@ -84,6 +84,17 @@ void device_destroy(struct class_stub *cls, dev_t devt)
 {
 }
 
+int device_create_file(struct device *device,
+			const struct device_attribute *entry)
+{
+	return 0;
+}
+
+void device_create_file(struct device *device,
+			const struct device_attribute *entry)
+{
+}
+
 int device_property_read_u64(struct device *dev, const char *propname, u64 *val)
 {
 	int i = dev->numa_node;

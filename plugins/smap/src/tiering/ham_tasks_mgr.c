@@ -27,7 +27,7 @@ static void reset_migrate_task(struct ham_migrate_task *mig_task)
 			if (!mig_task->ram_maps[i].hpms) {
 				continue;
 			}
-			kfree(mig_task->ram_maps[i].hpms);
+			vfree(mig_task->ram_maps[i].hpms);
 			mig_task->ram_maps[i].hpms = NULL;
 		}
 		kfree(mig_task->ram_maps);

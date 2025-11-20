@@ -24,6 +24,11 @@ const int MAX_MIGRATE_DIVISOR_2M = 2;
 
 using namespace std;
 
+typedef struct NumaInfo {
+    int localNid;
+    int remoteNid;
+} NumaInfo;
+
 class SeparateStrategyTest : public ::testing::Test {
 protected:
     void SetUp() override
@@ -814,25 +819,66 @@ TEST_F(SeparateStrategyTest, TestSeparateStrategy4KSwapMultiNode)
     int nodeL1 = 1;
     int nodeR5 = 5;
 
-    process.strategyAttr.nrMigratePages[nodeL0][nodeR5] = 2;
-    process.strategyAttr.nrMigratePages[nodeR5][nodeL0] = 0;
+    process.strategyAttr.nrMigratePages[nodeL0][nodeR5] = 0;
+    process.strategyAttr.nrMigratePages[nodeR5][nodeL0] = 2;
     process.strategyAttr.nrMigratePages[nodeL1][nodeR5] = 0;
-    process.strategyAttr.nrMigratePages[nodeR5][nodeL1] = 2;
+    process.strategyAttr.nrMigratePages[nodeR5][nodeL1] = 8;
 
     uint16_t nodeL0Data[] = {0, 2, 3, 0, 8, 1, 4, 0, 0, 0};
     uint16_t nodeL1Data[] = {0, 0, 4, 6, 8, 0, 0, 0, 0, 0};
-    uint16_t nodeR5Data[] = {0, 0, 1, 2, 3, 7, 6, 5, 4, 8};
+    uint16_t nodeR5Data[] = {1, 1, 1, 2, 3, 7, 6, 5, 4, 8};
 
     BuildActcData(nodeL0, nodeL0Data, sizeof(nodeL0Data) / sizeof(nodeL0Data[0]), &process.scanAttr);
     BuildActcData(nodeL1, nodeL1Data, sizeof(nodeL1Data) / sizeof(nodeL1Data[0]), &process.scanAttr);
     BuildActcData(nodeR5, nodeR5Data, sizeof(nodeR5Data) / sizeof(nodeR5Data[0]), &process.scanAttr);
 
-    MOCKER(GetNrFreePagesByNode).stubs().will(returnValue(10));
+    MOCKER(GetNrFreePagesByNode).stubs().will(returnValue(20));
     MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
 
     int ret = SeparateStrategy4K(&process, mlist);
 
     EXPECT_EQ(0, ret);
+    EXPECT_EQ(0, mlist[0][5].nr);
+    EXPECT_EQ(2, mlist[5][0].nr);
+    EXPECT_EQ(0, mlist[1][5].nr);
+    EXPECT_EQ(8, mlist[5][1].nr);
+}
+
+TEST_F(SeparateStrategyTest, TestSeparateStrategy4KSwapAndPromoteMultiNode)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    initializeMigList(mlist);
+    process.numaAttr.numaNodes = 0b00100011;
+    process.walkPage.nrPage = 10;
+    process.separateParam.freqWt = 0;
+    int nodeL0 = 0;
+    int nodeL1 = 1;
+    int nodeR5 = 5;
+
+    process.strategyAttr.nrMigratePages[nodeL0][nodeR5] = 0;
+    process.strategyAttr.nrMigratePages[nodeR5][nodeL0] = 2;
+    process.strategyAttr.nrMigratePages[nodeL1][nodeR5] = 0;
+    process.strategyAttr.nrMigratePages[nodeR5][nodeL1] = 8;
+
+    uint16_t nodeL0Data[] = {0, 2, 3, 1, 8, 1, 4, 1, 1, 1};
+    uint16_t nodeL1Data[] = {0, 0, 4, 6, 8, 0, 0, 0, 0, 0};
+    uint16_t nodeR5Data[] = {1, 1, 1, 2, 3, 7, 6, 5, 4, 8, 1, 1};
+
+    BuildActcData(nodeL0, nodeL0Data, sizeof(nodeL0Data) / sizeof(nodeL0Data[0]), &process.scanAttr);
+    BuildActcData(nodeL1, nodeL1Data, sizeof(nodeL1Data) / sizeof(nodeL1Data[0]), &process.scanAttr);
+    BuildActcData(nodeR5, nodeR5Data, sizeof(nodeR5Data) / sizeof(nodeR5Data[0]), &process.scanAttr);
+
+    MOCKER(GetNrFreePagesByNode).stubs().will(returnValue(20));
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+
+    int ret = SeparateStrategy4K(&process, mlist);
+
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(1, mlist[0][5].nr);
+    EXPECT_EQ(3, mlist[5][0].nr);
+    EXPECT_EQ(1, mlist[1][5].nr);
+    EXPECT_EQ(9, mlist[5][1].nr);
 }
 
 TEST_F(SeparateStrategyTest, TestSeparateStrategy4KSwapLimitByFreePage)

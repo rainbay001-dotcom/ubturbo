@@ -125,6 +125,13 @@ void hist_actc_data_deinit(void);
 void update_hist_tracking(void);
 int hist_actc_data_reinit(void);
 
+static inline bool access_pid_is_scanning(pid_t pid)
+{
+	struct access_pid *ap = find_access_pid(pid);
+	return ap && ap->type != NO_SCAN;
+}
+
+
 static inline void clear_vm_mapping(u32 *mapping, u32 len)
 {
 	if (mapping)

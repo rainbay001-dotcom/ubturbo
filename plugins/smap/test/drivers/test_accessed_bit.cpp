@@ -267,10 +267,13 @@ TEST_F(AccessedBitTest, GetFreqInfo)
     vfree(freq_info_array);
 }
 
+extern "C" bool access_pid_is_scanning(pid_t pid);
 TEST_F(AccessedBitTest, GetHamPagesFreqs)
 {
     struct ham_tracking_info info;
     struct freq_info *freq_info_array;
+    struct access_pid ap;
+    ap.type = HAM_SCAN;
     uint64_t num;
 
     EXPECT_TRUE(list_empty(&ham_pid_list));
@@ -278,6 +281,7 @@ TEST_F(AccessedBitTest, GetHamPagesFreqs)
     info.pid = 1;
 
     MOCKER(change_ap_type).stubs();
+    MOCKER(find_access_pid).stubs().will(returnValue(&ap));
     MOCKER(get_freq_info).stubs().will(returnValue((struct freq_info *)nullptr));
     int ret = get_ham_pages_freqs(1, &freq_info_array, &num);
     EXPECT_EQ(-ENOMEM, ret);
@@ -285,6 +289,7 @@ TEST_F(AccessedBitTest, GetHamPagesFreqs)
     GlobalMockObject::verify();
     struct freq_info array;
     MOCKER(change_ap_type).stubs();
+    MOCKER(find_access_pid).stubs().will(returnValue(&ap));
     MOCKER(get_freq_info).stubs().will(returnValue(&array));
     MOCKER(clear_tracking_info).stubs();
     ret = get_ham_pages_freqs(1, &freq_info_array, &num);

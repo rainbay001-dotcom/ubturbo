@@ -702,8 +702,6 @@ static int get_folios_freqs(struct ham_migrate_task *mig_task)
 	ret = get_ham_pages_freqs(mig_task->pid, &freq_info_array,
 				  &freq_info_num);
 	if (ret) {
-		pr_err("failed to get HAM page's frequency from SMAP, pid: %d\n",
-		       mig_task->pid);
 		return -EINVAL;
 	}
 

@@ -274,8 +274,7 @@ int get_ham_pages_freqs(pid_t pid, struct freq_info **freq_info_array,
 {
 	struct ham_tracking_info *info;
 	if (!access_pid_is_scanning(pid)) {
-		pr_info("the current access pid: %d is not scanning\n",
-			info->pid);
+		pr_info("the current access pid: %d is not scanning\n", pid);
 		return -EINVAL;
 	}
 	spin_lock(&ham_lock);

@@ -299,6 +299,7 @@ void SeparateStrategyinit(ActcData actcData1[2], ActcData actcData2[4], ProcessA
 
 TEST_F(SeparateStrategyTest, TestSeparateStrategyall)
 {
+    MOCKER(IsHugeMode).stubs().will(returnValue(true));
     MOCKER(GetNrLocalNuma).stubs().will(returnValue(4)); // 本地4个numa
     MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue(100)); // 远端可以100个2M页
     ProcessAttr process = {};
@@ -518,6 +519,8 @@ TEST_F(SeparateStrategyTest, TestBaseStrategyDirEqualsSWAP)
     process.scanAttr.actcData[0]->prior = 10;
     process.scanAttr.actcData[1]->prior = 1;
 
+    MOCKER(IsHugeMode).stubs().will(returnValue(true));
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue(100));
     MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
     MOCKER(CalcMigrateNumByFreq).stubs().will(returnValue(1000));
     MOCKER(BaseStrategyInner).stubs().will(returnValue(0));
@@ -525,8 +528,22 @@ TEST_F(SeparateStrategyTest, TestBaseStrategyDirEqualsSWAP)
 
     int ret = BaseStrategy(&process, mlist, rawMigrateNum, dir);
     EXPECT_EQ(0, ret);
-    EXPECT_EQ(1000, mlist[0][4].nr);
+    EXPECT_EQ(100, mlist[0][4].nr);
+    EXPECT_EQ(100, mlist[4][0].nr);
 
+    GlobalMockObject::verify();
+    MOCKER(IsHugeMode).stubs().will(returnValue(true));
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue(1000));
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(CalcMigrateNumByFreq).stubs().will(returnValue(1000));
+    MOCKER(BaseStrategyInner).stubs().will(returnValue(0));
+    MOCKER(FreeMlist).stubs().will(ignoreReturnValue());
+
+    ret = BaseStrategy(&process, mlist, rawMigrateNum, dir);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(1000, mlist[0][4].nr);
+    EXPECT_EQ(1000, mlist[4][0].nr);
+    
     for (int i = 0; i < MAX_NODES; i++) {
         free(process.scanAttr.actcData[i]);
     }

@@ -196,6 +196,7 @@ static int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MA
                         MigrateDirection dir)
 {
     int ret = 0;
+    uint64_t freePageNum;
     NodeLevel level;
     int l1Node = GetAttrL1(process);
     int l2Node = GetAttrL2(process);
@@ -220,7 +221,8 @@ static int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MA
         mlist[l2Node][l1Node].nr = MAX(SwapMigrateNum, rawMigrateNum);
         mlist[l1Node][l2Node].nr = mlist[l2Node][l1Node].nr - rawMigrateNum;
     } else {
-        mlist[l1Node][l2Node].nr = mlist[l2Node][l1Node].nr = SwapMigrateNum;
+        freePageNum = IsHugeMode() ? GetNrFreeHugePagesByNode(l1Node) : GetNrFreePagesByNode(l1Node);
+        mlist[l1Node][l2Node].nr = mlist[l2Node][l1Node].nr = MIN(freePageNum, SwapMigrateNum);
     }
 
     for (int from = 0; from < MAX_NODES; from++) {

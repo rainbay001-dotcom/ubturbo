@@ -118,7 +118,7 @@ static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint
         return ret;
     }
 
-    int nrMigTotal = 0;
+    uint64_t nrMigTotal = 0;
     for (int from = 0; from < MAX_NODES; from++) {
         for (int to = 0; to < MAX_NODES; to++) {
             if (!migList[from][to].nr) {
@@ -136,7 +136,7 @@ static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint
     }
     FreeMigList(migList);
     *migratePage = *migratePage + nrMigTotal;
-    SMAP_LOGGER_DEBUG("Pid %d migList len %u.", process->pid, nrMigTotal);
+    SMAP_LOGGER_DEBUG("Pid %d migList len %llu.", process->pid, nrMigTotal);
     return 0;
 }
 

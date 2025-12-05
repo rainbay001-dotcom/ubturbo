@@ -196,7 +196,7 @@ static void FreeProceccesAttr(ProcessAttr *attr)
         return;
     }
     if (attr->scanAttr.actcData) {
-        ResetActcData(attr->scanAttr.actcData, NR_LEVEL);
+        ResetActcData(attr->scanAttr.actcData, MAX_NODES);
     }
     free(attr);
 }

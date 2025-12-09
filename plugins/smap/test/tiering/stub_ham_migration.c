@@ -7,12 +7,3 @@ int hisi_soc_cache_maintain(phys_addr_t addr, size_t size, enum hisi_soc_cache_m
 {
     return 0;
 }
-
-int device_create_file(struct device *dev, const struct device_attribute *attr)
-{
-    return 0;
-}
-
-void device_remove_file(struct device *dev, const struct device_attribute *attr)
-{
-}

@@ -90,7 +90,7 @@ int device_create_file(struct device *device,
 	return 0;
 }
 
-void device_create_file(struct device *device,
+void device_remove_file(struct device *device,
 			const struct device_attribute *entry)
 {
 }

@@ -526,8 +526,6 @@ RmrsResult OsHelper::ReadNumaMap(const std::string &pidStr, std::string &fileCon
     // 调用脚本
     try {
         fileContent = ExecCommand(cmd);
-        UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsResourceExport] [OsHelper] Reply = " << fileContent <<".";
     } catch (...) {
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[RmrsResourceExport] [OsHelper] Cannot execute cat.sh for pid=" << pidStr << ".";

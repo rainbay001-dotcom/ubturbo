@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <set>
 #include <vector>
 #include <cstdint>
@@ -79,12 +81,13 @@ void RmrsMigrateModule::DistributeNumaMemInfo(std::vector<rmrs::NumaInfo> &numaI
         info.hugePageTotal = NumaInfoWithSize.numaMetaInfo.hugePageTotal;
         info.isRemote = NumaInfoWithSize.numaMetaInfo.isRemoteAvailable; // 可以迁出内存的numa节点 才是远端numa节点
         info.isLocal = NumaInfoWithSize.numaMetaInfo.isLocal;
+        info.isTimeOut = false;
 
-        // 在超时numa里面找到该numa节点就返回
+        // 在超时numa里面找到该numa节点就标记一下超时
         auto it = std::find(s_timeOutNumas.begin(), s_timeOutNumas.end(), info.numaId);
         if (it != s_timeOutNumas.end()) {
             LOG_WARN << "[MemMigrate][Strategy] Current numa = " << info.numaId << " is timeOut.";
-            continue;
+            info.isTimeOut = true;
         }
 
         numaInfoMap[info.numaId] = info;
@@ -93,6 +96,7 @@ void RmrsMigrateModule::DistributeNumaMemInfo(std::vector<rmrs::NumaInfo> &numaI
         LOG_DEBUG << "[MemMigrate][Strategy][DistributeNumaMemInfo] NUMA node info: numaId = " << info.numaId
                   << ", hugePageFree = " << info.hugePageFree << ", hugePageTotal = " << info.hugePageTotal
                   << ", isRemote = " << info.isRemote << ", isLocal = " << info.isLocal
+                  << ", isTimeOut = " << info.isTimeOut
                   << ", socketId = " << NumaInfoWithSize.numaMetaInfo.socketId << ".";
     }
 }
@@ -101,7 +105,7 @@ void RmrsMigrateModule::DistributeNumaMemInfo(std::vector<rmrs::NumaInfo> &numaI
 void GetRemoteNumaList(std::vector<NumaHugePageInfo> &numaHugePageInfoSumList, std::vector<uint16_t> &remoteNumaIdList)
 {
     for (NumaHugePageInfo info : numaHugePageInfoSumList) {
-        if (info.isLocal == false && info.isRemote == true) {
+        if (info.isLocal == false && info.isRemote == true && info.isTimeOut == false) {
             remoteNumaIdList.push_back(info.numaId);
             LOG_DEBUG << "[MemMigrate][Strategy] The remoteNumaIdList push_back " << info.numaId << ".";
         }
@@ -320,6 +324,12 @@ RmrsResult RmrsMigrateModule::CheckNumaAndVMStatus(const uint64_t &memMigrateTot
     ret = GetVMData(vmQueryInfo.vmDomainInfos, vmQueryInfo.allVmNumaInfoInfoList, vmQueryInfo.vmNumaInfoMap);
     if (ret != RMRS_OK) {
         LOG_ERROR << "[MemMigrate][Strategy] Failed to get VM data.";
+        return RMRS_ERROR;
+    }
+    // 如果输入的超时远端numa中有本地的或者不存在的，返回ERROR
+    ret = CheckTimeOutNuma(numaQueryInfo.numaHugePageInfoSumList);
+    if (ret != RMRS_OK) {
+        LOG_ERROR << "[MemMigrate][Strategy] Input remote numa ERROR.";
         return RMRS_ERROR;
     }
 
@@ -798,6 +808,36 @@ RmrsResult RmrsMigrateModule::SetBorrowPlaneParam(const std::map<pid_t, std::vec
         }
         LOG_DEBUG << "[MemMigrate][Strategy] Param pid=" << pid << " numaList=[" << oss.str() << "]";
     }
+
+    return RMRS_OK;
+}
+
+RmrsResult RmrsMigrateModule::CheckTimeOutNuma(const std::vector<NumaHugePageInfo> &numaHugePageInfoSumList)
+{
+    LOG_DEBUG << "[MemMigrate][Strategy] CheckTimeOutNuma start.";
+    std::unordered_map<uint16_t, NumaHugePageInfo> infoMap;
+    infoMap.reserve(numaHugePageInfoSumList.size());
+    for (const auto &info : numaHugePageInfoSumList) {
+        infoMap.emplace(info.numaId, info);
+    }
+
+    // 逐一检查 s_timeOutNumas
+    for (uint16_t nid : s_timeOutNumas) {
+        auto it = infoMap.find(nid);
+        if (it == infoMap.end()) {
+            LOG_ERROR << "[MemMigrate][Strategy] NumaId not found in remote list.";
+            LOG_DEBUG << "[MemMigrate][Strategy] NumaId not found in remote list, numaId=" << nid << ".";
+            return RMRS_ERROR;
+        }
+
+        const auto &info = it->second;
+        if (info.isLocal || !info.isRemote) {
+            LOG_ERROR << "[MemMigrate][Strategy] NumaId Numa state invalid.";
+            LOG_DEBUG << "[MemMigrate][Strategy] Param numaId=" << nid << "is local numaId.";
+            return RMRS_ERROR;
+        }
+    }
+    LOG_DEBUG << "[MemMigrate][Strategy] CheckTimeOutNuma end.";
 
     return RMRS_OK;
 }

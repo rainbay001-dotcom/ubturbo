@@ -61,6 +61,7 @@ struct NumaHugePageInfo {
     uint64_t hugePageFree{};
     bool isLocal;
     bool isRemote;
+    bool isTimeOut;
 };
 
 struct NumaMemStatus {
@@ -257,6 +258,8 @@ public:
                                             std::vector<rmrs::serialization::VMPresetParam> &vmPresetParam);
 
     static void PrintMigrateToNuma(const DFSContext &ctx, size_t index);
+
+    static RmrsResult CheckTimeOutNuma(const std::vector<NumaHugePageInfo> &numaHugePageInfoSumList);
 
     static const uint64_t memoryPageSize;               // 2048
     static const uint64_t memoryThreshold;              // 10240kb;

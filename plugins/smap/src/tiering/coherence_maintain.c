@@ -329,3 +329,97 @@ int flush_cache_by_pa(phys_addr_t addr, size_t size,
 
 	return ret;
 }
+
+/*
+ * The flush_tlb_XX(), when expanded, includes a function that is not
+ * symbolically exported, so stub a dummy implementation here.
+*/
+void __mmu_notifier_arch_invalidate_secondary_tlbs(struct mm_struct *mm,
+							  unsigned long start,
+							  unsigned long end)
+{
+}
+
+static int modify_single_hugetlb_prot(pte_t *pte,
+				     unsigned long hmask __always_unused,
+				     unsigned long addr,
+				     unsigned long next __always_unused,
+				     struct mm_walk *walk)
+{
+	struct vm_area_struct *vma = walk->vma;
+	spinlock_t *ptl;
+	pte_t entry;
+	unsigned long pgsize;
+	unsigned long start_pfn;
+	pgprot_t prot;
+	int ret;
+
+	ptl = huge_pte_lock(hstate_vma(vma), walk->mm, pte);
+	entry = kernel_huge_ptep_get(pte);
+	if (unlikely(!pte_present(entry))) {
+		spin_unlock(ptl);
+		return 0;
+	}
+
+	start_pfn = pte_pfn(entry);
+	pgsize = huge_page_size(hstate_vma(vma));
+
+	pte_val(entry) &= ~PTE_VALID;
+	__set_pte(pte, entry);
+	flush_tlb_range(vma, addr, addr + pgsize);
+
+	ret = set_linear_mapping_nc(start_pfn, pgsize, false);
+	if (ret) {
+		pr_warn("set kernel pgtable NC to CC failed\n");
+	}
+
+	prot = pgprot_tagged(pte_pgprot(entry));
+	entry = pte_modify(entry, prot);
+	pte_val(entry) |= PTE_VALID;
+	__set_pte(pte, entry);
+	spin_unlock(ptl);
+	return 0;
+}
+
+/**
+ * set_pid_pgtable_cacheable - maintain task pgtable and kernel pgtable
+ * @pid:	pid_t representing the target process
+ * @start:	start address of the virtual address range
+ * @size:	size of the virtual address range
+ *
+ * Recursively walk the page table tree of the process represented by @pid
+ * within the virtual address range [@start, @start + @size).
+ * 1. set the corresponding task page table attribute to invalid.
+ * 2. set the corresponding kernel page table attribute to cacheable.
+ * 3. set the corresponding task page table attribute to cacheable.
+ * 4. set the corresponding task page table attribute to valid.
+ */
+int set_pid_pgtable_cacheable(pid_t pid, unsigned long start,
+					unsigned long size)
+{
+	struct mm_struct *mm;
+	int ret = -EINVAL;
+	struct modify_info info = { 0 };
+	struct mm_walk_ops walk_ops = {
+		.hugetlb_entry = modify_single_hugetlb_prot,
+	};
+	unsigned long end = start + size;
+
+	pr_info("Start modify task and kernel pgtable to cacheable and valid, "
+			"pid: %d, size: %#lx\n", pid, size);
+	/* Get process information */
+	mm = find_get_mm_by_vpid(pid);
+	if (!mm) {
+		pr_err("Failed to get mm_struct of pid: %d\n", pid);
+		return ret;
+	}
+	mmap_write_lock(mm);
+	ret = walk_page_range(mm, start, end, &walk_ops, &info);
+	mmap_write_unlock(mm);
+	if (ret) {
+		pr_err("failed to walk a memory map's page table, pid: %d, ret: %d\n",
+		       pid, ret);
+	}
+	mmput(mm);
+	return ret;
+}

@@ -77,6 +77,10 @@ pte_t huge_ptep_get(pte_t *ptep);
 bool is_vm_hugetlb_page(struct vm_area_struct *vma);
 struct folio *get_hugetlb_folio_nodemask(unsigned long size, int preferred_nid,
 		nodemask_t *nmask, gfp_t gfp_mask, filter_hugetlb_t filter);
+static inline void flush_tlb_range(struct vm_area_struct *vma,
+                                   unsigned long start, unsigned long end)
+{
+}
 static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
                                            struct mm_struct *mm, pte_t *pte)
 {

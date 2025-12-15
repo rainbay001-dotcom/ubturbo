@@ -656,8 +656,8 @@ static int src_pgtable_maintain_rollback(struct ham_migrate_task *mig_task)
 		}
 		pr_info("page table maintain rollback, size: %zx\n",
 			ram_map->size);
-		ret = task_pgtable_within_pid_set_cacheable(
-			mig_task->pid, ram_map->hva_start, ram_map->size, true);
+		ret = set_pid_pgtable_cacheable(
+			mig_task->pid, ram_map->hva_start, ram_map->size);
 		if (ret) {
 			pr_warn("failed to set the page table attribute of relevant process\n");
 		}

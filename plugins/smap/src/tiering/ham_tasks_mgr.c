@@ -40,7 +40,8 @@ static void reset_migrate_task(struct ham_migrate_task *mig_task)
 static void release_migrate_task_inner(struct ham_migrate_task *mig_task)
 {
 	unsigned int i, j;
-	struct page *dst_page;
+	struct ham_page_map *hpm;
+
 	if (!mig_task->ram_maps) {
 		goto free_buff;
 	}
@@ -49,19 +50,14 @@ static void release_migrate_task_inner(struct ham_migrate_task *mig_task)
 			continue;
 		}
 		for (j = 0; j < mig_task->ram_maps[i].page_num; j++) {
-			if (mig_task->ram_maps[i].hpms[j].is_migrate) {
+			hpm = &mig_task->ram_maps[i].hpms[j];
+			if (hpm_test_migrate(hpm) || hpm_test_rollback(hpm)) {
 				continue;
 			}
-			if (!mig_task->ram_maps[i].hpms[j].dst_folio) {
+			if (!hpm->dst_folio) {
 				continue;
 			}
-			dst_page =
-				&mig_task->ram_maps[i].hpms[j].dst_folio->page;
-			if (!node_possible(page_to_nid(dst_page))) {
-				continue;
-			}
-			putback_hugetlb_folio(
-				mig_task->ram_maps[i].hpms[j].dst_folio);
+			putback_hugetlb_folio(hpm->dst_folio);
 		}
 	}
 free_buff:

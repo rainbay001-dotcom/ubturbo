@@ -40,11 +40,8 @@ TEST_F(HamTasksMgrTest, ReleaseMigrateTask)
     mig_task->pid = 1;
 
     struct ham_page_map *hpms = (struct ham_page_map *) calloc(3, sizeof(struct ham_page_map));
-    hpms[0].is_migrate = true;
-    hpms[1].is_migrate = false;
     hpms[1].dst_folio = reinterpret_cast<folio *>(1);
     hpms[2].dst_folio = reinterpret_cast<folio *>(1);
-    hpms[2].is_migrate = false;
 
     struct ram_block_map *ram_maps = (struct ram_block_map *) calloc(2, sizeof(struct ram_block_map));
     ram_maps[0].hpms = nullptr;

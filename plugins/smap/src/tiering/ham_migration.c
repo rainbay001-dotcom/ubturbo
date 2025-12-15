@@ -102,8 +102,8 @@ static int config_system_huge_page(unsigned long huge_page_number,
 		}
 		nr_page = h->nr_huge_pages_node[node_id];
 		if (nr_page == huge_page_number) {
-			pr_info("hugepage configuration succeeded: NUMA id = %u, nr_hugepages = %u, retry times = %d\n",
-				node_id, nr_page, retry_times);
+			pr_info("hugepage configuration succeeded: NUMA id = %u, nr_hugepages = %u, "
+				"retry times = %d\n", node_id, nr_page, retry_times);
 			filp_close(file, NULL);
 			return 0;
 		}
@@ -147,7 +147,7 @@ static int init_numa_page_map(struct ham_migrate_task *mig_task,
 	struct ram_block_info *rbi;
 	if (mig_task->numa_cnt == 0 || mig_task->numa_cnt > BATCH_NUM ||
 	    arg->cnt == 0 || arg->cnt > BATCH_NUM) {
-		pr_err("invalid params passed to init numa page map, numa_cnt = %u,  arg_cnt = %u\n",
+		pr_err("invalid params passed to init numa page map, numa_cnt = %u, arg_cnt = %u\n",
 		       mig_task->numa_cnt, arg->cnt);
 		return -ENOMEM;
 	}
@@ -290,8 +290,7 @@ static int create_numa_map(struct ham_migrate_task *mig_task,
 			map[i].hpms[j].src_numa_id = NUMA_NO_NODE;
 			map[i].hpms[j].src_folio = NULL;
 			map[i].hpms[j].dst_folio = new_folio;
-			map[i].hpms[j].is_migrate = false;
-			map[i].hpms[j].present = false;
+			map[i].hpms[j].flags = 0;
 			map[i].hpms[j].freq = 0;
 		}
 		sort(map[i].hpms, map[i].page_num, sizeof(struct ham_page_map),
@@ -333,7 +332,7 @@ static int fill_folios_hugetlb(pte_t *pte, unsigned long hmask,
 	/* Save src_folio */
 	ram_map->hpms[index].src_folio = folio;
 	ram_map->hpms[index].src_numa_id = folio_nid(folio);
-	ram_map->hpms[index].present = true;
+	hpm_set_present(&ram_map->hpms[index]);
 	return 0;
 }
 
@@ -404,7 +403,7 @@ static void sort_hpm_list(struct list_head *head, unsigned int nr_hpm)
  *          task and add them to the list.
  *
  * @mig_task:       The ham migrate task.
- * @migrate_flag:   The flag indicating whether the page to be filtered has
+ * @migrated:   	The flag indicating whether the page to be filtered has
  *          been migrated.
  * @ret_hpm_list:   The filtered list of qualified ham_page_map.
  *
@@ -412,8 +411,7 @@ static void sort_hpm_list(struct list_head *head, unsigned int nr_hpm)
  * of the ret_hpm_list.
  */
 static unsigned int queue_qualified_pages(struct ham_migrate_task *mig_task,
-					  bool migrate_flag,
-					  struct list_head *ret_hpm_list)
+					  bool migrated, struct list_head *ret_hpm_list)
 {
 	struct ram_block_map *ram_map;
 	struct ham_page_map *hpm;
@@ -423,7 +421,7 @@ static unsigned int queue_qualified_pages(struct ham_migrate_task *mig_task,
 		ram_map = &mig_task->ram_maps[i];
 		for (j = 0; j < ram_map->page_num; j++) {
 			hpm = &ram_map->hpms[j];
-			if (!hpm->present || hpm->is_migrate != migrate_flag) {
+			if (!hpm_test_present(hpm) || hpm_test_migrate(hpm) != migrated) {
 				continue;
 			}
 
@@ -483,6 +481,7 @@ static int handle_ham_migration(struct list_head *hpm_list,
 {
 	struct folio **folios;
 	unsigned int nr_succeeded, nr_folios, nr_left;
+	unsigned int retry_times = 0;
 	int ret;
 
 	if (list_empty(hpm_list)) {
@@ -496,38 +495,41 @@ static int handle_ham_migration(struct list_head *hpm_list,
 		return -ENOMEM;
 	}
 
-	/* Filter out the qualified folios and place them into an array. */
-	nr_folios = construct_page_list(hpm_list, get_migration_folio, folios);
-	if (nr_folios == 0) {
-		pr_warn(" No qualified folios were found in the hpm_list.\n");
-		kfree(folios);
-		return 0;
-	}
+	do {
+		/* Filter out the qualified folios and place them into an array. */
+		nr_folios = construct_page_list(hpm_list, get_migration_folio, folios);
+		if (nr_folios == 0) {
+			pr_warn("no qualified folios were found in the hpm_list\n");
+			kfree(folios);
+			return 0;
+		}
 
-	/* Use the MIGRATE_SYNC migrate_mode, and retrying seems unnecessary. */
-	ret = isolate_and_migrate_folios(folios, nr_folios, get_new_folio,
-					 put_new_folio, (uintptr_t)hpm_list,
-					 MIGRATE_SYNC, &nr_succeeded);
-	nr_left = (nr_folios << (PMD_SHIFT - PAGE_SHIFT)) - nr_succeeded;
-	if (nr_left || ret) {
-		pr_info("isolate and migrate folios failed, ret: %d, nr_folios: %u, nr_successed: %u, nr_left: %u\n",
-			ret, nr_folios, nr_succeeded, nr_left);
-		kfree(folios);
-		return -EPERM;
-	}
+		nr_succeeded = 0;
+		/* Use the MIGRATE_SYNC migrate_mode and keep retrying until successful. */
+		ret = isolate_and_migrate_folios(folios, nr_folios, get_new_folio,
+						put_new_folio, (uintptr_t)hpm_list,
+						MIGRATE_SYNC, &nr_succeeded);
+		nr_left = (nr_folios << (PMD_SHIFT - PAGE_SHIFT)) - nr_succeeded;
+		if (!nr_left && !ret)
+			break;
+		pr_info("isolate and migrate folios failed, retry_times: %u, ret: %d, "
+			"nr_folios: %u, nr_successed: %u, nr_left: %u\n",
+			retry_times, ret, nr_folios, nr_succeeded, nr_left);
+		ret = -EPERM;
+	} while (retry_times++ < MAX_RETRY_TIMES);
 
 	kfree(folios);
-	return 0;
+	return ret;
 }
 
 inline struct folio *get_folio_migrate_out(struct ham_page_map *hpm)
 {
-	return hpm->src_folio;
+	return hpm_test_migrate(hpm) ? NULL : hpm->src_folio;
 }
 
 inline struct folio *get_folio_migrate_back(struct ham_page_map *hpm)
 {
-	return hpm->dst_folio;
+	return hpm_test_rollback(hpm) ? NULL : hpm->dst_folio;
 }
 
 struct folio *get_new_folio(struct folio *folio, unsigned long private)
@@ -536,14 +538,15 @@ struct folio *get_new_folio(struct folio *folio, unsigned long private)
 	struct list_head *hpm_list = (struct list_head *)private;
 
 	list_for_each_entry(hpm, hpm_list, list) {
-		if (hpm->is_migrate || !hpm->present)
+		if (hpm_test_migrate(hpm) || !hpm_test_present(hpm))
 			continue;
 
 		if (hpm->src_folio == folio) {
-			hpm->is_migrate = true;
+			hpm_set_migrate(hpm);
 			return hpm->dst_folio;
 		}
 	}
+	pr_warn("%s: no matched src folio\n", __func__);
 	return NULL;
 }
 
@@ -553,31 +556,56 @@ void put_new_folio(struct folio *folio, unsigned long private)
 	struct list_head *hpm_list = (struct list_head *)private;
 
 	list_for_each_entry(hpm, hpm_list, list) {
-		if (!hpm->is_migrate || !hpm->present)
+		if (!hpm_test_migrate(hpm) || !hpm_test_present(hpm))
 			continue;
 
 		if (hpm->dst_folio == folio) {
-			hpm->is_migrate = false;
+			hpm_clear_migrate(hpm);
 			return;
 		}
 	}
-	pr_warn("no matched folio to put\n");
+	pr_warn("%s: no matched dst folio\n", __func__);
 }
 
-struct folio *get_new_folio_rollBack(struct folio *folio, unsigned long private)
+struct folio *get_new_folio_rollback(struct folio *folio, unsigned long private)
 {
 	struct ham_page_map *hpm;
 	struct list_head *hpm_list = (struct list_head *)private;
 
 	list_for_each_entry(hpm, hpm_list, list) {
-		if (!hpm->is_migrate || !hpm->present)
+		if (hpm_test_rollback(hpm) || !hpm_test_present(hpm) ||
+			!hpm_test_migrate(hpm))
 			continue;
 
 		if (hpm->dst_folio == folio) {
-			return ham_alloc_huge_page_node(hpm->src_numa_id);
+			hpm_set_rollback(hpm);
+			hpm->src_folio = ham_alloc_huge_page_node(hpm->src_numa_id);
+			return hpm->src_folio;
 		}
 	}
+	pr_warn("%s: no matched src folio\n", __func__);
 	return NULL;
+}
+
+void put_new_folio_rollback(struct folio *folio, unsigned long private)
+{
+	struct ham_page_map *hpm;
+	struct list_head *hpm_list = (struct list_head *)private;
+
+	/* Put it anyway. */
+	putback_hugetlb_folio(folio);
+
+	list_for_each_entry(hpm, hpm_list, list) {
+		if (!hpm_test_rollback(hpm) || !hpm_test_present(hpm) ||
+			!hpm_test_migrate(hpm))
+			continue;
+
+		if (hpm->src_folio == folio) {
+			hpm_clear_rollback(hpm);
+			return;
+		}
+	}
+	pr_warn("%s: no matched dst folio\n", __func__);
 }
 
 static int ham_cache_clear(pid_t pid, struct ham_migrate_task *mig_task)
@@ -1000,7 +1028,7 @@ static long ioctl_rollback_pages(unsigned long arg)
 	}
 
 	ret = handle_ham_migration(&hpm_list, nr_hpm, get_folio_migrate_back,
-				   get_new_folio_rollBack, NULL);
+				   get_new_folio_rollback, put_new_folio_rollback);
 	if (ret) {
 		pr_err("failed to rollback pages, pid: %d\n", mig_task->pid);
 	}

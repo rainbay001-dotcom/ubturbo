@@ -40,6 +40,9 @@ int kernel_pgtable_within_mm_set_valid(struct mm_struct *mm,
 int kernel_pgtable_within_pid_set_valid(pid_t pid, unsigned long start,
 					unsigned long size, bool valid);
 
+int set_pid_pgtable_cacheable(pid_t pid, unsigned long start,
+					unsigned long size);
+
 static inline int kernel_pgtable_within_pa_set_cacheable(unsigned long start,
 							 unsigned long size,
 							 bool cacheable)

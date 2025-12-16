@@ -15,7 +15,7 @@
   - 配置项中key对应插件的插件名称(需要与插件自身配置文件中的名称相对应)，value为初始化函数中需要使用的moduleCode
   - moduleCode是唯一值
   - 进程启动成功后，通过执行以下命令来查询哪些插件已加载:
-    `cat /var/log/ubturbo/turbo.log | grep "loaded successfully"`
+    `cat /var/log/ubturbo/ubturbo.log | grep "loaded successfully"`
 **rmrs插件示例：**
 
 | 序号 | 参数 | 说明 | 取值 | 配置节点 | 应用场景 |

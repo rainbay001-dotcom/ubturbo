@@ -54,14 +54,14 @@ SYSTEM_GROUP="ubturbo"
 执行以下命令查询SMAP包是否安装。
 
 ```bash
-rpm -qa | grep smap
+rpm -qa | grep ubturbo-smap
 ```
 
 若返回如下信息，表示安装成功。
 
 ```bash
-[root@controller ~]# rpm -qa | grep smap
-smap-6.0.30-1.x1.eulerx_a2.aarch64
+[root@controller ~]# rpm -qa | grep ubturbo-smap
+ubturbo-smap-*.aarch64
 ```
 
 如未安装SMAP，需先安装SMAP。
@@ -92,7 +92,7 @@ rpm -qa | grep ubturbo-rmrs
 
 ```bash
 [root@controller ~]# rpm -qa | grep ubturbo-rmrs
-ubturbo-rmrs-1.0.0-1.aarch64
+ubturbo-rmrs-*.aarch64
 ```
 ## 2.6 按实际需求修改配置文件
 
@@ -123,7 +123,7 @@ ubturbo-rmrs-1.0.0-1.aarch64
   * moduleCode是唯一值。
 * 进程启动成功后，通过执行以下命令来查询哪些插件已加载成功:
   ```bash
-  cat /var/log/ubturbo/turbo.log | grep "loaded successfully"
+  cat /var/log/ubturbo/ubturbo.log | grep "loaded successfully"
   ```
 
 ## 2.7 启动ubturbo服务
@@ -183,12 +183,12 @@ journalctl -u ubturbo
 - 升级
   
   ```bash
-  rpm -Uvh ubturbo-rmrs-1.0.1-1.aarch64.rpm
+  rpm -Uvh ubturbo-rmrs-*.aarch64.rpm
   ```
 - 回退
   
   ```bash
-  rpm -Uvh --oldpackage ubturbo-rmrs-1.0.0-1.aarch64.rpm
+  rpm -Uvh --oldpackage ubturbo-rmrs-*.aarch64.rpm
   ```
 
 **说明：**

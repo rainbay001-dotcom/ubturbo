@@ -460,6 +460,8 @@ std::string OsHelper::ExecCommand(const std::string &cmd)
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsResourceExport] [OsHelper] ExecCommand start.";
     std::array<char, CMD_BUFFER_SIZE> buffer;
     std::string result;
+    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
+        << "[RmrsResourceExport] [OsHelper] ExecCommand cmd = " << cmd << ".";
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsResourceExport] [OsHelper] Failed to popen!";

@@ -3,7 +3,7 @@
 RMRS(Rack Memory Resource Schedule)是一款开源的内存迁移工具, 是ubturbo框架的插件，其搭配OBMM、底层调用SMAP使用，可以决策及执行将虚拟机的内存迁出到远端以及决策、执行将内存迁回.
 
 - 提供内存迁移策略、内存迁移执行、内存迁回、节点/进程内存信息采集、pagecache迁移执行的功能
-- 面向通算虚拟化场景
+- 面向灵衢架构的通算虚拟化场景
 - 是UBTurbo中的一个组件，依赖SMAP
 
 # Usage Example

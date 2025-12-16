@@ -56,6 +56,8 @@ public:
 
     static RmrsResult ReadNumaMap(const std::string &pidStr, std::string &fileContent);
 
+    static RmrsResult checkUidEuid(const std::string &fileContent);
+
 private:
     static string cpuSocketPathPrefix;
     static string cpuSocketPath;

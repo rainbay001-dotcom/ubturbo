@@ -787,10 +787,9 @@ static int check_rmt_numa_info(struct ram_block_info *rbi)
 		return 0;
 	}
 
-	if (rbi->rmt_numa_id >= MAX_NUMNODES ||
+    if (rbi->rmt_numa_id < 0 || rbi->rmt_numa_id >= MAX_NUMNODES ||
 	    !numa_is_remote_node(rbi->rmt_numa_id)) {
-		pr_err("node: %u is not a remote NUMA node\n",
-		       rbi->rmt_numa_id);
+        pr_err("node: %d is not a remote NUMA node\n", rbi->rmt_numa_id);
 		return -EINVAL;
 	}
 

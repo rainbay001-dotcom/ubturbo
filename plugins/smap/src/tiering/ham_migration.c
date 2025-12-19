@@ -37,6 +37,7 @@
 #define TIME_LENTH (msecs_to_jiffies(2000))
 #define FINISH_LENGTH ((jiffies) + (msecs_to_jiffies(60000)))
 #define MAX_RETRY_TIMES 1000
+#define MIGRATE_INTERVAL_MSEC 10
 #define WAITE_TIME 100
 #define MAX_HUGEPAGE_NUM (256 * 512)
 #define MAX_DATA_SIZE 10
@@ -496,6 +497,8 @@ static int handle_ham_migration(struct list_head *hpm_list,
 	}
 
 	do {
+		if (retry_times)
+			msleep(MIGRATE_INTERVAL_MSEC);
 		/* Filter out the qualified folios and place them into an array. */
 		nr_folios = construct_page_list(hpm_list, get_migration_folio, folios);
 		if (nr_folios == 0) {

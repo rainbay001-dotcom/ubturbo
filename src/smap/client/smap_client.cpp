@@ -348,7 +348,7 @@ int ubturbo_smap_remote_numa_info_set(struct SetRemoteNumaInfoMsg *msg)
     return ret;
 }
 
-int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut, int dataSource)
+int ubturbo_smap_freq_query(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut, int dataSource)
 {
     TurboByteBuffer send;
     TurboByteBuffer recv;
@@ -357,24 +357,24 @@ int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint1
         IPC_CLIENT_LOGGER_ERROR("[Smap] Query vm freq data or lengthOut is null.\n");
         return -EINVAL;
     }
-    if (lengthIn == 0 || lengthIn > MAX_NR_OF_QUERY_VM_FREQ_HCCS) {
+    if (lengthIn == 0) {
         IPC_CLIENT_LOGGER_ERROR("[Smap] Query vm freq lengthIn is %d.\n", lengthIn);
         return -EINVAL;
     }
     int ret = handler.EncodeRequest(send, pid, lengthIn, dataSource);
     if (ret) {
-        IPC_CLIENT_LOGGER_ERROR("[Smap] ubturbo_smap_vm_freq_query Encode request error %d.\n", ret);
+        IPC_CLIENT_LOGGER_ERROR("[Smap] ubturbo_smap_freq_query Encode request error %d.\n", ret);
         return IPC_ERROR;
     }
-    uint32_t ipcRet = UBTurboFunctionCaller("ubturbo_smap_vm_freq_query", send, recv);
+    uint32_t ipcRet = UBTurboFunctionCaller("ubturbo_smap_freq_query", send, recv);
     if (ipcRet != IPC_OK) {
-        IPC_CLIENT_LOGGER_ERROR("[Smap] Call ubturbo_smap_vm_freq_query error %u.\n", ipcRet);
+        IPC_CLIENT_LOGGER_ERROR("[Smap] Call ubturbo_smap_freq_query error %u.\n", ipcRet);
         delete[] send.data;
         return ipcRet;
     }
     int result = handler.DecodeResponse(recv, data, *lengthOut, ret);
     if (result == IPC_ERROR) {
-        IPC_CLIENT_LOGGER_ERROR("[Smap] ubturbo_smap_vm_freq_query Decode response error %d.\n", result);
+        IPC_CLIENT_LOGGER_ERROR("[Smap] ubturbo_smap_freq_query Decode response error %d.\n", result);
         ret = IPC_ERROR;
     }
     delete[] send.data;

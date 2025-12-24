@@ -36,7 +36,7 @@ using SmapInitFunc = int (*)(uint32_t pageType, Logfunc extlog);
 using SmapStopFunc = int (*)(void);
 using SmapUrgentMigrateOutFunc = void (*)(uint64_t size);
 using SetSmapRemoteNumaInfoFunc = int (*)(struct SetRemoteNumaInfoMsg *msg);
-using SmapQueryVmFreqFunc = int (*)(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut, int dataSource);
+using SmapQueryFreqFunc = int (*)(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut, int dataSource);
 using SetSmapRunModeFunc = int (*)(int runMode);
 using SmapIsRunningFunc = bool (*)(void);
 using SmapMigrateOutSyncFunc = int (*)(struct MigrateOutMsg *msg, int pidType, uint64_t maxWaitTime);
@@ -79,7 +79,7 @@ RetCode SmapAddProcessTrackingHandler(const TurboByteBuffer &inputBuffer, TurboB
 RetCode SmapRemoveProcessTrackingHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
 RetCode SmapEnableProcessMigrateHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
 RetCode SetSmapRemoteNumaInfoHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
-RetCode SmapQueryVmFreqHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
+RetCode SmapQueryFreqHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
 RetCode SetSmapRunModeHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
 RetCode SmapIsRunningHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);
 RetCode SmapMigrateOutSyncHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer);

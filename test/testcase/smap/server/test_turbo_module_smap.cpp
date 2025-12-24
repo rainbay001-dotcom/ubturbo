@@ -548,7 +548,7 @@ TEST_F(TestTurboModuleSmap, SetSmapRemoteNumaInfoHandlerFailed)
     EXPECT_EQ(result, TURBO_ERROR);
 }
 
-TEST_F(TestTurboModuleSmap, SmapQueryVmFreqHandlerTest)
+TEST_F(TestTurboModuleSmap, SmapQueryFreqHandlerTest)
 {
     TurboByteBuffer inputBuffer;
     TurboByteBuffer outputBuffer;
@@ -558,11 +558,11 @@ TEST_F(TestTurboModuleSmap, SmapQueryVmFreqHandlerTest)
     StubSmapPtr();
     SmapQueryVmFreqCodec codec;
     codec.EncodeRequest(inputBuffer, pid, lengthIn, 0);
-    RetCode result = SmapQueryVmFreqHandler(inputBuffer, outputBuffer);
+    RetCode result = SmapQueryFreqHandler(inputBuffer, outputBuffer);
     EXPECT_EQ(result, TURBO_OK);
 }
 
-TEST_F(TestTurboModuleSmap, SmapQueryVmFreqHandlerFailed)
+TEST_F(TestTurboModuleSmap, SmapQueryFreqHandlerFailed)
 {
     TurboByteBuffer inputBuffer;
     TurboByteBuffer outputBuffer;
@@ -573,14 +573,14 @@ TEST_F(TestTurboModuleSmap, SmapQueryVmFreqHandlerFailed)
         .stubs()
         .will(returnValue(-EINVAL))
         .then(returnValue(0));
-    RetCode result = SmapQueryVmFreqHandler(inputBuffer, outputBuffer);
+    RetCode result = SmapQueryFreqHandler(inputBuffer, outputBuffer);
     EXPECT_EQ(result, TURBO_ERROR);
 
     MOCKER_CPP(&SmapQueryVmFreqCodec::EncodeResponse,
                int (*)(TurboByteBuffer &buffer, uint16_t * data, uint16_t lengthOut, int returnValue))
         .stubs()
         .will(returnValue(-EINVAL));
-    result = SmapQueryVmFreqHandler(inputBuffer, outputBuffer);
+    result = SmapQueryFreqHandler(inputBuffer, outputBuffer);
     EXPECT_EQ(result, TURBO_ERROR);
 }
 

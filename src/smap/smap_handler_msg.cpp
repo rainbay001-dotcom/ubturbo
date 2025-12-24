@@ -672,9 +672,9 @@ int SetSmapRemoteNumaInfoCodec::DecodeResponse(TurboByteBuffer &buffer)
     return *static_cast<int *>(static_cast<void *>(buffer.data));
 }
 
-int SmapQueryVmFreqCodec::EncodeRequest(TurboByteBuffer &buffer, int pid, uint16_t lengthIn, int dataSource)
+int SmapQueryVmFreqCodec::EncodeRequest(TurboByteBuffer &buffer, int pid, uint32_t lengthIn, int dataSource)
 {
-    size_t size = sizeof(int) + sizeof(uint16_t) + sizeof(int);
+    size_t size = sizeof(int) + sizeof(uint32_t) + sizeof(int);
     buffer.data = new (std::nothrow) uint8_t[size];
     if (!buffer.data) {
         return -EINVAL;
@@ -684,12 +684,12 @@ int SmapQueryVmFreqCodec::EncodeRequest(TurboByteBuffer &buffer, int pid, uint16
         SmapResetBuf(&buffer);
         return ret;
     }
-    ret = memcpy_s(buffer.data + sizeof(int), size - sizeof(int), &lengthIn, sizeof(uint16_t));
+    ret = memcpy_s(buffer.data + sizeof(int), size - sizeof(int), &lengthIn, sizeof(uint32_t));
     if (ret) {
         SmapResetBuf(&buffer);
         return ret;
     }
-    ret = memcpy_s(buffer.data + sizeof(int) + sizeof(uint16_t), size - sizeof(int) - sizeof(uint16_t),
+    ret = memcpy_s(buffer.data + sizeof(int) + sizeof(uint32_t), size - sizeof(int) - sizeof(uint32_t),
         &dataSource, sizeof(int));
     if (ret) {
         SmapResetBuf(&buffer);
@@ -699,25 +699,21 @@ int SmapQueryVmFreqCodec::EncodeRequest(TurboByteBuffer &buffer, int pid, uint16
     return ret;
 }
 
-int SmapQueryVmFreqCodec::DecodeRequest(const TurboByteBuffer &buffer, int &pid, uint16_t &lengthIn, int &dataSource)
+int SmapQueryVmFreqCodec::DecodeRequest(const TurboByteBuffer &buffer, int &pid, uint32_t &lengthIn, int &dataSource)
 {
-    if (buffer.len < sizeof(int) + sizeof(uint16_t) + sizeof(int)) {
+    if (buffer.len < sizeof(int) + sizeof(uint32_t) + sizeof(int)) {
         return -EINVAL;
     }
     pid = *static_cast<int *>(static_cast<void *>(buffer.data));
-    lengthIn = *static_cast<uint16_t *>(static_cast<void *>(buffer.data + sizeof(int)));
-    dataSource= *static_cast<uint16_t *>(static_cast<void *>(buffer.data + sizeof(int) + sizeof(uint16_t)));
+    lengthIn = *static_cast<uint32_t *>(static_cast<void *>(buffer.data + sizeof(int)));
+    dataSource= *static_cast<int *>(static_cast<void *>(buffer.data + sizeof(int) + sizeof(uint32_t)));
     return 0;
 }
 
-int SmapQueryVmFreqCodec::EncodeResponse(TurboByteBuffer &buffer, uint16_t *data, uint16_t lengthOut, int returnValue)
+int SmapQueryVmFreqCodec::EncodeResponse(TurboByteBuffer &buffer, uint16_t *data, uint32_t lengthOut, int returnValue)
 {
-    uint16_t length = lengthOut;
-    if (length > MAX_NR_OF_QUERY_VM_FREQ_HCCS) {
-        IPC_CLIENT_LOGGER_ERROR("LengthOut value %d is out of limit %d.\n", length, MAX_NR_OF_QUERY_VM_FREQ_HCCS);
-        return -1;
-    }
-    size_t size = sizeof(int) + sizeof(uint16_t) + length * sizeof(uint16_t);
+    uint32_t length = lengthOut;
+    size_t size = sizeof(int) + sizeof(uint32_t) + length * sizeof(uint16_t);
     buffer.data = new (std::nothrow) uint8_t[size];
     if (!buffer.data) {
         return -EINVAL;
@@ -727,13 +723,13 @@ int SmapQueryVmFreqCodec::EncodeResponse(TurboByteBuffer &buffer, uint16_t *data
         SmapResetBuf(&buffer);
         return ret;
     }
-    ret = memcpy_s(buffer.data + sizeof(int), size - sizeof(int), &length, sizeof(uint16_t));
+    ret = memcpy_s(buffer.data + sizeof(int), size - sizeof(int), &length, sizeof(uint32_t));
     if (ret) {
         SmapResetBuf(&buffer);
         return ret;
     }
     if (length) {
-        ret = memcpy_s(buffer.data + sizeof(int) + sizeof(uint16_t), size - sizeof(int) - sizeof(uint16_t), data,
+        ret = memcpy_s(buffer.data + sizeof(int) + sizeof(uint32_t), size - sizeof(int) - sizeof(uint32_t), data,
                        length * sizeof(uint16_t));
         if (ret) {
             SmapResetBuf(&buffer);
@@ -745,25 +741,21 @@ int SmapQueryVmFreqCodec::EncodeResponse(TurboByteBuffer &buffer, uint16_t *data
     return ret;
 }
 
-int SmapQueryVmFreqCodec::DecodeResponse(const TurboByteBuffer &buffer, uint16_t *data, uint16_t &lengthOut,
+int SmapQueryVmFreqCodec::DecodeResponse(const TurboByteBuffer &buffer, uint16_t *data, uint32_t &lengthOut,
                                          int &returnValue)
 {
-    if (buffer.len < sizeof(int) + sizeof(uint16_t)) {
+    if (buffer.len < sizeof(int) + sizeof(uint32_t)) {
         return IPC_ERROR;
     }
     returnValue = *static_cast<int *>(static_cast<void *>(buffer.data));
-    uint16_t length = *static_cast<uint16_t *>(static_cast<void *>(buffer.data + sizeof(int)));
-    if (length > MAX_NR_OF_QUERY_VM_FREQ_HCCS) {
-        IPC_CLIENT_LOGGER_ERROR("Length: %d is out of limit %d.\n", length, MAX_NR_OF_QUERY_VM_FREQ_HCCS);
-        return IPC_ERROR;
-    }
+    uint32_t length = *static_cast<uint32_t *>(static_cast<void *>(buffer.data + sizeof(int)));
     int ret = IPC_OK;
     if (length) {
-        if (buffer.len < sizeof(int) + sizeof(uint16_t) + length * sizeof(uint16_t)) {
+        if (buffer.len < sizeof(int) + sizeof(uint32_t) + length * sizeof(uint16_t)) {
             IPC_CLIENT_LOGGER_ERROR("Buffer len is less than the required value.\n");
             return IPC_ERROR;
         }
-        ret = memcpy_s(data, length * sizeof(uint16_t), buffer.data + sizeof(int) + sizeof(uint16_t),
+        ret = memcpy_s(data, length * sizeof(uint16_t), buffer.data + sizeof(int) + sizeof(uint32_t),
                        length * sizeof(uint16_t));
         if (ret) {
             return IPC_ERROR;

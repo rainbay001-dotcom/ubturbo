@@ -113,10 +113,10 @@ public:
 
 class SmapQueryVmFreqCodec {
 public:
-    int EncodeRequest(TurboByteBuffer &buffer, int pid, uint16_t lengthIn, int dataSource);
-    int DecodeRequest(const TurboByteBuffer &buffer, int &pid, uint16_t &lengthIn, int &dataSource);
-    int EncodeResponse(TurboByteBuffer &buffer, uint16_t *data, uint16_t lengthOut, int returnValue);
-    int DecodeResponse(const TurboByteBuffer &buffer, uint16_t *data, uint16_t &lengthOut, int &returnValue);
+    int EncodeRequest(TurboByteBuffer &buffer, int pid, uint32_t lengthIn, int dataSource);
+    int DecodeRequest(const TurboByteBuffer &buffer, int &pid, uint32_t &lengthIn, int &dataSource);
+    int EncodeResponse(TurboByteBuffer &buffer, uint16_t *data, uint32_t lengthOut, int returnValue);
+    int DecodeResponse(const TurboByteBuffer &buffer, uint16_t *data, uint32_t &lengthOut, int &returnValue);
 };
 
 class SetSmapRunModeCodec {

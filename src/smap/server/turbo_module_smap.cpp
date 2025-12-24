@@ -43,7 +43,7 @@ static SmapInitFunc g_smapInit = nullptr;
 static SmapStopFunc g_smapStop = nullptr;
 static SmapUrgentMigrateOutFunc g_smapUrgentMigrateOut = nullptr;
 static SetSmapRemoteNumaInfoFunc g_setSmapRemoteNumaInfo = nullptr;
-static SmapQueryVmFreqFunc g_smapQueryVmFreq = nullptr;
+static SmapQueryFreqFunc g_smapQueryVmFreq = nullptr;
 static SetSmapRunModeFunc g_setSmapRunMode = nullptr;
 static SmapIsRunningFunc g_smapIsRunning = nullptr;
 static SmapMigrateOutSyncFunc g_smapMigrateOutSync = nullptr;
@@ -306,24 +306,24 @@ RetCode SetSmapRemoteNumaInfoHandler(const TurboByteBuffer &inputBuffer, TurboBy
     return TURBO_OK;
 }
 
-RetCode SmapQueryVmFreqHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer)
+RetCode SmapQueryFreqHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer)
 {
     int pid;
-    uint16_t lengthIn;
+    uint32_t lengthIn;
     int dataSource;
     SmapQueryVmFreqCodec codec;
     int ret = codec.DecodeRequest(inputBuffer, pid, lengthIn, dataSource);
     if (ret) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) <<
-                        "[Smap] SmapQueryVmFreqHandler DecodeRequest error " << ret;
+                        "[Smap] SmapQueryFreqHandler DecodeRequest error " << ret;
         return TURBO_ERROR;
     }
     uint16_t data[lengthIn];
-    uint16_t lengthOut = lengthIn;
+    uint32_t lengthOut = lengthIn;
     int result = g_smapQueryVmFreq(pid, data, lengthIn, &lengthOut, dataSource);
     ret = codec.EncodeResponse(outputBuffer, data, lengthOut, result);
     if (ret) {
-        UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] SmapQueryVmFreqHandler EncodeResponse error " << ret;
+        UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] SmapQueryFreqHandler EncodeResponse error " << ret;
         return TURBO_ERROR;
     }
     return TURBO_OK;
@@ -613,7 +613,7 @@ int OpenSmapHandler()
     g_smapStop = (SmapStopFunc)dlsym(g_smapHandler, "ubturbo_smap_stop");
     g_smapUrgentMigrateOut = (SmapUrgentMigrateOutFunc)dlsym(g_smapHandler, "ubturbo_smap_urgent_migrate_out");
     g_setSmapRemoteNumaInfo = (SetSmapRemoteNumaInfoFunc)dlsym(g_smapHandler, "ubturbo_smap_remote_numa_info_set");
-    g_smapQueryVmFreq = (SmapQueryVmFreqFunc)dlsym(g_smapHandler, "ubturbo_smap_vm_freq_query");
+    g_smapQueryVmFreq = (SmapQueryFreqFunc)dlsym(g_smapHandler, "ubturbo_smap_freq_query");
     g_setSmapRunMode = (SetSmapRunModeFunc)dlsym(g_smapHandler, "ubturbo_smap_run_mode_set");
     g_smapIsRunning = (SmapIsRunningFunc)dlsym(g_smapHandler, "ubturbo_smap_is_running");
     g_smapMigrateOutSync = (SmapMigrateOutSyncFunc)dlsym(g_smapHandler, "ubturbo_smap_migrate_out_sync");
@@ -662,7 +662,7 @@ void RegSmapHandler()
     UBTurboRegIpcService("ubturbo_smap_process_tracking_remove", SmapRemoveProcessTrackingHandler);
     UBTurboRegIpcService("ubturbo_smap_process_migrate_enable", SmapEnableProcessMigrateHandler);
     UBTurboRegIpcService("ubturbo_smap_remote_numa_info_set", SetSmapRemoteNumaInfoHandler);
-    UBTurboRegIpcService("ubturbo_smap_vm_freq_query", SmapQueryVmFreqHandler);
+    UBTurboRegIpcService("ubturbo_smap_freq_query", SmapQueryFreqHandler);
     UBTurboRegIpcService("ubturbo_smap_run_mode_set", SetSmapRunModeHandler);
     UBTurboRegIpcService("ubturbo_smap_is_running", SmapIsRunningHandler);
     UBTurboRegIpcService("ubturbo_smap_migrate_out_sync", SmapMigrateOutSyncHandler);
@@ -685,7 +685,7 @@ void UnRegSmapHandler()
     UBTurboUnRegIpcService("ubturbo_smap_process_tracking_remove");
     UBTurboUnRegIpcService("ubturbo_smap_process_migrate_enable");
     UBTurboUnRegIpcService("ubturbo_smap_remote_numa_info_set");
-    UBTurboUnRegIpcService("ubturbo_smap_vm_freq_query");
+    UBTurboUnRegIpcService("ubturbo_smap_freq_query");
     UBTurboUnRegIpcService("ubturbo_smap_run_mode_set");
     UBTurboUnRegIpcService("ubturbo_smap_is_running");
     UBTurboUnRegIpcService("ubturbo_smap_migrate_out_sync");

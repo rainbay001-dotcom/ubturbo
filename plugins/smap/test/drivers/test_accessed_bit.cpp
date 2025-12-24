@@ -638,8 +638,8 @@ TEST_F(AccessedBitTest, getHvaInfoByScanKvmMemslots)
     free(vaddrs);
 }
 
-extern "C" int alloc_vaddr_info(struct kvm *kvm, struct hva_info **hva_vec, u64 **vaddrs, u64 total_huge_page_nr);
-TEST_F(AccessedBitTest, alloc_vaddr_info)
+extern "C" int alloc_vaddr_info_vm(struct kvm *kvm, struct hva_info **hva_vec, u64 **vaddrs, u64 total_huge_page_nr);
+TEST_F(AccessedBitTest, alloc_vaddr_info_vm)
 {
     struct kvm kvm;
     struct kvm_pgtable p_pgt;
@@ -647,10 +647,10 @@ TEST_F(AccessedBitTest, alloc_vaddr_info)
     u64 *vaddrs;
 
     kvm.arch.mmu.pgt = &p_pgt;
-    int ret = alloc_vaddr_info(nullptr, nullptr, nullptr, 0);
+    int ret = alloc_vaddr_info_vm(nullptr, nullptr, nullptr, 0);
     EXPECT_EQ(-EINVAL, ret);
 
-    ret = alloc_vaddr_info(&kvm, &hva_vec, &vaddrs, 1);
+    ret = alloc_vaddr_info_vm(&kvm, &hva_vec, &vaddrs, 1);
     EXPECT_EQ(0, ret);
 
     vfree(hva_vec);
@@ -718,7 +718,7 @@ TEST_F(AccessedBitTest, scan_hva_info)
     MOCKER(post_scan_kvm_memslots).stubs();
     MOCKER(get_kvm_by_pid).stubs().will(returnValue(0));
     MOCKER(get_total_huge_page_nr).stubs().will(returnValue(0));
-    MOCKER(alloc_vaddr_info).stubs().will(returnValue(-1));
+    MOCKER(alloc_vaddr_info_vm).stubs().will(returnValue(-1));
     ret = scan_hva_info(pid_nr, &l1_page_num, &l2_page_num, &l1_vaddr, &l2_vaddr);
     EXPECT_EQ(-1, ret);
 }
@@ -781,29 +781,40 @@ TEST_F(AccessedBitTest, check_pte_young)
     EXPECT_EQ(0, ret);
 }
 
-extern "C" int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr,
-                              unsigned long end_vaddr, struct pte_walk *pte_walk);
+static int pte_entry_noop(pte_t *ptep, unsigned long addr, unsigned long next,
+                          struct mm_walk *walk)
+{
+    return 0;
+}
+
+const struct mm_walk_ops pte_range_ops = {
+	.pte_entry = pte_entry_noop,
+};
+
+extern "C" int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr, unsigned long end_vaddr,
+                              struct pte_walk *pte_walk, const struct mm_walk_ops *ops);
 TEST_F(AccessedBitTest, small_vma_walk)
 {
     MOCKER(mmap_read_lock_killable).stubs().will(returnValue(1));
 
-    int ret = small_vma_walk(nullptr, 1, 10, nullptr);
+    int ret = small_vma_walk(nullptr, 1, 10, nullptr, &pte_range_ops);
     EXPECT_EQ(1, ret);
 
     GlobalMockObject::verify();
     MOCKER(mmap_read_lock_killable).stubs().will(returnValue(0));
     MOCKER(walk_page_range).stubs().will(returnValue(1));
-    ret = small_vma_walk(nullptr, 1, 10, nullptr);
+    ret = small_vma_walk(nullptr, 1, 10, nullptr, &pte_range_ops);
     EXPECT_EQ(1, ret);
 
     GlobalMockObject::verify();
     MOCKER(mmap_read_lock_killable).stubs().will(returnValue(0));
     MOCKER(walk_page_range).stubs().will(returnValue(0));
-    ret = small_vma_walk(nullptr, 1, 10, nullptr);
+    ret = small_vma_walk(nullptr, 1, 10, nullptr, &pte_range_ops);
     EXPECT_EQ(0, ret);
 }
 
-extern "C" int huge_vma_walk(struct mm_struct *mm, struct smap_vma_struct *vma, struct pte_walk *pte_walk);
+extern "C" int huge_vma_walk(struct mm_struct *mm, struct smap_vma_struct *vma, struct pte_walk *pte_walk,
+                             const struct mm_walk_ops *ops);
 TEST_F(AccessedBitTest, huge_vma_walk)
 {
     struct smap_vma_struct vma;
@@ -811,7 +822,7 @@ TEST_F(AccessedBitTest, huge_vma_walk)
     vma.start_vaddr = 0;
     vma.end_vaddr = 0x100;
     MOCKER(small_vma_walk).stubs().will(returnValue(0));
-    int ret = huge_vma_walk(nullptr, &vma, nullptr);
+    int ret = huge_vma_walk(nullptr, &vma, nullptr, nullptr);
     EXPECT_EQ(0, ret);
 }
 
@@ -856,9 +867,9 @@ TEST_F(AccessedBitTest, scan_accessed_bit_forward_mm)
     int ret;
     int pid = 1234;
     MOCKER(scan_forward_4k_mm).stubs().will(returnValue(1));
-    ret = scan_accessed_bit_forward_mm(pid, PAGE_SIZE_4K);
+    ret = scan_accessed_bit_forward_mm(pid, PAGE_SIZE_4K, NORMAL_SCAN);
     EXPECT_EQ(1, ret);
 
-    ret = scan_accessed_bit_forward_mm(pid, PAGE_SIZE_2M);
+    ret = scan_accessed_bit_forward_mm(pid, PAGE_SIZE_2M, NORMAL_SCAN);
     EXPECT_EQ(-EINVAL, ret);
 }

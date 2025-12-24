@@ -148,7 +148,7 @@ RmrsResult RmrsSmapHelper::MigrateColdDataToRemoteNuma(std::vector<uint16_t> &re
     return RMRS_OK;
 }
 
-RmrsResult RmrsSmapHelper::QueryVMFreqArray(int pidIn, uint16_t *dataIn, size_t lengthIn, uint16_t &lengthOut)
+RmrsResult RmrsSmapHelper::QueryVMFreqArray(int pidIn, uint16_t *dataIn, uint32_t lengthIn, uint32_t &lengthOut)
 {
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] QueryVMFreqArray start.";
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] QueryVMFreqArray pid = " << pidIn << ".";

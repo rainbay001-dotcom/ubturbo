@@ -61,7 +61,7 @@ public:
                                                       std::vector<pid_t> &pidsIn, std::vector<uint64_t> memSizeList,
                                                       uint64_t waitTime);
 
-    static RmrsResult QueryVMFreqArray(int pidIn, uint16_t *dataIn, size_t lengthIn, uint16_t &lengthOut);
+    static RmrsResult QueryVMFreqArray(int pidIn, uint16_t *dataIn, uint32_t lengthIn, uint32_t &lengthOut);
 
     static RmrsResult SmapMode(int runMode);
 

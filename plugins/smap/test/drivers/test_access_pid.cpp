@@ -323,7 +323,7 @@ TEST_F(DriversAccessPidTest, AccessAddHamPidOne)
     EXPECT_EQ(0, ret);
 }
 
-extern "C" int init_access_statistic_pid(struct access_add_pid_payload *payload);
+extern "C" int init_access_statistic_pid_2m(struct access_add_pid_payload *payload);
 extern "C" int scan_hva_info(pid_t pid_nr, u64 *l1_page_num, u64 *l2_page_num,
                              u64 **l1_vaddr, u64 **l2_vaddr);
 extern "C" int init_statistic_window(u8 ***sliding_windows, u32 duration, u32 scan_time,
@@ -335,6 +335,7 @@ TEST_F(DriversAccessPidTest, InitAccessStatisticPidTest)
     struct statistics_tracking_info *pos;
     struct access_add_pid_payload payload;
     bool findFlag = false;
+    int pageSize = PAGE_SIZE_2M;
     nr_local_numa = 4;
     payload.pid = 17986;
     payload.numa_nodes = 0x01;
@@ -350,13 +351,13 @@ TEST_F(DriversAccessPidTest, InitAccessStatisticPidTest)
         .then(returnValue(0));
 
     // failed case
-    ret = init_access_statistic_pid(&payload);
+    ret = init_access_statistic_pid_2m(&payload);
     EXPECT_EQ(-EINVAL, ret);
-    ret = init_access_statistic_pid(&payload);
+    ret = init_access_statistic_pid_2m(&payload);
     EXPECT_EQ(-EINVAL, ret);
 
     // success case
-    ret = init_access_statistic_pid(&payload);
+    ret = init_access_statistic_pid_2m(&payload);
     EXPECT_EQ(0, ret);
     list_for_each_entry(tmp, &statistic_pid_list, node) {
         if (tmp->pid == 17986) {
@@ -371,7 +372,7 @@ TEST_F(DriversAccessPidTest, InitAccessStatisticPidTest)
     MOCKER(destroy_access_statistic_pid).stubs();
     payload.pid = 17986;
     payload.numa_nodes = 0x02;
-    ret = init_access_statistic_pid(&payload);
+    ret = init_access_statistic_pid_2m(&payload);
     EXPECT_EQ(0, ret);
     // check whether statistic_pid_list update
     findFlag = false;
@@ -391,22 +392,23 @@ TEST_F(DriversAccessPidTest, InitAccessStatisticPidTest)
     }
 }
 
+extern "C" int init_access_statistic_pid(struct access_add_pid_payload *payload, int page_size);
 TEST_F(DriversAccessPidTest, AccessAddStatisticPid)
 {
     struct access_add_pid_payload payload;
     payload.type = STATISTIC_SCAN;
     MOCKER(init_access_statistic_pid).stubs().will(returnValue(0));
-    int ret = access_add_statistic_pid(1, &payload);
+    int ret = access_add_statistic_pid(1, &payload, PAGE_SIZE_2M);
     EXPECT_EQ(0, ret);
 
     GlobalMockObject::verify();
     MOCKER(init_access_statistic_pid).stubs().will(returnValue(-EINVAL));
-    ret = access_add_statistic_pid(1, &payload);
+    ret = access_add_statistic_pid(1, &payload, PAGE_SIZE_2M);
     EXPECT_EQ(-EINVAL, ret);
 
     // wrong type case, should return 0
     payload.type = NORMAL_SCAN;
-    ret = access_add_statistic_pid(1, &payload);
+    ret = access_add_statistic_pid(1, &payload, PAGE_SIZE_2M);
     EXPECT_EQ(0, ret);
 }
 

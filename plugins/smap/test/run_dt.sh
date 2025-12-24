@@ -179,10 +179,6 @@ replace_string "${code_dir}/src/drivers/access_tracking_wrapper.c" "pfn_to_bitid
 replace_string "${code_dir}/src/drivers/access_tracking_wrapper.c" "get_pfnblock_flags_mask" "drivers_get_pfnblock_flags_mask"
 
 replace_string "${code_dir}/src/drivers/access_tracking.c" "init_actc_data" "drivers_init_actc_data"
-replace_string "${code_dir}/src/drivers/access_tracking.c" "is_access_hugepage" "drivers_is_access_hugepage"
-replace_string "${code_dir}/src/drivers/access_tracking.h" "is_access_hugepage" "drivers_is_access_hugepage"
-replace_string "${code_dir}/src/drivers/access_mmu.c" "is_access_hugepage" "drivers_is_access_hugepage"
-replace_string "${code_dir}/src/drivers/access_pid.c" "is_access_hugepage" "drivers_is_access_hugepage"
 replace_string "${code_dir}/src/drivers/access_mmu.c" "is_paddr_local" "drivers_is_paddr_local"
 replace_string "${code_dir}/src/drivers/access_tracking.c" "work_func" "drivers_work_func"
 replace_string "${code_dir}/src/drivers/access_tracking_wrapper.c" "lookup_kallsyms_lookup_name" "drivers_lookup_kallsyms_lookup_name"
@@ -196,7 +192,6 @@ replace_string "${code_dir}/src/drivers/hist_tracking.c" "reset_actc_data" "driv
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "actc_buffer_deinit" "drivers_actc_buffer_deinit"
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "actc_buffer_reinit" "drivers_actc_buffer_reinit"
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "work_func" "hist_work_func"
-replace_string "${code_dir}/src/drivers/hist_tracking.c" "get_page_size" "drivers_get_page_size"
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "calc_access_len" "drivers_calc_access_len"
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "actc_buffer_init" "drivers_actc_buffer_init"
 replace_string "${code_dir}/src/drivers/hist_tracking.c" "update_actc_mode_sum" "drivers_update_actc_mode_sum"

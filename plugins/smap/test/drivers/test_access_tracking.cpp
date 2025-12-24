@@ -44,10 +44,10 @@ protected:
     }
 };
 
-extern "C" bool drivers_is_access_hugepage(void);
-TEST_F(AccessTrackingTest, drivers_is_access_hugepage)
+extern "C" bool is_access_hugepage(void);
+TEST_F(AccessTrackingTest, is_access_hugepage)
 {
-    (void)drivers_is_access_hugepage();
+    (void)is_access_hugepage();
 }
 
 extern "C" void drivers_init_actc_data(struct access_tracking_dev *adev);

@@ -1379,37 +1379,37 @@ extern "C" int CheckQueryVMFreqMsgValid(int pid, uint16_t *data,
     uint16_t lengthIn, uint16_t *lengthOut, int dataSource);
 extern "C" int QueryVMFreqFromKernel(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut);
 extern "C" int QueryVMFreqFromUser(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut);
-extern "C" int ubturbo_smap_vm_freq_query(int pid, uint16_t *data,
-    uint16_t lengthIn, uint16_t *lengthOut, int dataSource);
+extern "C" int ubturbo_smap_freq_query(int pid, uint16_t *data,
+    uint32_t lengthIn, uint32_t *lengthOut, int dataSource);
 TEST_F(InterfaceTest, TestSmapQueryVmFreqAbnormalOne)
 {
     int ret;
-    uint16_t lengthOut;
+    uint32_t lengthOut;
     struct ProcessManager manager;
     EnvAtomicSet(&g_status, 0);
-    ret = ubturbo_smap_vm_freq_query(0, nullptr, 0, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(0, nullptr, 0, &lengthOut, 0);
     EXPECT_EQ(-EPERM, ret);
 
     EnvAtomicSet(&g_status, 1);
     MOCKER(CheckQueryVMFreqMsgValid).stubs().will(returnValue(-EINVAL));
-    ret = ubturbo_smap_vm_freq_query(0, nullptr, 0, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(0, nullptr, 0, &lengthOut, 0);
     EXPECT_EQ(-EINVAL, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapQueryVmFreqAbnormalTwo)
 {
     int ret;
-    uint16_t lengthOut;
+    uint32_t lengthOut;
     uint16_t data[3] = {0};
     struct ProcessManager manager;
     EnvAtomicSet(&g_status, 1);
     MOCKER(CheckQueryVMFreqMsgValid).stubs().will(returnValue(0));
     MOCKER(QueryVMFreqFromUser).stubs().will(returnValue(-EINVAL));
-    ret = ubturbo_smap_vm_freq_query(0, data, 0, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(0, data, 0, &lengthOut, 0);
     EXPECT_EQ(-EINVAL, ret);
 
     MOCKER(QueryVMFreqFromKernel).stubs().will(returnValue(-EINVAL));
-    ret = ubturbo_smap_vm_freq_query(0, data, 0, &lengthOut, 1);
+    ret = ubturbo_smap_freq_query(0, data, 0, &lengthOut, 1);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1639,22 +1639,6 @@ TEST_F(InterfaceTest, DataSourceInvalid)
     int dataSource = MAX_SOURCE;
     struct ProcessManager manager;
     MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
-    int result = CheckQueryVMFreqMsgValid(pid, data, lengthIn, &lengthOut, dataSource);
-    EXPECT_EQ(-EINVAL, result);
-}
-
-TEST_F(InterfaceTest, DataSourceStatInvalidPidType)
-{
-    int pid = 123;
-    uint16_t data[10] = {0};
-    uint16_t lengthIn = 5;
-    uint16_t lengthOut = 0;
-    int dataSource = STATISTIC_DATA_SOURCE;
-    struct ProcessManager manager;
-    MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
-    // 模拟IsPidTypeValid返回false
-    MOCKER(IsPidTypeValid).stubs().will(returnValue(false));
-
     int result = CheckQueryVMFreqMsgValid(pid, data, lengthIn, &lengthOut, dataSource);
     EXPECT_EQ(-EINVAL, result);
 }

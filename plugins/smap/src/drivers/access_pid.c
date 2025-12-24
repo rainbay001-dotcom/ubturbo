@@ -489,7 +489,7 @@ static int init_statistic_window(u8 ***sliding_windows, u32 duration,
 	return 0;
 }
 
-static int init_access_statistic_pid(struct access_add_pid_payload *payload)
+static int init_access_statistic_pid_2m(struct access_add_pid_payload *payload)
 {
 	struct statistics_tracking_info *tmp, *ap;
 	int l1_node, l2_node, ret;
@@ -556,21 +556,99 @@ static int init_access_statistic_pid(struct access_add_pid_payload *payload)
 	return 0;
 }
 
-int access_add_statistic_pid(int len, struct access_add_pid_payload *payload)
+static int init_access_statistic_pid_4k(struct access_add_pid_payload *payload)
+{
+	struct statistics_tracking_info *tmp, *ap;
+	int l1_node, l2_node, ret;
+	unsigned long numa_nodes;
+
+	if (!payload)
+		return -EINVAL;
+
+	numa_nodes = (unsigned long)payload->numa_nodes;
+	l1_node = find_first_local_numa(&numa_nodes);
+	l2_node = find_first_remote_numa(&numa_nodes);
+	if (l1_node == NUMA_NO_NODE) {
+		pr_err("invalid local node passed to init statistic access of pid: %d\n",
+		       payload->pid);
+		return -EINVAL;
+	}
+
+	spin_lock(&statistic_lock);
+	list_for_each_entry_safe(ap, tmp, &statistic_pid_list, node) {
+		if (ap->pid == payload->pid) {
+			pr_info("statistic access pid: %d already exists, update info\n",
+				payload->pid);
+			list_del(&ap->node);
+			destroy_access_statistic_pid(ap);
+			break;
+		}
+	}
+	spin_unlock(&statistic_lock);
+
+	tmp = kzalloc(sizeof(struct statistics_tracking_info), GFP_KERNEL);
+	if (!tmp) {
+		pr_err("unable to allocate memory for statistic tracking info\n");
+		return -ENOMEM;
+	}
+	tmp->pid = payload->pid;
+	tmp->l1_node = l1_node;
+	tmp->l2_node = l2_node;
+	tmp->scan_num = 0;
+	ret = scan_hva_info_4k(payload->pid, &tmp->page_num[L1],
+			       &tmp->page_num[L2], &tmp->vaddr[L1],
+			       &tmp->vaddr[L2]);
+	if (ret) {
+		pr_err("failed to scan hva info for statistic tracking\n");
+		kfree(tmp);
+		return ret;
+	}
+
+	ret = init_statistic_window(&tmp->sliding_windows, payload->duration,
+				    payload->scan_time,
+				    tmp->page_num[L1] + tmp->page_num[L2],
+				    &tmp->window_num);
+	if (ret) {
+		pr_err("failed to init statistic tracking windows\n");
+		kfree(tmp);
+		return ret;
+	}
+
+	spin_lock(&statistic_lock);
+	list_add_tail(&tmp->node, &statistic_pid_list);
+	spin_unlock(&statistic_lock);
+
+	pr_info("init statistic access tracking, pid: %d, local page number: %llu, remote page number: %llu\n",
+		tmp->pid, tmp->page_num[L1], tmp->page_num[L2]);
+	return 0;
+}
+
+static int init_access_statistic_pid(struct access_add_pid_payload *payload,
+				     int page_size)
+{
+	if (page_size == PAGE_SIZE_2M)
+		return init_access_statistic_pid_2m(payload);
+	else if (page_size == PAGE_SIZE_4K)
+		return init_access_statistic_pid_4k(payload);
+	else
+		return -EINVAL;
+}
+
+int access_add_statistic_pid(int len, struct access_add_pid_payload *payload,
+			     int page_size)
 {
 	int ret = 0;
 	int i;
 	for (i = 0; i < len; i++) {
-		if (payload[i].type == STATISTIC_SCAN) {
-			if (payload[i].duration > MAX_SCAN_DURATION_SEC) {
-				pr_err("invalid scan duration: %u of pid: %d passed to add statistic access tracking\n",
-				       payload[i].duration, payload[i].pid);
-				return -EINVAL;
-			}
-			pr_debug("init access statistic pid %d\n",
-				 payload[i].pid);
-			ret = init_access_statistic_pid(&payload[i]);
+		if (payload[i].type != STATISTIC_SCAN)
+			continue;
+		if (payload[i].duration > MAX_SCAN_DURATION_SEC) {
+			pr_err("invalid scan duration: %u of pid: %d passed to add statistic access tracking\n",
+			       payload[i].duration, payload[i].pid);
+			return -EINVAL;
 		}
+		pr_debug("init access statistic pid %d\n", payload[i].pid);
+		ret = init_access_statistic_pid(&payload[i], page_size);
 		if (ret) {
 			pr_err("failed to add statistic access pid: %d\n",
 			       payload[i].pid);

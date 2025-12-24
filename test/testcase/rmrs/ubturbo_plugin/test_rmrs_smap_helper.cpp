@@ -388,8 +388,8 @@ TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Success)
 {
     int pidIn = 123456;
     uint16_t dataIn = 0;
-    size_t lengthIn;
-    uint16_t lengthOut;
+    uint32_t lengthIn;
+    uint32_t lengthOut;
     uint16_t *dataInPtr = &dataIn;
 
     SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,
@@ -414,8 +414,8 @@ TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_Nullptr)
 {
     int pidIn = 123456;
     uint16_t dataIn = 0;
-    size_t lengthIn;
-    uint16_t lengthOut;
+    uint32_t lengthIn;
+    uint32_t lengthOut;
     uint16_t *dataInPtr = &dataIn;
 
     SmapQueryVmFreqFunc smapQueryVmFreqFunc = nullptr;
@@ -437,8 +437,8 @@ TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_M1)
 {
     int pidIn = 123456;
     uint16_t dataIn = 0;
-    size_t lengthIn;
-    uint16_t lengthOut;
+    uint32_t lengthIn;
+    uint32_t lengthOut;
     uint16_t *dataInPtr = &dataIn;
 
     SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,
@@ -463,8 +463,8 @@ TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_M22)
 {
     int pidIn = 123456;
     uint16_t dataIn = 0;
-    size_t lengthIn;
-    uint16_t lengthOut;
+    uint32_t lengthIn;
+    uint32_t lengthOut;
     uint16_t *dataInPtr = &dataIn;
 
     SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,

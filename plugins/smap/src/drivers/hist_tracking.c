@@ -81,7 +81,7 @@ static void actc_buffer_deinit(struct hist_tracking_dev *hdev)
 	}
 }
 
-static inline int get_page_size(struct hist_tracking_dev *hdev)
+static inline int hist_get_page_size(struct hist_tracking_dev *hdev)
 {
 	if (hdev->page_size_mode == PAGE_MODE_2M) {
 		return PAGE_SIZE_2M;
@@ -91,7 +91,7 @@ static inline int get_page_size(struct hist_tracking_dev *hdev)
 
 static u64 calc_access_len(struct hist_tracking_dev *hdev)
 {
-	int page_size = get_page_size(hdev);
+	int page_size = hist_get_page_size(hdev);
 	u64 page_count;
 	if (hdev->node >= nr_local_numa) {
 		page_count = get_node_page_cnt_iomem(hdev->node, page_size);

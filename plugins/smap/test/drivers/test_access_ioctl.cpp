@@ -52,7 +52,7 @@ protected:
 struct access_add_pid_msg AccessIoctlTestKernel::m_msg = {.count=0, .payload=NULL};
 
 extern "C" long ioctl_add_pid(void __user *argp);
-extern "C" int add_payload(int len, struct access_add_pid_payload *payload);
+extern "C" int add_payload(int len, struct access_add_pid_payload *payload, int page_size);
 extern "C" int check_msg_validity(struct access_add_pid_msg *msg);
 
 unsigned long AccessIoctlTestKernel::mockCopyFromUserSetMsg(void *to, const void *from, unsigned long n)
@@ -207,10 +207,10 @@ TEST_F(AccessIoctlTestKernel, AddPayloadTest)
         .then(returnValue(0));
 
     // test all case
-    EXPECT_EQ(-EINVAL, add_payload(len, &payload));
-    EXPECT_EQ(-EINVAL, add_payload(len, &payload));
-    EXPECT_EQ(-EINVAL, add_payload(len, &payload));
-    EXPECT_EQ(0, add_payload(len, &payload));
+    EXPECT_EQ(-EINVAL, add_payload(len, &payload, PAGE_SIZE_2M));
+    EXPECT_EQ(-EINVAL, add_payload(len, &payload, PAGE_SIZE_2M));
+    EXPECT_EQ(-EINVAL, add_payload(len, &payload, PAGE_SIZE_2M));
+    EXPECT_EQ(0, add_payload(len, &payload, PAGE_SIZE_2M));
 }
 
 TEST_F(AccessIoctlTestKernel, CheckMsgValidityTest)

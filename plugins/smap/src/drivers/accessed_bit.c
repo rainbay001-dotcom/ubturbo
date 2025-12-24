@@ -284,8 +284,7 @@ int get_ham_pages_freqs(pid_t pid, struct freq_info **freq_info_array,
 	spin_unlock(&ham_lock);
 
 	if (!info) {
-		pr_err("unable to find pid: %d in HAM managed pid list\n",
-		       pid);
+		pr_err("unable to find pid: %d in HAM managed pid list\n", pid);
 		return -ENXIO;
 	}
 
@@ -720,6 +719,25 @@ static int get_total_huge_page_nr(struct kvm *kvm, u64 *total_huge_page_nr)
 	return 0;
 }
 
+static int get_total_page_nr(struct smap_vma_struct *vma_array, int len,
+			     u64 *total_page_nr)
+{
+	u64 nr_page = 0;
+	int i;
+
+	if (!vma_array) {
+		pr_err("vma array is NULL\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < len; i++) {
+		nr_page += PHYS_PFN(vma_array[i].end_vaddr) -
+			   PHYS_PFN(vma_array[i].start_vaddr);
+	}
+	*total_page_nr = nr_page;
+	return 0;
+}
+
 static int get_vma_numa_node(struct kvm *kvm, struct vm_area_struct *vma,
 			     unsigned long addr)
 {
@@ -846,23 +864,18 @@ static int get_hva_info_by_scan_kvm_memslots(struct kvm *kvm, u64 *l1_page_num,
 	return 0;
 }
 
-static int alloc_vaddr_info(struct kvm *kvm, struct hva_info **hva_vec,
-			    u64 **vaddrs, u64 total_huge_page_nr)
+static int alloc_vaddr_info(struct hva_info **hva_vec, u64 **vaddrs,
+			    u64 total_page_nr)
 {
 	struct hva_info *hva_vec_tmp = NULL;
 	u64 *vaddrs_tmp = NULL;
 
-	if (!kvm || !kvm->arch.mmu.pgt) {
-		pr_err("invalid kvm passed to allocate memory to store page info\n");
-		return -EINVAL;
-	}
-
-	hva_vec_tmp = vzalloc(total_huge_page_nr * sizeof(struct hva_info));
+	hva_vec_tmp = vzalloc(total_page_nr * sizeof(struct hva_info));
 	if (!hva_vec_tmp) {
 		pr_err("unable to allocate memory for page info vector\n");
 		return -ENOMEM;
 	}
-	vaddrs_tmp = vzalloc(total_huge_page_nr * sizeof(u64));
+	vaddrs_tmp = vzalloc(total_page_nr * sizeof(u64));
 	if (!vaddrs_tmp) {
 		pr_err("unable to allocate memory for virtual address vector\n");
 		vfree(hva_vec_tmp);
@@ -871,6 +884,17 @@ static int alloc_vaddr_info(struct kvm *kvm, struct hva_info **hva_vec,
 	*vaddrs = vaddrs_tmp;
 	*hva_vec = hva_vec_tmp;
 	return 0;
+}
+
+static int alloc_vaddr_info_vm(struct kvm *kvm, struct hva_info **hva_vec,
+			       u64 **vaddrs, u64 total_huge_page_nr)
+{
+	if (!kvm || !kvm->arch.mmu.pgt) {
+		pr_err("invalid kvm passed to allocate memory to store page info\n");
+		return -EINVAL;
+	}
+
+	return alloc_vaddr_info(hva_vec, vaddrs, total_huge_page_nr);
 }
 
 /* Caller must free those pointers after successfully called this function */
@@ -937,7 +961,7 @@ int scan_hva_info(pid_t pid_nr, u64 *l1_page_num, u64 *l2_page_num,
 		goto out_free_task_file;
 	}
 
-	ret = alloc_vaddr_info(kvm, &hva_vec, &vaddrs, total_huge_page_nr);
+	ret = alloc_vaddr_info_vm(kvm, &hva_vec, &vaddrs, total_huge_page_nr);
 	if (ret) {
 		pr_err("unable to allocate memory to store virtual address info of pid: %d\n",
 		       pid_nr);
@@ -967,6 +991,141 @@ out_free_task_file:
 	fput(filp);
 	put_task_struct(task);
 	put_pid(pid);
+	return ret;
+}
+
+static int take_vma_snapshot(struct mm_struct *mm,
+			     struct smap_vma_struct **vma_arr, int *vma_count);
+static int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr,
+			  unsigned long end_vaddr, struct pte_walk *pte_walk,
+			  const struct mm_walk_ops *ops);
+static int huge_vma_walk(struct mm_struct *mm, struct smap_vma_struct *vma,
+			 struct pte_walk *pte_walk,
+			 const struct mm_walk_ops *ops);
+
+static int fill_pte_va(pte_t *pte, unsigned long addr, unsigned long next,
+		       struct mm_walk *walk)
+{
+	struct pte_walk *pte_walk = walk->private;
+	struct hva_info *hva_vec = pte_walk->hva_info;
+	int page_size = pte_walk->page_size;
+	int nid;
+	int ret;
+	u64 pa_index;
+	phys_addr_t paddr;
+	pte_t ptent = ptep_get(pte);
+
+	if (is_swap_pte(ptent) || !pte_present(ptent))
+		return 0;
+
+	paddr = (phys_addr_t)__pte_to_phys(ptent);
+	if (paddr == 0)
+		return 0;
+
+	ret = calc_paddr_acidx_acpi(paddr, &nid, &pa_index, page_size);
+	if (ret == 0) {
+		pr_debug("write %#lx %d to %llu entry\n", addr, nid,
+			 pte_walk->index);
+		hva_vec[pte_walk->index].va = addr;
+		hva_vec[pte_walk->index++].nid = nid;
+		pte_walk->nr_page[L1]++;
+		return 0;
+	}
+
+	ret = calc_paddr_acidx_iomem(paddr, &nid, &pa_index, page_size);
+	if (ret == 0) {
+		pr_debug("write %#lx %d to %llu entry\n", addr, nid,
+			 pte_walk->index);
+		hva_vec[pte_walk->index].va = addr;
+		hva_vec[pte_walk->index++].nid = nid;
+		pte_walk->nr_page[L2]++;
+	} else {
+		pr_debug("unable to calc %#llx nid\n", paddr);
+	}
+	return 0;
+}
+
+static const struct mm_walk_ops stat_ops = {
+	.pte_entry = fill_pte_va,
+};
+
+int scan_hva_info_4k(pid_t pid, u64 *l1_page_num, u64 *l2_page_num,
+		     u64 **l1_vaddr, u64 **l2_vaddr)
+{
+	int ret;
+	int i = 0;
+	int vma_count = 0;
+	struct mm_struct *mm;
+	struct smap_vma_struct *vma_array = NULL;
+	struct pte_walk pte_walk = { .index = 0 };
+	u64 *vaddrs;
+	struct hva_info *hva_vec;
+	u64 total_page_nr;
+
+	mm = get_mm_by_pid(pid);
+	if (IS_ERR(mm) || !mm || !mmget_not_zero(mm)) {
+		pr_err("bad mm of pid: %d\n", pid);
+		return -EINVAL;
+	}
+	ret = take_vma_snapshot(mm, &vma_array, &vma_count);
+	if (ret) {
+		pr_err("failed to take VMA snapshot, ret: %d\n", ret);
+		goto err_snapshot;
+	}
+	ret = get_total_page_nr(vma_array, vma_count, &total_page_nr);
+	if (ret) {
+		pr_err("failed to get %d page number, ret: %d\n", pid, ret);
+		goto err_nr;
+	}
+
+	ret = alloc_vaddr_info(&hva_vec, &vaddrs, total_page_nr);
+	if (ret) {
+		pr_err("unable to allocate memory to store virtual address info of pid: %d\n",
+		       pid);
+		goto err_nr;
+	}
+
+	pte_walk.hva_info = hva_vec;
+	pte_walk.page_size = PAGE_SIZE_4K;
+	for (i = 0; i < vma_count; i++) {
+		if (vma_array[i].end_vaddr - vma_array[i].start_vaddr <
+		    MMAPLOCK_BATCH_SIZE) {
+			ret = small_vma_walk(mm, vma_array[i].start_vaddr,
+					     vma_array[i].end_vaddr, &pte_walk,
+					     &stat_ops);
+			if (ret) {
+				pr_err("failed to walk VMA, pid: %d, ret: %d\n",
+				       pid, ret);
+				break;
+			}
+		} else {
+			ret = huge_vma_walk(mm, &vma_array[i], &pte_walk,
+					    &stat_ops);
+			if (ret) {
+				pr_err("failed to walk VMA, pid: %d, ret: %d\n",
+				       pid, ret);
+				break;
+			}
+		}
+	}
+
+	/* pte_walk.index stores valid hva length and sort valid hva only */
+	sort(hva_vec, pte_walk.index, sizeof(struct hva_info), hva_cmp, NULL);
+	for (i = 0; i < total_page_nr; i++) {
+		vaddrs[i] = hva_vec[i].va;
+	}
+	*l1_page_num = pte_walk.nr_page[L1];
+	*l2_page_num = pte_walk.nr_page[L2];
+	pr_debug("L1 page num=%llu, L2 page num=%llu\n", *l1_page_num,
+		 *l2_page_num);
+	*l1_vaddr = vaddrs;
+	*l2_vaddr = vaddrs + *l1_page_num;
+	vfree(hva_vec);
+
+err_nr:
+	kfree(vma_array);
+err_snapshot:
+	mmput(mm);
 	return ret;
 }
 
@@ -1042,18 +1201,35 @@ static inline void smap_flush_tlb_mm(struct mm_struct *mm)
 	dsb(ish);
 }
 
+static void update_statistic_num_mm(pid_t pid, unsigned long addr)
+{
+	int ret;
+	unsigned int index;
+	ret = calc_tracking_index(addr, pid, &index);
+	if (ret) {
+		pr_debug("out of range while finding index of mm addr\n");
+		return;
+	}
+
+	update_tracking_info(pid, index);
+}
+
 static int check_pte_young(pte_t *pte, unsigned long addr, unsigned long next,
 			   struct mm_walk *walk)
 {
 	struct pte_walk *pte_walk = walk->private;
-	if (is_swap_pte(*pte)) {
+	pte_t ptent = ptep_get(pte);
+
+	if (is_swap_pte(ptent)) {
 		return 0;
 	}
-	if (pte_young(*pte)) {
-		phys_addr_t paddr = (phys_addr_t)__pte_to_phys(*pte);
+	if (pte_present(ptent) && pte_young(ptent)) {
+		phys_addr_t paddr = (phys_addr_t)__pte_to_phys(ptent);
 		if (paddr == 0) {
 			return 0;
 		}
+		if (pte_walk->type == STATISTIC_SCAN)
+			update_statistic_num_mm(pte_walk->pid, addr);
 		actc_data_add(paddr, PAGE_SIZE_4K);
 		pte_walk->flag = true;
 		__ptep_test_and_clear_young(NULL, 0, pte);
@@ -1066,7 +1242,8 @@ static const struct mm_walk_ops pte_range_ops = {
 };
 
 static int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr,
-			  unsigned long end_vaddr, struct pte_walk *pte_walk)
+			  unsigned long end_vaddr, struct pte_walk *pte_walk,
+			  const struct mm_walk_ops *ops)
 {
 	int ret;
 
@@ -1076,8 +1253,7 @@ static int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr,
 		return ret;
 	}
 
-	ret = walk_page_range(mm, start_vaddr, end_vaddr, &pte_range_ops,
-			      pte_walk);
+	ret = walk_page_range(mm, start_vaddr, end_vaddr, ops, pte_walk);
 	if (ret) {
 		pr_err("failed to walk page range, ret: %d\n", ret);
 		mmap_read_unlock(mm);
@@ -1088,7 +1264,8 @@ static int small_vma_walk(struct mm_struct *mm, unsigned long start_vaddr,
 }
 
 static int huge_vma_walk(struct mm_struct *mm, struct smap_vma_struct *vma,
-			 struct pte_walk *pte_walk)
+			 struct pte_walk *pte_walk,
+			 const struct mm_walk_ops *ops)
 {
 	int ret;
 	unsigned long start_vaddr;
@@ -1100,7 +1277,7 @@ static int huge_vma_walk(struct mm_struct *mm, struct smap_vma_struct *vma,
 	while (start_vaddr < end_vaddr) {
 		end = (start_vaddr + MMAPLOCK_BATCH_SIZE);
 		end = min(end, end_vaddr);
-		ret = small_vma_walk(mm, start_vaddr, end, pte_walk);
+		ret = small_vma_walk(mm, start_vaddr, end, pte_walk, ops);
 		if (ret) {
 			return ret;
 		}
@@ -1148,7 +1325,7 @@ static int take_vma_snapshot(struct mm_struct *mm,
 	return 0;
 }
 
-static int scan_forward_4k_mm(int pid, int page_size)
+static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 {
 	int ret;
 	int i = 0;
@@ -1156,6 +1333,8 @@ static int scan_forward_4k_mm(int pid, int page_size)
 	struct mm_struct *mm;
 	struct smap_vma_struct *vma_array = NULL;
 	struct pte_walk pte_walk = { .flag = false };
+	pte_walk.pid = pid;
+	pte_walk.type = type;
 
 	mm = get_mm_by_pid(pid);
 	if (IS_ERR(mm) || !mm || !mmget_not_zero(mm)) {
@@ -1168,18 +1347,21 @@ static int scan_forward_4k_mm(int pid, int page_size)
 		mmput(mm);
 		return -EINVAL;
 	}
+	clear_statistic_tracking_info(pid);
 	for (i = 0; i < vma_count; i++) {
 		if (vma_array[i].end_vaddr - vma_array[i].start_vaddr <
 		    MMAPLOCK_BATCH_SIZE) {
 			ret = small_vma_walk(mm, vma_array[i].start_vaddr,
-					     vma_array[i].end_vaddr, &pte_walk);
+					     vma_array[i].end_vaddr, &pte_walk,
+					     &pte_range_ops);
 			if (ret) {
 				pr_err("failed to walk VMA, pid: %d, ret: %d\n",
 				       pid, ret);
 				break;
 			}
 		} else {
-			ret = huge_vma_walk(mm, &vma_array[i], &pte_walk);
+			ret = huge_vma_walk(mm, &vma_array[i], &pte_walk,
+					    &pte_range_ops);
 			if (ret) {
 				pr_err("failed to walk VMA, pid: %d, ret: %d\n",
 				       pid, ret);
@@ -1187,6 +1369,7 @@ static int scan_forward_4k_mm(int pid, int page_size)
 			}
 		}
 	}
+	update_statistic_scan_num(pid);
 	if (pte_walk.flag) {
 		smap_flush_tlb_mm(mm);
 	}
@@ -1204,10 +1387,10 @@ int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type)
 	}
 }
 
-int scan_accessed_bit_forward_mm(pid_t pid, int page_size)
+int scan_accessed_bit_forward_mm(pid_t pid, int page_size, scan_type type)
 {
 	if (page_size == PAGE_SIZE_4K) {
-		return scan_forward_4k_mm(pid, page_size);
+		return scan_forward_4k_mm(pid, page_size, type);
 	}
 	return -EINVAL;
 }

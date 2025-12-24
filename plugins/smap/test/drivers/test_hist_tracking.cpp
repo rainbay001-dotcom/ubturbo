@@ -89,14 +89,14 @@ TEST_F(HistTrackingTest, reset_actc_data)
     EXPECT_EQ(0, dev.hist_actc_data[0]);
 }
 
-extern "C" int drivers_get_page_size(struct hist_tracking_dev *hdev);
-TEST_F(HistTrackingTest, get_page_size)
+extern "C" int hist_get_page_size(struct hist_tracking_dev *hdev);
+TEST_F(HistTrackingTest, hist_get_page_size)
 {
     int ret = 0;
     struct hist_tracking_dev dev = {
         .page_size_mode = 0
     };
-    ret = drivers_get_page_size(&dev);
+    ret = hist_get_page_size(&dev);
     EXPECT_EQ(PAGE_SIZE_4K, ret);
 }
 
@@ -109,14 +109,14 @@ TEST_F(HistTrackingTest, calc_access_len)
     struct hist_tracking_dev dev = {
         .node = 1
     };
-    MOCKER(drivers_get_page_size).stubs().will(returnValue(0));
+    MOCKER(hist_get_page_size).stubs().will(returnValue(0));
     MOCKER(get_node_page_cnt_iomem).stubs().will(returnValue((u64)1));
     ret = drivers_calc_access_len(&dev);
     EXPECT_EQ(1, ret);
 
     GlobalMockObject::verify();
     nr_local_numa = 3;
-    MOCKER(drivers_get_page_size).stubs().will(returnValue(0));
+    MOCKER(hist_get_page_size).stubs().will(returnValue(0));
     MOCKER(get_node_actc_len).stubs().will(returnValue((u64)2));
     ret = drivers_calc_access_len(&dev);
     EXPECT_EQ(2, ret);

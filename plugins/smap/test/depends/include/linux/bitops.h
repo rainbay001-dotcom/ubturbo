@@ -16,11 +16,7 @@
 #define BITS_TO_LONGS(nr)	DIV_ROUND_UP(nr, BITS_PER_TYPE(long))
 
 #define bitop(op, nr, addr)						\
-	((__builtin_constant_p(nr) &&					\
-	  __builtin_constant_p((uintptr_t)(addr) != (uintptr_t)NULL) &&	\
-	  (uintptr_t)(addr) != (uintptr_t)NULL &&			\
-	  __builtin_constant_p(*(const unsigned long *)(addr))) ?	\
-	 const##op(nr, addr) : op(nr, addr))
+    op(nr, addr)
 
 #define test_bit(nr, addr)		bitop(_test_bit, nr, addr)
 

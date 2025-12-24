@@ -23,7 +23,6 @@
 #define pr_fmt(fmt) "access_ioctl: " fmt
 #define MAX_NR_MIGOUT 40
 #define MAX_NR_REMOVE MAX_NR_MIGOUT
-#define MAX_PAGENUM_OF_QUERY_VM_FREQ 65536
 
 static dev_t ioctl_access_dev;
 static struct class *access_class;
@@ -47,7 +46,8 @@ static int check_msg_validity(struct access_add_pid_msg *msg)
 	return 0;
 }
 
-static int add_payload(int len, struct access_add_pid_payload *payload)
+static int add_payload(int len, struct access_add_pid_payload *payload,
+		       int page_size)
 {
 	int ret;
 	ret = access_add_ham_pid(len, payload);
@@ -55,7 +55,7 @@ static int add_payload(int len, struct access_add_pid_payload *payload)
 		pr_err("failed to add HAM pid tracking task, ret: %d\n", ret);
 		return ret;
 	}
-	ret = access_add_statistic_pid(len, payload);
+	ret = access_add_statistic_pid(len, payload, page_size);
 	if (ret) {
 		pr_err("failed to add statistic pid tracking task, ret: %d\n",
 		       ret);
@@ -70,6 +70,8 @@ static long ioctl_add_pid(void __user *argp)
 	int ret = 0, i = 0;
 	struct access_add_pid_msg msg;
 	struct access_add_pid_payload *payload;
+	int page_size = get_page_size(get_first_access_dev());
+
 	if (copy_from_user(&msg, argp, sizeof(msg)))
 		return -EFAULT;
 	if (check_msg_validity(&msg)) {
@@ -106,7 +108,7 @@ static long ioctl_add_pid(void __user *argp)
 			goto out_free_payload;
 		}
 	}
-	ret = add_payload(msg.count, payload);
+	ret = add_payload(msg.count, payload, page_size);
 #ifdef DEBUG
 	print_access_pid_list();
 	print_access_ham_pid_list();
@@ -508,10 +510,12 @@ static long ioctl_get_tracking(void __user *argp)
 	pr_info("Receive ioctl get tracking\n");
 	if (copy_from_user(&msg, argp, sizeof(msg)))
 		return -EFAULT;
-	if (msg.length <= 0 || msg.length >= MAX_PAGENUM_OF_QUERY_VM_FREQ) {
+
+	if (msg.length == 0) {
 		pr_err("invalid message length passed to get tracking data\n");
 		return -EINVAL;
 	}
+
 	if (!msg.data) {
 		pr_err("null buffer passed to get tracking data\n");
 		return -EINVAL;

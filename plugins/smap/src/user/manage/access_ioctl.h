@@ -52,7 +52,7 @@ struct AccessPidFreq {
 
 struct TrakingInfoPayload {
     pid_t pid;
-    int length;
+    uint32_t length;
     uint16_t *data;
 };
 

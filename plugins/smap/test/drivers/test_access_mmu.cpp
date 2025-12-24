@@ -14,10 +14,11 @@
 
 #include "check.h"
 #include "access_iomem.h"
+#include "access_tracking.h"
 #include "access_mmu.h"
 
 #define PM_PRESENT BIT_ULL(63)
-extern "C" bool drivers_is_access_hugepage(void);
+extern "C" bool is_access_hugepage(void);
 
 using namespace std;
 
@@ -58,7 +59,7 @@ extern "C" bool drivers_is_paddr_local(u64 pa);
 extern "C" int drivers_calc_paddr_acidx_iomem(u64 pa, int *nid, u64 *index, int page_size);
 TEST_F(AccessMMUTest, CalcPaddrACidx)
 {
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(true));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(true));
     MOCKER(drivers_is_paddr_local).stubs().will(returnValue(false));
     MOCKER(drivers_calc_paddr_acidx_iomem).stubs().will(ignoreReturnValue());
 
@@ -74,7 +75,7 @@ TEST_F(AccessMMUTest, CalcPaddrACidxTwo)
 {
     int nid;
     u64 index;
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(true));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(true));
     MOCKER(drivers_is_paddr_local).stubs().will(returnValue(true));
     MOCKER(calc_paddr_acidx_acpi).stubs().will(returnValue(0));
 
@@ -259,7 +260,7 @@ extern "C" bool is_page_ready_for_migrate(struct page *page);
 TEST_F(AccessMMUTest, HugePageReadyForMigrate)
 {
     struct page page;
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(true));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(true));
     MOCKER(PageHuge).stubs().will(returnValue(1));
     MOCKER(PageHead).stubs().will(returnValue(1));
     bool ret = is_page_ready_for_migrate(&page);
@@ -270,7 +271,7 @@ extern "C" int add_to_bm(unsigned long vaddr, pagemap_entry_t *pme, struct pagem
 extern "C" void add_to_bm_huge(u64 vaddr, u64 paddr, struct access_pid *ap);
 TEST_F(AccessMMUTest, AddToBM)
 {
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(true));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(true));
     MOCKER(add_to_bm_huge).stubs().will(ignoreReturnValue());
 
     int ret = 0;
@@ -311,13 +312,13 @@ TEST_F(AccessMMUTest, AddToBMTwo)
         .mig_type = NORMAL_MIGRATE,
         .ap = &ap,
     };
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(true));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(true));
     MOCKER(add_to_bm_page).stubs();
     int ret = add_to_bm(0, &pe, &pm);
     EXPECT_EQ(1, ret);
 
     GlobalMockObject::verify();
-    MOCKER(drivers_is_access_hugepage).stubs().will(returnValue(false));
+    MOCKER(is_access_hugepage).stubs().will(returnValue(false));
     MOCKER(add_to_bm_normal).stubs();
     pm.pos = 0;
     ret = add_to_bm(0, &pe, &pm);

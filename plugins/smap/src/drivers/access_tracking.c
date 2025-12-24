@@ -160,12 +160,6 @@ static void access_tracking_disable(struct device *ldev)
 	wait_scan_works(adev);
 }
 
-static inline int get_page_size(struct access_tracking_dev *adev)
-{
-	return adev->page_size_mode == PAGE_MODE_2M ? PAGE_SIZE_2M :
-						      PAGE_SIZE_4K;
-}
-
 static u64 calc_access_len_v2(struct access_tracking_dev *adev)
 {
 	int page_size = get_page_size(adev);
@@ -250,11 +244,6 @@ static int access_tracking_reinit_actc_buffer(struct device *ldev)
 	ret = actc_buffer_reinit(adev);
 	up_write(&adev->buffer_lock);
 	return ret;
-}
-
-bool is_access_hugepage(void)
-{
-	return access_page_size == PAGE_MODE_2M;
 }
 
 static int access_tracking_set_page_size(struct device *ldev,
@@ -431,7 +420,8 @@ static void work_func(struct work_struct *work)
 		ret = scan_accessed_bit_forward_vm(ap->pid, page_size,
 						   ap->type);
 	} else {
-		ret = scan_accessed_bit_forward_mm(ap->pid, page_size);
+		ret = scan_accessed_bit_forward_mm(ap->pid, page_size,
+						   ap->type);
 	}
 	adev_buffer_up_read();
 	end_time = ktime_get();

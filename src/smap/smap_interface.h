@@ -27,7 +27,6 @@ extern "C" {
 #define ADAPT_ALLOC_PERIOD 1000
 #define SCAN_MIGRATE_PERIOD LIGHT_STABLE_MIGRATE_CYCLE
 #define USER_DEFAULT_MIGRATE_OUT_RATIO 25
-#define MAX_NR_OF_QUERY_VM_FREQ_HCCS 65536
 #define WAIT_TIME (100)
 #define MAX_WAIT_TIME (60 * 1000)
 #define MIN_WAIT_TIME (10 * 1000)
@@ -179,7 +178,7 @@ int ubturbo_smap_remote_numa_info_set(struct SetRemoteNumaInfoMsg *msg);
  * @param dataSource [IN] 标识数据来源
  * @return int  0：操作成功；非0：操作失败
  */
-int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut, int dataSource);
+int ubturbo_smap_freq_query(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut, int dataSource);
 
 /* *
  * @brief   设置SMAP运行模式

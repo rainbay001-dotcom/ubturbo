@@ -136,7 +136,7 @@ SmapQueryVmFreqFunc SmapModule::GetSmapQueryVmFreq()
         return nullptr;
     }
 
-    smapQueryVmFreqFunc = (SmapQueryVmFreqFunc)(dlsym(smapHandle, "ubturbo_smap_vm_freq_query"));
+    smapQueryVmFreqFunc = (SmapQueryVmFreqFunc)(dlsym(smapHandle, "ubturbo_smap_freq_query"));
     if (smapQueryVmFreqFunc == nullptr) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[RmrsSmapModule] Get ubturbo_smap_vm_freq_query ptr failed.";

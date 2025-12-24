@@ -865,15 +865,15 @@ TEST_F(TestSmapClient, SetSmapRemoteUBTurboFunctionCallerFailed)
 TEST_F(TestSmapClient, SmapQueryVmFreqTest)
 {
     int pid = 1;
-    uint16_t lengthIn = 10;
-    uint16_t lengthOut = 0;
+    uint32_t lengthIn = 10;
+    uint32_t lengthOut = 0;
     uint16_t data[lengthIn] = {0};
 
     MOCKER_CPP(&UBTurboFunctionCaller, uint32_t(*)(const std::string &function, const TurboByteBuffer &params,
         TurboByteBuffer &result))
         .stubs()
         .will(invoke(Test_UBTurboFunctionCaller));
-    int ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 0);
+    int ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 0);
     EXPECT_NE(ret, 0);
 }
 
@@ -881,11 +881,11 @@ TEST_F(TestSmapClient, SmapQueryVmFreqNullData)
 {
     int ret;
     int pid = 1;
-    uint16_t lengthIn = 10;
-    uint16_t lengthOut = 0;
+    uint32_t lengthIn = 10;
+    uint32_t lengthOut = 0;
     uint16_t *data = nullptr;
 
-    ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 0);
     EXPECT_EQ(-22, ret);
 }
 
@@ -893,11 +893,11 @@ TEST_F(TestSmapClient, SmapQueryVmFreqEmptyLengthIn)
 {
     int ret;
     int pid = 1;
-    uint16_t lengthIn = 0;
-    uint16_t lengthOut = 0;
+    uint32_t lengthIn = 0;
+    uint32_t lengthOut = 0;
     uint16_t data[lengthIn] = {0};
 
-    ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 0);
     EXPECT_EQ(-22, ret);
 }
 
@@ -905,8 +905,8 @@ TEST_F(TestSmapClient, SmapQueryVmFreqEncodeRequestError)
 {
     int ret;
     int pid = 1;
-    uint16_t lengthIn = 10;
-    uint16_t lengthOut = 0;
+    uint32_t lengthIn = 10;
+    uint32_t lengthOut = 0;
     uint16_t data[lengthIn] = {0};
 
     MOCKER_CPP(&SmapQueryVmFreqCodec::EncodeRequest, int(*)(SmapQueryVmFreqCodec*,
@@ -914,7 +914,7 @@ TEST_F(TestSmapClient, SmapQueryVmFreqEncodeRequestError)
         .stubs()
         .will(returnValue(-1));
 
-    ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 0);
     EXPECT_EQ(1, ret);
 }
 
@@ -922,8 +922,8 @@ TEST_F(TestSmapClient, SmapQueryVmFreqUBTurboFunctionCallerFailed)
 {
     int ret;
     int pid = 1;
-    uint16_t lengthIn = 10;
-    uint16_t lengthOut = 0;
+    uint32_t lengthIn = 10;
+    uint32_t lengthOut = 0;
     uint16_t data[lengthIn] = {0};
 
     MOCKER_CPP(&SmapQueryVmFreqCodec::EncodeRequest, int(*)(SmapQueryVmFreqCodec*,
@@ -936,7 +936,7 @@ TEST_F(TestSmapClient, SmapQueryVmFreqUBTurboFunctionCallerFailed)
         .stubs()
         .will(returnValue(2));
 
-    ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 0);
+    ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 0);
     EXPECT_EQ(2, ret);
 }
 

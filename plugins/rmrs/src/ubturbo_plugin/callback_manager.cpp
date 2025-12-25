@@ -57,25 +57,29 @@ bool CallbackManager::isSetSmapMode = false;
 
 RmrsResult CallbackManager::Init()
 {
-    UBTurboRegIpcService("BorrowRollbackRecvHandler", CallbackManager::BorrowRollbackRecvHandler);
-    UBTurboRegIpcService("MigrateStrategyRecvHandler", CallbackManager::MigrateStrategyRecvHandler);
-    UBTurboRegIpcService("MigrateBackRecvHandler", CallbackManager::MigrateBackRecvHandler);
-    UBTurboRegIpcService("MigrateExecuteRecvHandler", CallbackManager::MigrateExecuteRecvHandler);
-    UBTurboRegIpcService("HeartBeatRecvHandler", CallbackManager::HeartBeatRecvHandler);
-    UBTurboRegIpcService("PidNumaInfoCollectRecvHandler", CallbackManager::PidNumaInfoCollectRecvHandler);
-    UBTurboRegIpcService("NumaMemInfoCollectRecvHandler", CallbackManager::NumaMemInfoCollectRecvHandler);
-    UBTurboRegIpcService("UCacheMigrateStrategyRecvHandler", CallbackManager::UCacheMigrateStrategyRecvHandler);
-    UBTurboRegIpcService("UCacheMigrateStopRecvHandler", CallbackManager::UCacheMigrateStopRecvHandler);
-    UBTurboRegIpcService("UpdateUCacheRatioRecvHandler", CallbackManager::UpdateUCacheRatioRecvHandler);
-
-    auto ret = ResourceExport::Init();
+    RmrsResult ret = UBTurboRegIpcService("BorrowRollbackRecvHandler", CallbackManager::BorrowRollbackRecvHandler);
+    ret |= UBTurboRegIpcService("MigrateStrategyRecvHandler", CallbackManager::MigrateStrategyRecvHandler);
+    ret |= UBTurboRegIpcService("MigrateBackRecvHandler", CallbackManager::MigrateBackRecvHandler);
+    ret |= UBTurboRegIpcService("MigrateExecuteRecvHandler", CallbackManager::MigrateExecuteRecvHandler);
+    ret |= UBTurboRegIpcService("HeartBeatRecvHandler", CallbackManager::HeartBeatRecvHandler);
+    ret |= UBTurboRegIpcService("PidNumaInfoCollectRecvHandler", CallbackManager::PidNumaInfoCollectRecvHandler);
+    ret |= UBTurboRegIpcService("NumaMemInfoCollectRecvHandler", CallbackManager::NumaMemInfoCollectRecvHandler);
+    ret |= UBTurboRegIpcService("UCacheMigrateStrategyRecvHandler", CallbackManager::UCacheMigrateStrategyRecvHandler);
+    ret |= UBTurboRegIpcService("UCacheMigrateStopRecvHandler", CallbackManager::UCacheMigrateStopRecvHandler);
+    ret |= UBTurboRegIpcService("UpdateUCacheRatioRecvHandler", CallbackManager::UpdateUCacheRatioRecvHandler);
     if (ret != RMRS_OK) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "resource export init failed" << ret;
+        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[CallbackManager] UBTurboRegIpcService failed.";
+        return RMRS_ERROR;
+    }
+
+    ret = ResourceExport::Init();
+    if (ret != RMRS_OK) {
+        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[CallbackManager] Resource export init failed" << ret;
         return RMRS_ERROR;
     }
     ret = LibvirtHelper::Init();
     if (ret != RMRS_OK) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "Failed to init libvirt helper.";
+        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[CallbackManager] Failed to init libvirt helper.";
         return RMRS_ERROR;
     }
     return RMRS_OK;

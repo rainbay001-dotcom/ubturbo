@@ -151,6 +151,9 @@ uint32_t OsHelper::GetSocketCpuRelation(unordered_map<uint16_t, uint16_t> &cpuSo
             auto cpuId = RmrsStringUtil::SafeStou16(folderName.substr(index + string("cpu").size()));
             stringstream socketPath;
             socketPath << cpuSocketPathPrefix << "/" << folderName << cpuSocketPath;
+            if (RmrsFileUtil::IsPathExist(socketPath.str()) != RMRS_OK) {
+                continue;
+            }
             vector<string> socketInfo;
             auto res = RmrsFileUtil::GetFileInfo(socketPath.str(), socketInfo);
             if (res != RMRS_OK || socketInfo.size() != 1 || socketInfo[0].empty()) {

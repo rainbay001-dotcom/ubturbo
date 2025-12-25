@@ -651,48 +651,54 @@ void CloseSmapHandler()
 
 void RegSmapHandler()
 {
-    UBTurboRegIpcService("ubturbo_smap_migrate_out", SmapMigrateOutHandler);
-    UBTurboRegIpcService("ubturbo_smap_migrate_back", SmapMigrateBackHandler);
-    UBTurboRegIpcService("ubturbo_smap_remove", SmapRemoveHandler);
-    UBTurboRegIpcService("ubturbo_smap_node_enable", SmapEnableNodeHandler);
-    UBTurboRegIpcService("ubturbo_smap_start", SmapInitHandler);
-    UBTurboRegIpcService("ubturbo_smap_stop", SmapStopHandler);
-    UBTurboRegIpcService("ubturbo_smap_urgent_migrate_out", SmapUrgentMigrateOutHandler);
-    UBTurboRegIpcService("ubturbo_smap_process_tracking_add", SmapAddProcessTrackingHandler);
-    UBTurboRegIpcService("ubturbo_smap_process_tracking_remove", SmapRemoveProcessTrackingHandler);
-    UBTurboRegIpcService("ubturbo_smap_process_migrate_enable", SmapEnableProcessMigrateHandler);
-    UBTurboRegIpcService("ubturbo_smap_remote_numa_info_set", SetSmapRemoteNumaInfoHandler);
-    UBTurboRegIpcService("ubturbo_smap_freq_query", SmapQueryFreqHandler);
-    UBTurboRegIpcService("ubturbo_smap_run_mode_set", SetSmapRunModeHandler);
-    UBTurboRegIpcService("ubturbo_smap_is_running", SmapIsRunningHandler);
-    UBTurboRegIpcService("ubturbo_smap_migrate_out_sync", SmapMigrateOutSyncHandler);
-    UBTurboRegIpcService("ubturbo_smap_remote_numa_migrate", SmapMigrateRemoteNumaHandler);
-    UBTurboRegIpcService("ubturbo_smap_pid_remote_numa_migrate", SmapMigratePidRemoteNumaHandler);
-    UBTurboRegIpcService("ubturbo_smap_process_config_query", SmapQueryProcessConfigHandler);
-    UBTurboRegIpcService("ubturbo_smap_remote_numa_freq_query", SmapQueryRemoteNumaFreqHandler);
+    uint32_t ret = UBTurboRegIpcService("ubturbo_smap_migrate_out", SmapMigrateOutHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_migrate_back", SmapMigrateBackHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_remove", SmapRemoveHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_node_enable", SmapEnableNodeHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_start", SmapInitHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_stop", SmapStopHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_urgent_migrate_out", SmapUrgentMigrateOutHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_process_tracking_add", SmapAddProcessTrackingHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_process_tracking_remove", SmapRemoveProcessTrackingHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_process_migrate_enable", SmapEnableProcessMigrateHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_remote_numa_info_set", SetSmapRemoteNumaInfoHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_freq_query", SmapQueryFreqHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_run_mode_set", SetSmapRunModeHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_is_running", SmapIsRunningHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_migrate_out_sync", SmapMigrateOutSyncHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_remote_numa_migrate", SmapMigrateRemoteNumaHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_pid_remote_numa_migrate", SmapMigratePidRemoteNumaHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_process_config_query", SmapQueryProcessConfigHandler);
+    ret |= UBTurboRegIpcService("ubturbo_smap_remote_numa_freq_query", SmapQueryRemoteNumaFreqHandler);
+    if (ret != 0) {
+        UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] UBTurboRegIpcService failed.";
+    }
 }
 
 void UnRegSmapHandler()
 {
-    UBTurboUnRegIpcService("ubturbo_smap_migrate_out");
-    UBTurboUnRegIpcService("ubturbo_smap_migrate_back");
-    UBTurboUnRegIpcService("ubturbo_smap_remove");
-    UBTurboUnRegIpcService("ubturbo_smap_node_enable");
-    UBTurboUnRegIpcService("ubturbo_smap_start");
-    UBTurboUnRegIpcService("ubturbo_smap_stop");
-    UBTurboUnRegIpcService("ubturbo_smap_urgent_migrate_out");
-    UBTurboUnRegIpcService("ubturbo_smap_process_tracking_add");
-    UBTurboUnRegIpcService("ubturbo_smap_process_tracking_remove");
-    UBTurboUnRegIpcService("ubturbo_smap_process_migrate_enable");
-    UBTurboUnRegIpcService("ubturbo_smap_remote_numa_info_set");
-    UBTurboUnRegIpcService("ubturbo_smap_freq_query");
-    UBTurboUnRegIpcService("ubturbo_smap_run_mode_set");
-    UBTurboUnRegIpcService("ubturbo_smap_is_running");
-    UBTurboUnRegIpcService("ubturbo_smap_migrate_out_sync");
-    UBTurboUnRegIpcService("ubturbo_smap_remote_numa_migrate");
-    UBTurboUnRegIpcService("ubturbo_smap_pid_remote_numa_migrate");
-    UBTurboUnRegIpcService("ubturbo_smap_process_config_query");
-    UBTurboUnRegIpcService("ubturbo_smap_remote_numa_freq_query");
+    uint32_t ret = UBTurboUnRegIpcService("ubturbo_smap_migrate_out");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_migrate_back");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_remove");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_node_enable");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_start");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_stop");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_urgent_migrate_out");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_process_tracking_add");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_process_tracking_remove");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_process_migrate_enable");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_remote_numa_info_set");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_freq_query");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_run_mode_set");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_is_running");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_migrate_out_sync");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_remote_numa_migrate");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_pid_remote_numa_migrate");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_process_config_query");
+    ret |= UBTurboUnRegIpcService("ubturbo_smap_remote_numa_freq_query");
+    if (ret != 0) {
+        UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] UBTurboUnRegIpcService failed.";
+    }
 }
 
 RetCode TurboModuleSmap::Init()

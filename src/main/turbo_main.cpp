@@ -19,9 +19,9 @@ using namespace turbo::module;
 const std::vector<std::shared_ptr<TurboModule>> g_modules = {
     std::make_shared<turbo::config::TurboModuleConf>(),
     std::make_shared<turbo::log::TurboModuleLogger>(),
-    std::make_shared<turbo::ipc::server::TurboModuleIPC>(),
     std::make_shared<turbo::smap::TurboModuleSmap>(),
-    std::make_shared<turbo::plugin::TurboModulePlugin>()
+    std::make_shared<turbo::plugin::TurboModulePlugin>(),
+    std::make_shared<turbo::ipc::server::TurboModuleIPC>()
 };
 
 

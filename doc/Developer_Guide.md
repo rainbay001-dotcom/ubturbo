@@ -72,7 +72,7 @@ NULL
 | 接口描述     | 服务端注册回调函数     |
 | Input要求/参数     | 1. 函数名称 const std::string &name<br>2. 回调函数 IpcHandlerFunc function  |
 | Output要求/参数     | 执行结果，成功时返回0，失败时返回非0错误码|
-| 约束和注意事项     |  同名函数不能重复注册    |
+| 约束和注意事项     |  同名函数不能重复注册；回调函数中禁止嵌套调用UBTurboRegIpcService |
 | 接口使用样例     | RetCode UBTurboRegIpcService(const std::string &name, IpcHandlerFunc function);|
 | 参数有效性规格     |入参说明<br>参数1：name<br>说明：服务端回调函数的名称，长度不超过128且无空格<br>参数2：function<br>说明：服务端用于处理客户端请求的回调函数, 类型为std::function<uint32_t(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer)>, 不能为空。其中inputBuffer为客户端发给服务端的数据，outputBuffer为服务端返回给客户端的数据，类型为<br>struct TurboByteBuffer {<br>uint8_t *data=nullptr;<br>size_t len=0;<br>TurboByteBufferFreeFunc freeFunc;<br>}<br>data为数据指针，len为数据长度，freeFunc为释放内存的回调函数<br>|
 
@@ -84,7 +84,7 @@ NULL
 | 接口描述     | 服务端解注册回调函数  |
 | Input要求/参数     | 1. 函数名称 std::string name  |
 | Output要求/参数     | 执行结果，成功时返回0，失败时返回非0错误码 |
-| 约束和注意事项     |  解注册的函数需已注册过 |
+| 约束和注意事项     |  解注册的函数需已注册过；回调函数中禁止嵌套调用UBTurboUnRegIpcService |
 | 接口使用样例     | RetCode UBTurboUnRegIpcService(const std::string &name); |
 | 参数有效性规格     | 入参说明<br>参数1：函数名称<br>说明：服务端回调函数的名称，长度不超过128且无空格<br> |
 

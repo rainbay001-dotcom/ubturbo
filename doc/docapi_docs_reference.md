@@ -424,7 +424,8 @@ uint32_t UBTurboRegIpcService(const std::string &name, IpcHandlerFunc function);
 
 ## 约束 CONSTRAINTS
 
-暂无
+- 同名函数不能重复注册
+- 回调函数中禁止嵌套调用UBTurboRegIpcService
 
 ## 附注 NOTES
 
@@ -465,7 +466,7 @@ UBTurbo框架
 ```cpp
 #include "turbo_ipc_server.h"
 
-UBTURBO_LOG_CRIT(moduleName, moduleId) << args;
+uint32_t UBTurboUnRegIpcService(const std::string &name);
 ```
 
 ## 描述 DESCRIPTION
@@ -486,6 +487,7 @@ UBTURBO_LOG_CRIT(moduleName, moduleId) << args;
 ## 约束 CONSTRAINTS
 
 - 已注册的服务解注册成功后，再次解注册，返回失败
+- 回调函数中禁止嵌套调用UBTurboUnRegIpcService
 
 ## 附注 NOTES
 

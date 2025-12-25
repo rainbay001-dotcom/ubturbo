@@ -25,7 +25,7 @@ using std::vector;
 class RmrsFileUtil {
 public:
     static RMRS_RES GetFileInfo(const string &path, vector<string> &info);
-
+    static RMRS_RES IsPathExist(const string &path);
     static RMRS_RES IsSpecifiedPath(const string &dirPath, const string &pattern);
 };
 }

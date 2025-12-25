@@ -16,10 +16,13 @@
 #include <cstdlib>
 #include <climits>
 #include <fstream>
+#include <filesystem>
+#include <system_error>
 
 #include "turbo_logger.h"
 #include "rmrs_config.h"
 
+namespace fs = std::filesystem;
 namespace rmrs {
 using std::ifstream;
 using namespace turbo::log;
@@ -37,6 +40,20 @@ RMRS_RES RmrsFileUtil::IsSpecifiedPath(const string &dirPath, const string &patt
         return RMRS_ERROR;
     }
     return RMRS_OK;
+}
+
+/**
+ * 判断路径是否存在
+ * @param path const string &: 路径
+ * @return
+ */
+RMRS_RES RmrsFileUtil::IsPathExist(const string &path)
+{
+    std::error_code ec;
+    if (fs::exists(path, ec)) {
+        return RMRS_OK;
+    }
+    return RMRS_ERROR;
 }
 
 /**

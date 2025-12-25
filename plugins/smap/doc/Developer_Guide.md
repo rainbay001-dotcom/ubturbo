@@ -276,15 +276,15 @@ struct EnableNodeMsg {
 * SMAP初始化后才能调用。
 * 此接口与SmapMigrateBack接口配合使用，目的是在SmapMigrateBack接口调用后，恢复对应远端NUMA的冷热流动。
 
-### ubturbo_smap_vm_freq_query
+### ubturbo_smap_freq_query
 
 #### 函数定义
 
-查询虚机冷热信息。
+查询进程冷热信息。
 
 #### 实现方法
 
-<pre class="screen"><p class="p" id="p1897593015511">int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut);</p></pre>
+<pre class="screen"><p class="p" id="p1897593015511">int ubturbo_smap_freq_query(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut);</p></pre>
 
 #### 参数说明
 
@@ -292,8 +292,8 @@ struct EnableNodeMsg {
 | --- | --- |--- | --- |--- |
 | pid | int | 对应pid需要存在。 | 入参 | 进程pid号。 |
 | data | uint16\_t\* | 非空。 | 入参 | 存放冷热信息的数组。 |
-| lengthIn | uint16\_t | 大于0，小于等于65536。 | 入参 | 指示data数组的大小。 |
-| lengthOut | uint16\_t\* | 非空。 | 入参 | 返回实际写入data数组的大小。 |
+| lengthIn | uint32\_t | 大于0 | 入参 | 指示data数组的大小。 |
+| lengthOut | uint32\_t\* | 非空。 | 入参 | 返回实际写入data数组的大小。 |
 
 #### 返回值
 
@@ -304,8 +304,7 @@ struct EnableNodeMsg {
 #### 约束和注意事项
 
 * SMAP初始化后才能调用。
-* 调用前使用SmapMigrateOut接口设置迁移比例为0，后续在多个迁移周期后获取到冷热数据。
-* 此接口为内存池化碎片场景使用，不在虚拟化场景使用。使用前请调用SetSmapRunMode接口设置内存池化场景。
+* dataSource为0表示先调用ubturbo_smap_migrate_out接口, 后续可获取到最近一个周期的冷热数据。
 
 ### ubturbo_smap_run_mode_set
 
@@ -471,7 +470,7 @@ struct EnableNodeMsg {
 
 #### 约束和注意事项
 
-* 只支持虚机场景
+* scanType为0或1时只支持虚机场景
 * 当进程未被SMAP纳管时，可以调用该接口，此时scanType不能传1。
 * 当进程已经被SMAP纳管时，须先停止冷热迁移，然后才可以调用该接口，scanType可以传0/1/2。
 * scanType传1的情况为进程已被smap纳管，需要从只扫描状态恢复到冷热扫描加迁移状态。

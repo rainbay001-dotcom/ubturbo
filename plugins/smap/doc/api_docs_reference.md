@@ -527,7 +527,7 @@ int main(void)
 }
 ```
 
-# ubturbo_smap_vm_freq_query: 查询虚机冷热信息
+# ubturbo_smap_freq_query: 查询进程冷热信息
 
 ## 库 LIBRARY
 
@@ -537,12 +537,12 @@ SMAP库 (libsmap.so)
 
 ```c
 #include "smap_interface.h"
-int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut, int dataSource);
+int ubturbo_smap_freq_query(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut, int dataSource);
 ```
 
 ## 描述 DESCRIPTION
 
-查询虚机冷热信息。
+查询进程冷热信息。
 
 ## 参数 Parameters
 
@@ -568,8 +568,7 @@ int ubturbo_smap_vm_freq_query(int pid, uint16_t *data, uint16_t lengthIn, uint1
 ## 约束 CONSTRAINTS
 
 * SMAP初始化后才能调用。
-* 调用前使用SmapMigrateOut接口设置迁移比例为0，后续在多个迁移周期后获取到冷热数据。
-* 此接口为内存池化碎片场景使用，不在虚拟化场景使用。使用前请调用SetSmapRunMode接口设置内存池化场景。
+* dataSource为0表示先调用ubturbo_smap_migrate_out接口, 后续可获取到最近一个周期的冷热数据。
 
 ## 附注 NOTES
 
@@ -588,10 +587,10 @@ int main(void)
     int ret;
     int pid = 10253;
     uint16_t data[1024] = { 0 };
-    uint16_t lengthIn = 1024;
-    uint16_t lengthOut;
+    uint32_t lengthIn = 1024;
+    uint32_t lengthOut;
 
-    ret = ubturbo_smap_vm_freq_query(pid, data, lengthIn, &lengthOut, 1);
+    ret = ubturbo_smap_freq_query(pid, data, lengthIn, &lengthOut, 1);
     if (ret != 0) {
         return ret;
     }

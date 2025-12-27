@@ -4,31 +4,31 @@
 
 在灵衢超节点架构中，UBTurbo作为节点内自研开源的资源管理框架，通过封装SMAP冷热页面调度能力并提供标准IPC通信接口，为上层内存管理工具提供统一服务接入点。RMRS节点内内存调度工具基于UBTurbo插件化框架开发，通过框架内置的配置读取、插件管理、日志管理和IPC通信能力，实现与外部组件的指令交互与消息传递。当节点需要进行内存资源调度时，外部进程通过UBTurbo客户端发起请求，RMRS进行决策并调用SMAP的内存迁移相关接口，动态调整进程内存布局。
  
-## Demo
+## Demo1
  
-使用UBTurbo的一个典型场景是：虚拟化场景下，某节点借用到了其它节点的内存，借用内存形成了一个新的NUMA，并分配了足够的大页；该节点的本地NUMA上启动了一个2M页虚拟机。首先，用户打开RMRS插件并启动UBTurbo进程，通过SDK访问UBTurbo为虚拟机制定迁移策略。基于迁移策略结果，再次向UBTurbo发送内存迁移执行命令，将虚拟机的部分本地内存到远端NUMA上。下面的demo依次完成了以下动作：
+使用UBTurbo的一个典型场景是：虚拟化场景下，某节点借用到了其它节点的内存，借用内存形成了一个新的NUMA，并分配了足够的大页；该节点的本地NUMA上启动了一个2M页虚拟机。首先，用户打开RMRS插件并启动UBTurbo进程，通过SDK访问UBTurbo为虚拟机制定迁移策略。基于迁移策略结果，再次向UBTurbo发送内存迁移执行命令，将虚拟机的部分本地内存到远端NUMA上。下面的demo1依次完成了以下动作：
  
 1. 设置迁出策略的入参信息；
 2. 执行内存迁移策略，获取策略结果；
 3. 基于策略结果将虚机本地内存迁移到远端NUMA上；
 
-Demo使用说明：
+Demo1使用说明：
 ```bash
 # 环境要求：已安装ubturbo-rmrs、ubturbo-devel、ubturbo-smap、libboundscheck
 
 # 编译
-g++ -lboundscheck -lubturbo_client demo.cpp -o demo
+g++ -lboundscheck -lubturbo_client demo1.cpp -o demo1
 
 # 运行
 # 参数说明
 # pid: 虚拟机对应pid
 # borrowRemoteNuma: 借用过来的内存呈现的远端numa
-./demo <pid> <borrowRemoteNuma>
+./demo1 <pid> <borrowRemoteNuma>
 ```
 
-Demo源码：
+Demo1源码：
 ```C++
-// demo.cpp
+// demo1.cpp
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
         }
     };
 
-    // --- 2. Run migration strategy. ---
+    // --- Run migration strategy. ---
     turbo::rmrs::MigrateStrategyResult migrateStrategyResult;
 
     uint32_t ret = turbo::rmrs::UBTurboRMRSAgentMigrateStrategy(migrateStrategyParam, migrateStrategyResult);
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
     std::cout << "Strategy content is: " << std::endl;
     PrintStrategyResult(migrateStrategyResult);
 
-    // --- 2. Run migration execution. ---
+    // --- Run migration execution. ---
     ret = turbo::rmrs::UBTurboRMRSAgentMigrateExecute(migrateStrategyResult);
     if (ret != 0) {
         std::cout << "Migrate execute failed: " << ret;
@@ -108,7 +108,124 @@ int main(int argc, char* argv[])
 }
 
 ```
- 
+
+## Demo2
+
+使用UBTurbo的一个典型场景是：虚拟化/容器场景下，查询进程的冷热信息
+
+1. 根据虚拟机或者容器场景，插入smap的ko；
+2. 创建相应的虚拟机或者容器；
+3. 根据实际的情况修改demo2代码对应参数，编译执行；
+
+Demo2使用说明：
+```bash
+# 环境要求：已安装ubturbo-rmrs、ubturbo-devel、ubturbo-smap、libboundscheck
+
+# 编译
+g++ -lboundscheck -lubturbo_client demo2.cpp -o demo2
+
+# 运行
+# 参数说明
+# pid: 虚拟机对应pid
+# borrowRemoteNuma: 借用过来的内存呈现的远端numa
+./demo2
+```
+
+Demo2源码：
+```C++
+// demo2.cpp
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "ubturbo/smap_interface.h"
+
+using namespace std;
+
+void logfunc(int level, const char *str, const char *moduleName) {
+    cout << "logLevel="  << level << ", Module: " << moduleName << ", Message: " << str << endl;
+}
+
+int main(int argc, char* argv[])
+{
+    // 定义参数
+    uint32_t pageType = 0;      // 容器场景：0；虚拟机场景：1（必须根据实际情况设置）
+    pid_t pid = 477405;         // 进程对应pid（必须根据实际情况设置）
+    uint32_t scanTime = 50;     // 扫描间隔，单位ms（可根据需要设置）
+    uint32_t duration = 1;      // 扫描持续时长，单位s（可根据需要设置）
+    int len = 1;                // 进程数组大小，一个pid对应该参数就是1（无需更改）
+    int scanType = 2;           // 扫描类型，统计模式参数为2（无需更改）
+    uint32_t lengthIn = 2560;  //  传入的数据长度，虚拟机场景：内存/2M，容器场景：内存/4kb（必须根据实际情况设置）
+    uint32_t lengthOut = 0;    //  输出实际数据长度（无需更改）
+    int dataSource = 1;        //  标识数据来源，统计模式为1（无需更改）
+
+    // 初始化smap
+    int result = ubturbo_smap_start(pageType, logfunc);
+    if (result == 0 || result == -1) {
+        cout << "smap初始化成功，场景：" << pageType << endl;
+    } else {
+        cout << "smap初始化失败，错误码为：" << result << endl;
+        return result;
+    }
+
+    // 添加进程扫描
+    pid_t pidArr[1] = {pid};
+    result = ubturbo_smap_process_tracking_add(
+        pidArr,        // 进程数组
+        &scanTime,     // 扫描间隔地址
+        &duration,     // 持续时长地址
+        len,           // 数组大小
+        scanType       // 扫描类型
+    );
+    if (result == 0) {
+        cout << "成功添加进程到冷热扫描" << endl;
+    } else {
+        cout << "添加进程失败，错误码为：" << result << endl;
+        return result;
+    }
+
+    // 调用函数查询进程的页面冷热信息
+    sleep(duration + 3);    // 等待一个多统计周期，待获取到扫描信息再查询
+    uint16_t *data = (uint16_t *)malloc(lengthIn * sizeof(uint16_t));
+    if (data == NULL) {
+        cout << "内存分配失败" << endl;
+        return -1;
+    }
+    result = ubturbo_smap_freq_query(
+        pid,           // 查询的进程ID
+        data,          // 查询页面冷热数据缓冲区
+        lengthIn,      // 传入的数据长度
+        &lengthOut,    // 查询的返回长度
+        dataSource     // 数据来源标识
+    );
+    // 检查结果
+    if (result == 0) {
+        cout << "查询成功，实际返回数据长度: " << lengthOut << endl;
+        cout << "页面冷热数据: ";
+
+        // 输出数据，以空格隔开
+        if (lengthOut > 0) {
+            for (uint32_t i = 0; i < lengthOut; i++) {
+                cout << data[i];
+                if (i < lengthOut - 1) {
+                    cout << " ";
+                }
+            }
+            cout << endl;
+        } else {
+            cout << "无数据返回" << endl;
+        }
+    } else {
+        cout << "查询失败，错误码: " << result << endl;
+        return result;
+    }
+
+    // 释放内存
+    free(data);
+    return 0;
+}
+
+```
 ## Getting Started: Compilation Guide
  
 在项目根目录执行:

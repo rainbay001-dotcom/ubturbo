@@ -10,3 +10,15 @@
 [submodule "3rdparty/rapidjson"]
 	path = 3rdparty/rapidjson
 	url = https://gitee.com/Tencent/RapidJSON.git
+[submodule "plugins/smap/3rdparty/secure/libboundscheck"]
+	path = plugins/smap/3rdparty/secure/libboundscheck
+	url = https://gitee.com/openeuler/libboundscheck.git
+[submodule "plugins/smap/3rdparty/spdlog"]
+	path = plugins/smap/3rdparty/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "plugins/smap/test/3rdparty/googletest"]
+	path = plugins/smap/test/3rdparty/googletest
+	url = https://gitee.com/mirrors/googletest.git
+[submodule "plugins/smap/test/3rdparty/mockcpp"]
+	path = plugins/smap/test/3rdparty/mockcpp
+	url = https://gitee.com/mirrors_sinojelly/mockcpp.git

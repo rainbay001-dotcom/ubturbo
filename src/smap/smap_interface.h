@@ -35,6 +35,7 @@ extern "C" {
 #define MIN_SCAN_TIME 5
 #define DEFAULT_L2_NODE (-1)
 #define REMOTE_NUMA_BITS 18
+#define MAX_4K_PROCESSES_CNT 300
 
 
 typedef enum { INPUT_PROCESS = 0, INPUT_VM, INPUT_MAX } InputPidType;

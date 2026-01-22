@@ -472,7 +472,7 @@ bool IsAllL2NodePidInState(enum ProcessState state, int l2Node);
 int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg);
 ProcessAttr *GetProcessAttrLocked(pid_t pid);
 
-bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
+bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid);
 FILE *OpenNumaMaps(pid_t pid);
 
 static inline uint64_t KBTo2M(uint64_t memSize)

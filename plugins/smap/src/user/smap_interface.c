@@ -489,11 +489,8 @@ static int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint
         payload[i].scanTime = LIGHT_STABLE_SCAN_CYCLE;
         if (!PidIsValid(msg->payload[i].pid)) {
             SMAP_LOGGER_WARNING("pid %d doesn't exist.", msg->payload[i].pid);
-            if (GetRunMode() == WATERLINE_MODE) {
-                payload[i].pid = NON_EXIST_PID;
-                continue;
-            }
-            return -EINVAL;
+            payload[i].pid = NON_EXIST_PID;
+            continue;
         }
         // assign values for local numa nodes
         if (!nodeBitmap) {
@@ -543,7 +540,7 @@ static int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType,
         ret = ProcessAddManage(&param, nodeBitmapTmp);
         if (ret) {
             SMAP_LOGGER_ERROR("add process %d failed: %d.", msg->payload[i].pid, ret);
-            if (ret == -ESRCH && GetRunMode() == WATERLINE_MODE) {
+            if (ret == -ESRCH) {
                 *hasInvalidPid = true;
                 ret = 0;
                 continue;
@@ -1542,16 +1539,11 @@ int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg)
     return ret;
 }
 
-int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64_t maxWaitTime)
+static int CheckMigOutSyncMsg(int pidType, uint64_t maxWaitTime)
 {
-    int ret = -1;
-    uint64_t waitTime = 0;
-    bool allPidSuccess = true;
-    int localMemRatio = 0;
-
     SMAP_LOGGER_INFO("received ubturbo_smap_migrate_out_sync msg, maxWaitTime:%llu.", maxWaitTime);
     if ((maxWaitTime < MIN_WAIT_TIME || maxWaitTime > MAX_WAIT_TIME) && maxWaitTime != 0) {
-        SMAP_LOGGER_ERROR("The maxWaitTime parameter is improper,The maxWaitTime from 10s to 1 min, ret %d.", ret);
+        SMAP_LOGGER_ERROR("The maxWaitTime parameter is improper,The maxWaitTime from 10s to 1 min.");
         return -EINVAL;
     }
 
@@ -1565,8 +1557,61 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
         return -EINVAL;
     }
 
-    ret = ubturbo_smap_migrate_out(msg, pidType);
+    return 0;
+}
+
+static int CheckMigOutSyncResult(struct MigrateOutMsg *msg, int *invalidPidNum, bool *allPidSuccess,
+    uint64_t maxWaitTime)
+{
+    int num = 0;
+    bool result = true;
+    struct ProcessManager *manager = GetProcessManager();
+    ProcessAttr *attr;
+
+    for (int i = 0; i < msg->count; i++) {
+        bool isMultiNumaPid = false;
+        EnvMutexLock(&manager->lock);
+        attr = manager->processes;
+        while (attr && attr->pid != msg->payload[i].pid) {
+            attr = attr->next;
+        }
+        if (!attr) {
+            num++;
+            EnvMutexUnlock(&manager->lock);
+            SMAP_LOGGER_ERROR("Pid %d is invalid.", msg->payload[i].pid);
+            continue;
+        }
+        bool isSuccess = MigOutIsDone(attr, &isMultiNumaPid);
+        EnvMutexUnlock(&manager->lock);
+        result &= isSuccess;
+        if (!isSuccess && IsMemoryLow(msg->payload[i].pid) && maxWaitTime == 0) {
+            SMAP_LOGGER_ERROR("Dest numa memory is not enough.");
+            return -EBUSY;
+        }
+        if (maxWaitTime == 0 && !isMultiNumaPid) {
+            SMAP_LOGGER_ERROR("Pid %d is single numa pid or unmanaged pid.", msg->payload[i].pid);
+            return -EINVAL;
+        }
+    }
+    *invalidPidNum = num;
+    *allPidSuccess = result;
+    return 0;
+}
+
+int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64_t maxWaitTime)
+{
+    int ret;
+    uint64_t waitTime = 0;
+    bool allPidSuccess = true;
+    int invalidPidNum;
+
+    ret = CheckMigOutSyncMsg(pidType, maxWaitTime);
     if (ret) {
+        return ret;
+    }
+
+    ret = ubturbo_smap_migrate_out(msg, pidType);
+    if (ret && ret != -ESRCH) {
         SMAP_LOGGER_ERROR("Smap migrate out failed, ret %d.", ret);
         return ret;
     }
@@ -1574,23 +1619,22 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
 
     while (maxWaitTime == 0 || waitTime < maxWaitTime) {
         waitTime += WAIT_TIME;
-        for (int i = 0; i < msg->count; i++) {
-            bool isMultiNumaPid = false;
-            bool isSuccess = MigOutIsDone(msg->payload[i].pid, &isMultiNumaPid);
-            allPidSuccess &= isSuccess;
-            SMAP_LOGGER_INFO("pid %d, waitTime %llu.", msg->payload[i].pid, waitTime);
-            if (!isSuccess && IsMemoryLow(msg->payload[i].pid) && maxWaitTime == 0) {
-                SMAP_LOGGER_ERROR("Dest numa memory is not enough.");
-                return -EBUSY;
-            }
-            if (maxWaitTime == 0 && !isMultiNumaPid) {
-                SMAP_LOGGER_ERROR("Pid %d is single numa pid or unmanaged pid.", msg->payload[i].pid);
-                return -EINVAL;
-            }
+        invalidPidNum = 0;
+        SMAP_LOGGER_INFO("ubturbo_smap_migrate_out_sync waitTime %llu.", waitTime);
+        ret = CheckMigOutSyncResult(msg, &invalidPidNum, &allPidSuccess, maxWaitTime);
+        if (ret) {
+            return ret;
         }
-        if (allPidSuccess) {
-            SMAP_LOGGER_INFO("ubturbo_smap_migrate_out_sync all pid success.", pidType, ret);
+        if (invalidPidNum == msg->count) {
+            SMAP_LOGGER_ERROR("ubturbo_smap_migrate_out_sync all pid is invalid.");
+            return -ESRCH;
+        }
+        if (allPidSuccess && !invalidPidNum) {
+            SMAP_LOGGER_INFO("ubturbo_smap_migrate_out_sync all pid success.");
             return 0;
+        } else if (allPidSuccess && invalidPidNum) {
+            SMAP_LOGGER_INFO("ubturbo_smap_migrate_out_sync partial pid success.");
+            return -ESRCH;
         }
         allPidSuccess = true;
         EnvMsleep(WAIT_TIME);
@@ -1854,7 +1898,7 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
     ProcessAttr *current;
     for (i = 0; i < length; i++) {
         for (current = manager->processes; current; current = current->next) {
-            if (EqualToAttrL2(current, numa[i])) {
+            if (InAttrL2(current, numa[i])) {
                 freq[i] += current->scanAttr.actCount[numa[i]].freqSum;
             }
         }

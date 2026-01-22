@@ -2162,22 +2162,11 @@ int IsRemoteNumaMoveAllowed(int nid)
     return 1;
 }
 
-bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid)
+bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
 {
     bool ret = false;
-    EnvMutexLock(&g_processManager.lock);
-    ProcessAttr *attr = g_processManager.processes;
     uint64_t remoteNum;
-
-    while (attr != NULL && attr->pid != pid) {
-        attr = attr->next;
-    }
-    if (!attr) {
-        SMAP_LOGGER_ERROR("Failed to find pid %d.", pid);
-        *isMultiNumaPid = true;
-        EnvMutexUnlock(&g_processManager.lock);
-        return false;
-    }
+    pid_t pid = attr->pid;
 
     attr->enableSwap = false;
     if (IsMultiNumaVm(attr)) {
@@ -2188,7 +2177,6 @@ bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid)
             SMAP_LOGGER_INFO("Pid: %d, l2node: %d, remoteNum: %lu, actcLen: %lu.", pid, l2node, remoteNum,
                              attr->scanAttr.actcLen[l2node]);
             if (attr->scanAttr.actcLen[l2node] != remoteNum) {
-                EnvMutexUnlock(&g_processManager.lock);
                 return false;
             }
         }
@@ -2199,7 +2187,6 @@ bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid)
         int l2Node = GetAttrL2(attr) - g_processManager.nrLocalNuma;
         if (l1Node < 0 || l2Node < 0) {
             SMAP_LOGGER_ERROR("Invalid l1Node %d l2Node %d of pid %d.", l1Node, l2Node, pid);
-            EnvMutexUnlock(&g_processManager.lock);
             return false;
         }
         remoteNum = KBTo2M(attr->strategyAttr.memSize[l1Node][l2Node]);
@@ -2214,7 +2201,6 @@ bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid)
         }
     }
 
-    EnvMutexUnlock(&g_processManager.lock);
     return ret;
 }
 

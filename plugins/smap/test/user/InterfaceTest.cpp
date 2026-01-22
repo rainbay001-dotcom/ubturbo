@@ -2230,7 +2230,7 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrChangePidRemoteByPid)
 }
 
 extern "C" bool GetAdaptMem(void);
-extern "C" bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
+extern "C" bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid);
 extern "C" int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64_t maxWaitTime);
 TEST_F(InterfaceTest, TestSmapMigrateOutSyncErrMaxWaitTime)
 {
@@ -2280,6 +2280,11 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncSuccess)
 {
     int ret;
     struct MigrateOutMsg msg;
+    struct ProcessManager manager;
+    ProcessAttr attr = {};
+    manager.processes = &attr;
+    attr.next = nullptr;
+    attr.pid = 1;
     msg.count = 1;
     msg.payload[0].count = 1;
     msg.payload[0].pid = 1;
@@ -2287,6 +2292,8 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncSuccess)
     int pidType = VM_TYPE;
     uint64_t maxWaitTime = 10000;
 
+    EnvMutexInit(&manager.lock);
+    MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
     MOCKER(GetRunMode).stubs().will(returnValue(1));
     MOCKER(ubturbo_smap_migrate_out).stubs().will(returnValue(0));
     MOCKER(MigOutIsDone).stubs().will(returnValue(true));
@@ -2298,6 +2305,11 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncFail)
 {
     int ret;
     struct MigrateOutMsg msg;
+    struct ProcessManager manager;
+    ProcessAttr attr = {};
+    manager.processes = &attr;
+    attr.pid = 1;
+    attr.next = nullptr;
     msg.count = 1;
     msg.payload[0].count = 1;
     msg.payload[0].pid = 1;
@@ -2305,6 +2317,8 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncFail)
     int pidType = VM_TYPE;
     uint64_t maxWaitTime = 10000;
 
+    EnvMutexInit(&manager.lock);
+    MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
     MOCKER(GetRunMode).stubs().will(returnValue(1));
     MOCKER(ubturbo_smap_migrate_out).stubs().will(returnValue(0));
     MOCKER(MigOutIsDone).stubs().will(returnValue(false));

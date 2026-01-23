@@ -200,8 +200,8 @@ bool RmrsMigrateModule::ISPresetMemorySufficient(const uint64_t &memMigrateTotal
         LOG_DEBUG << "[MemMigrate][Strategy] The VM, pid = " << vmParam.pid << ", ratio = " << vmParam.ratio
                   << "%, memSum = " << tmpMemSum << "(KB), realMigrateMem = " << realMigrateMem << "(KB).";
         if (realMigrateMem < 0) {
-            LOG_ERROR << "[MemMigrate][Strategy] The preset migration ratio is smaller than the actual migrated ratio.";
-            return false;
+            LOG_WARN << "[MemMigrate][Strategy] The preset migration ratio is smaller than the actual migrated ratio.";
+            realMigrateMem = 0;
         }
 
         // 对实际还能迁出的内存(KB), 向下取整为2048的倍数

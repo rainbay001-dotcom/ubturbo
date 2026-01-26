@@ -412,6 +412,7 @@ static void AssignProcessAttr(ProcessAttr *attr, struct ProcessPayload *payload)
     attr->scanTime = payload->scanTime;
     attr->migrateMode = payload->migrateMode;
     attr->duration = payload->duration;
+    attr->enableSwap = true;
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error.");
     }

@@ -708,12 +708,34 @@ static int hist_pginfo_reinit(struct smap_hist_dev *dev, u32 pgsize_new)
 	return 0;
 }
 
+#define REMOTE_NUMA_OVERFLOW_SIZE 824633720832
+static int is_total_seg_overflow(struct segs_info *info)
+{
+	u32 i = 0;
+	u64 total_size = 0;
+	for (; i < info->cnt; ++i) {
+		total_size += info->segs[i].size;
+	}
+	if (total_size >= REMOTE_NUMA_OVERFLOW_SIZE) {
+		pr_debug("remote numa total memory size overflow with %llu\n", total_size);
+		return 1;
+	}
+	return 0;
+}
+
 static int scan_thread_run(void *data)
 {
 	int ret;
 	struct smap_hist_dev *dev = &g_smap_hist_dev;
-
+	int flag = 0;
 	while (!kthread_should_stop()) {
+		if (flag == 1) {
+			if (is_total_seg_overflow(&dev->info) == 0) {
+				flag = 0;
+			}
+			msleep(1);
+			continue;
+		}
 		if (dev->status.status_all) {
 			u32 pgsize = dev->status.flag.new_pgsize ?: dev->pgsize;
 			pr_info("histogram tracking page info has been reinited, status: %#x\n",
@@ -730,6 +752,11 @@ static int scan_thread_run(void *data)
 
 		if (!dev->thread_enable || !dev->pgcount) {
 			msleep(1);
+			continue;
+		}
+
+		if (is_total_seg_overflow(&dev->info) == 1) {
+			flag = 1;
 			continue;
 		}
 

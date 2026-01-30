@@ -90,7 +90,7 @@ int ucache_scan_folios(int nid, pid_t pid, struct folio **folios,
 	}
 
 	spin_lock_irq(&lruvec->lru_lock);
-	list_for_each_entry(folio, src, lru) {
+	list_for_each_entry_reverse(folio, src, lru) {
 		if (!folio_try_get(folio)) {
 			continue;
 		}

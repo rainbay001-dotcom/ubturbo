@@ -23,6 +23,7 @@ const int SMAP_RATIO_RMRS = 25;
 const int MAX_NR_MIGOUT_RMRS = 40;
 const int MAX_NR_MIGBACK_RMRS = 50;
 const int MAX_NR_REMOVE_RMRS = 40;
+const int REMOTE_NUMA_NUM_RMRS = 18;
 
 // 迁出接口超时返回码
 const int MIGRATEOUT_TIMEOUT_RES = -16;
@@ -33,17 +34,23 @@ typedef enum {
     MIG_MEMSIZE_MODE,   // 按照内存大小迁移
 } MigrateMode;
 
-struct MigrateOutPayload {
-    int destNid{};          // remoteNumaId
-    pid_t pid{};            // 待迁移冷数据的虚机实例进程pid
-    int ratio = SMAP_RATIO_RMRS; // 默认冷数据迁移比例
+struct MigrateOutPayloadInner {
+    int destNid;
+    int ratio;
     uint64_t memSize;        // 新增字段： 内存迁移大小(KB)
     MigrateMode migrateMode; // 新增字段： 内存迁移模式，按照比例或是大小
 };
 
+struct MigrateOutPayload {
+    int srcNid; // 是否指定迁出源节点（-1表示不指定）
+    pid_t pid;
+    int count;
+    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM_RMRS];
+};
+
 struct MigrateOutMsg {
-    int count{};
-    MigrateOutPayload payload[MAX_NR_MIGOUT_RMRS];
+    int count;
+    struct MigrateOutPayload payload[MAX_NR_MIGOUT_RMRS];
 };
 
 struct RemoteNumaInfo {

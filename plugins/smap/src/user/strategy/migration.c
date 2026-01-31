@@ -554,7 +554,7 @@ static int PerformMigration(struct ProcessManager *manager)
     SMAP_LOGGER_INFO("Do migration result: %d.", ret);
     PostMigration(manager, &mMsg);
     if (ret) {
-        SMAP_LOGGER_ERROR("Do migration failed! migration_failure_count=%d.", ret);
+        SMAP_LOGGER_INFO("Do migration failed! migration_failure_count=%d.", ret);
         return ret;
     }
     return ret;

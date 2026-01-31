@@ -822,8 +822,8 @@ int do_migrate(struct migrate_msg *msg, struct mig_list *mig_list)
 		failed_num += mig_list[i].failed_mig_nr;
 		mig_list[i].success_to_user = true;
 		if (mig_list[i].failed_mig_nr) {
-			pr_err("[%d]: migrate failed, pre_migrate_num: %d, failed_num: %llu\n",
-			       i, pre_migrate_num, mig_list[i].failed_mig_nr);
+			pr_debug("[%d]: migrate failed, pre_migrate_num: %d, failed_num: %llu\n",
+			         i, pre_migrate_num, mig_list[i].failed_mig_nr);
 		}
 		pr_debug(
 			"[%d]: mig_num %d, pre_migrate_num %d, failed_num %llu\n",

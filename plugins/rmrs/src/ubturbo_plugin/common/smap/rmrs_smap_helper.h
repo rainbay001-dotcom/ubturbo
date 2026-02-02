@@ -44,18 +44,12 @@ public:
 
     static void Deinit();
 
-    static RmrsResult GetMigrateOutMsg(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> &pidsIn,
-                                       std::vector<uint16_t> &remoteNumaIdsIn, int &ratio);
-
     static bool GetMigrateOutMsgByMemSize(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> pidList,
                                           std::vector<uint16_t> remoteNumaIdList, std::vector<uint64_t> memSizeList);
 
     static RmrsResult GetOriginalHugePages(const std::string &filePath, uint64_t &originalHugePages);
 
     static RmrsResult RewriteHugePages(const std::string &realPath, uint64_t originalHugePages, uint64_t borrowSize);
-
-    static RmrsResult MigrateColdDataToRemoteNuma(std::vector<uint16_t> &remoteNumaIdsIn, std::vector<pid_t> &pidsIn,
-                                                  int ratio);
 
     static RmrsResult MigrateColdDataToRemoteNumaSync(std::vector<uint16_t> &remoteNumaIdsIn,
                                                       std::vector<pid_t> &pidsIn, std::vector<uint64_t> memSizeList,
@@ -76,12 +70,6 @@ public:
     // 避免和SetSmapRemoteNumaInfo重名添加Helper后缀
     static RmrsResult SetSmapRemoteNumaInfoHelper(
         const uint16_t &srcNumaId, const std::vector<mempooling::over_commit::MemBorrowInfo> &memBorrowInfos);
-
-    static MigrateOutMsg GetMigrateOutMsgInOverCommit(
-        const std::vector<mempooling::over_commit::MemMigrateResult> &memMigrateResults, const uint16_t ratio);
-
-    static RmrsResult MigrateOutInOverCommit(
-        const std::vector<mempooling::over_commit::MemMigrateResult> &memMigrateResults, uint16_t ratio = SMAP_RATIO);
 
     static RmrsResult SmapQueryProcessConfigHelper(int nid, std::vector<ProcessPayload> &processPayloadList);
 

@@ -105,49 +105,6 @@ void RmrsSmapHelper::Deinit()
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] SmapModule Deinit success.";
 }
 
-RmrsResult RmrsSmapHelper::MigrateColdDataToRemoteNuma(std::vector<uint16_t> &remoteNumaIdsIn,
-                                                       std::vector<pid_t> &pidsIn, int ratio)
-{
-    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateColdDataToRemoteNuma start.";
-    if (pidsIn.size() == 0) {
-        UBTURBO_LOG_WARN(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Migrate pid sizes is 0.";
-    }
-    if (pidsIn.size() != 0) {
-        UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] Migrate pid sizes is " << pidsIn.size() << ".";
-        for (size_t i = 0; i < pidsIn.size(); i++) {
-            UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-                << "[RmrsSmapHelper] Migrate pid = " << pidsIn[i] << ".";
-        }
-    }
-    SmapMigrateOutFunc smapMigrateOutFunc = SmapModule::GetSmapMigrateOut();
-    if (smapMigrateOutFunc == nullptr) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Failed to get function symbol.";
-        return RMRS_ERROR;
-    }
-
-    MigrateOutMsg migrateOutMsg{};
-    RmrsResult retGet = GetMigrateOutMsg(migrateOutMsg, pidsIn, remoteNumaIdsIn, ratio);
-    if (retGet != RMRS_OK) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Failed to fill migrate-out value.";
-        return RMRS_ERROR;
-    }
-
-    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Migrate cold data.";
-    int ret = smapMigrateOutFunc(&migrateOutMsg, PID_TYPE_2MB);
-    if (ret < 0) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] MigrateColdDataToRemoteNuma failed, with error code = " << ret << ".";
-        if (ret == smapPermErrorCode) {
-            UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-                << "[RmrsSmapHelper] MigrateColdDataToRemoteNuma init failed.";
-        }
-        return RMRS_ERROR;
-    }
-    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateColdDataToRemoteNuma end.";
-    return RMRS_OK;
-}
-
 RmrsResult RmrsSmapHelper::QueryVMFreqArray(int pidIn, uint16_t *dataIn, uint32_t lengthIn, uint32_t &lengthOut)
 {
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] QueryVMFreqArray start.";
@@ -256,42 +213,6 @@ RmrsResult RmrsSmapHelper::GetOriginalHugePages(const std::string &realPath, uin
     if (!(iss >> originalHugePages)) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[HugeAlloc] Failed to parse integer from file.";
         return RMRS_ERROR;
-    }
-    return RMRS_OK;
-}
-
-RmrsResult RmrsSmapHelper::GetMigrateOutMsg(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> &pidsIn,
-                                            std::vector<uint16_t> &remoteNumaIdsIn, int &ratio)
-{
-    if (pidsIn.size() > MAX_NR_MIGOUT_RMRS) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] Migrate-out PID array size too large.";
-        return RMRS_ERROR;
-    }
-
-    if (remoteNumaIdsIn.size() > MAX_NR_MIGOUT_RMRS) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] Migrate-out remote NUMAId array size too large.";
-        return RMRS_ERROR;
-    }
-
-    if (remoteNumaIdsIn.size() >= pidsIn.size()) {
-        migrateOutMsg.count = static_cast<int>(pidsIn.size());
-        for (int i = 0; i < migrateOutMsg.count; i++) {
-            migrateOutMsg.payload[i].destNid = static_cast<int>(remoteNumaIdsIn[i]);
-            migrateOutMsg.payload[i].pid = static_cast<int>(pidsIn[i]);
-            migrateOutMsg.payload[i].ratio = ratio;
-            UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateOutMsg."
-                                                                << "pid: " << migrateOutMsg.payload[i].pid << ".";
-        }
-    } else {
-        migrateOutMsg.count = static_cast<int>(pidsIn.size());
-        for (int i = 0; i < migrateOutMsg.count; i++) {
-            migrateOutMsg.payload[i].destNid =
-                static_cast<int>(remoteNumaIdsIn[i % static_cast<int>(remoteNumaIdsIn.size())]);
-            migrateOutMsg.payload[i].pid = static_cast<int>(pidsIn[i]);
-            migrateOutMsg.payload[i].ratio = ratio;
-        }
     }
     return RMRS_OK;
 }
@@ -488,43 +409,6 @@ RmrsResult RmrsSmapHelper::SetSmapRemoteNumaInfoHelper(
     return RMRS_OK;
 }
 
-MigrateOutMsg RmrsSmapHelper::GetMigrateOutMsgInOverCommit(
-    const std::vector<mempooling::over_commit::MemMigrateResult> &memMigrateResults, const uint16_t ratio)
-{
-    MigrateOutMsg migrateOutMsg{};
-    migrateOutMsg.count = static_cast<int>(memMigrateResults.size());
-    if (migrateOutMsg.count > MAX_NR_MIGOUT_RMRS) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Parameter size overflow.";
-        return migrateOutMsg;
-    }
-    for (int i = 0; i < migrateOutMsg.count; i++) {
-        migrateOutMsg.payload[i].pid = memMigrateResults[i].pid;
-        migrateOutMsg.payload[i].destNid = memMigrateResults[i].remoteNumaId;
-        migrateOutMsg.payload[i].ratio = ratio;
-        UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] Pid=" << memMigrateResults[i].pid
-            << ", destNid=" << memMigrateResults[i].remoteNumaId << ", ratio=" << ratio << ".";
-    }
-    return migrateOutMsg;
-}
-
-RmrsResult RmrsSmapHelper::MigrateOutInOverCommit(const std::vector<over_commit::MemMigrateResult> &memMigrateResults,
-                                                  const uint16_t ratio)
-{
-    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateOutInOverCommit start.";
-    const SmapMigrateOutFunc smapMigrateOutFunc = SmapModule::GetSmapMigrateOut();
-    if (smapMigrateOutFunc == nullptr) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Failed to get function symbol.";
-        return RMRS_ERROR;
-    };
-
-    auto migrateOutMsg = GetMigrateOutMsgInOverCommit(memMigrateResults, ratio);
-    if (const auto ret = smapMigrateOutFunc(&migrateOutMsg, PID_TYPE_2MB); ret != RMRS_OK) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateOutInOverCommit end.";
-    }
-    return RMRS_OK;
-}
-
 // 内存迁出同步接口 迁出具体size大小
 RmrsResult RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(std::vector<uint16_t> &remoteNumaIdList,
                                                            std::vector<pid_t> &pidsIn,
@@ -588,21 +472,23 @@ bool RmrsSmapHelper::GetMigrateOutMsgByMemSize(MigrateOutMsg &migrateOutMsg, std
         LOG_ERROR << "[RmrsSmapHelper] Parameter limit exceeded.";
         return false;
     }
+    int indexOfPayloadInner = 0; // 适配smap多numa，此为碎片场景，仅支持单远端，所以下标取0就可以
     for (size_t i = 0; i < pidList.size(); i++) {
-        migrateOutMsg.payload[i].destNid = static_cast<int>(remoteNumaIdList[i]);
+        migrateOutMsg.payload[i].inner[indexOfPayloadInner].destNid = static_cast<int>(remoteNumaIdList[i]);
+        migrateOutMsg.payload[i].count = 1;
         migrateOutMsg.payload[i].pid = pidList[i];
-        migrateOutMsg.payload[i].ratio = 0;
-        migrateOutMsg.payload[i].memSize = memSizeList[i];
-        migrateOutMsg.payload[i].migrateMode = MIG_MEMSIZE_MODE;
+        migrateOutMsg.payload[i].inner[indexOfPayloadInner].ratio = 0;
+        migrateOutMsg.payload[i].inner[indexOfPayloadInner].memSize = memSizeList[i];
+        migrateOutMsg.payload[i].inner[indexOfPayloadInner].migrateMode = MIG_MEMSIZE_MODE;
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] Index[" << i << "].";
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] DestNid[" << migrateOutMsg.payload[i].destNid << "].";
+            << "[RmrsSmapHelper] DestNid[" << migrateOutMsg.payload[i].inner[indexOfPayloadInner].destNid << "].";
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[RmrsSmapHelper] PID[" << migrateOutMsg.payload[i].pid << "].";
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] Ratio[" << migrateOutMsg.payload[i].ratio << "].";
+            << "[RmrsSmapHelper] Ratio[" << migrateOutMsg.payload[i].inner[indexOfPayloadInner].ratio << "].";
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapHelper] MemSize[" << migrateOutMsg.payload[i].memSize << "].";
+            << "[RmrsSmapHelper] MemSize[" << migrateOutMsg.payload[i].inner[indexOfPayloadInner].memSize << "].";
     }
     return true;
 }

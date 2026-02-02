@@ -517,7 +517,7 @@ int StubSetSmapRemoteNumaInfo(struct SetRemoteNumaInfoMsg *msg)
     return 0;
 }
 
-int StubSmapQueryVmFreq(int pid, uint16_t *data, uint16_t lengthIn, uint16_t *lengthOut, int dataSource)
+int StubSmapQueryVmFreq(int pid, uint16_t *data, uint32_t lengthIn, uint32_t *lengthOut, int dataSource)
 {
     return 0;
 }

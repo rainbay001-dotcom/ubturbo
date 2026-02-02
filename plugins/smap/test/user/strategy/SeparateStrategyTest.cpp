@@ -1146,13 +1146,14 @@ TEST_F(SeparateStrategyTest, TestDemoteMultiNumaVmStrategy)
     demoteNum = 1;
     l1ActcLen = 1;
     LevelActcData *l1ActcData_2 = (LevelActcData *)calloc(nrPages[L1], sizeof(LevelActcData));
-    uint64_t *migAddrArray_1 = (uint64_t *)calloc(1, sizeof(LevelActcData));
+    ASSERT_NE(nullptr, l1ActcData_2);
+    uint64_t *migAddrArray = (uint64_t *)calloc(1, sizeof(LevelActcData));
     l1ActcData_2[0].node = 0;
 
     MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
     MOCKER(calloc).stubs()
         .will(returnValue(static_cast<void *>(l1ActcData_2)))
-        .then(returnValue(static_cast<void *>(migAddrArray_1)));
+        .then(returnValue(static_cast<void *>(migAddrArray)));
     MOCKER(BuildLevelActcData).stubs()
         .with(any(), any(), any(), outBoundP(&l1ActcLen, sizeof(uint64_t)))
         .will(returnValue(0));
@@ -1352,7 +1353,9 @@ extern "C" int FreqDescFunc(const void *actc1, const void *actc2);
 TEST_F(SeparateStrategyTest, TestFreqDescFunc)
 {
     LevelActcData *levelActcData_1 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    ASSERT_NE(nullptr, levelActcData_1);
     LevelActcData *levelActcData_2 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    ASSERT_NE(nullptr, levelActcData_2);
 
     // a1->freq < a2->freq
     levelActcData_1->freq = 1;
@@ -1382,7 +1385,9 @@ extern "C" int FreqAscFunc(const void *actc1, const void *actc2);
 TEST_F(SeparateStrategyTest, TestFreqAscFunc)
 {
     LevelActcData *levelActcData_1 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    ASSERT_NE(nullptr, levelActcData_1);
     LevelActcData *levelActcData_2 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    ASSERT_NE(nullptr, levelActcData_2);
 
     levelActcData_1->freq = 1;
     levelActcData_2->freq = 2;

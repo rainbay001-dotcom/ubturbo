@@ -461,8 +461,8 @@ static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType)
         return -EINVAL;
     }
     for (i = 0; i < msg->count; i++) {
-        for (int j = 0; j < msg->payload[j].count; j++) {
-            SMAP_LOGGER_INFO("mig out msg num:[%d] pid:%d, destNid:%d, ratio:%d, memSize:%llu, migMode:%d.", i,
+        for (int j = 0; j < msg->payload[i].count; j++) {
+            SMAP_LOGGER_INFO("mig out msg num:[%d] pid:%d, destNid:%d, ratio:%d, memSize:%llu, migMode:%d.", j,
                 msg->payload[i].pid, msg->payload[i].inner[j].destNid, msg->payload[i].inner[j].ratio,
                 msg->payload[i].inner[j].memSize, msg->payload[i].inner[j].migrateMode);
         }

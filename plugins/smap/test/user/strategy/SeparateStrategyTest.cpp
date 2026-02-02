@@ -932,3 +932,488 @@ TEST_F(SeparateStrategyTest, TestSeparateStrategy4KSwapLimitByFreePage)
 
     EXPECT_EQ(0, ret);
 }
+
+extern "C" void CalculateMigInfo(ProcessAttr *process, RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM],
+                                 uint64_t nrPages[NR_LEVEL], uint64_t *demoteNum, uint64_t *promoteNum);
+
+TEST_F(SeparateStrategyTest, TestCalculateMigInfo)
+{
+    int nrLocalNuma = 4;
+    ProcessAttr process = {};
+    process.remoteNumaCnt = 1;
+    process.migrateParam[0].nid = 4;
+    int nid = process.migrateParam[0].nid;
+    int index = nid - nrLocalNuma;
+    process.migrateParam[0].memSize = 4096;
+    process.scanAttr.actcLen[nid] = 1;
+    uint64_t demoteNum = 0;
+    uint64_t promoteNum = 0;
+    RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM] = { 0 };
+    uint64_t nrPages[NR_LEVEL] = { 0 };
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(nrLocalNuma)); // 本地4个numa
+    CalculateMigInfo(&process, remoteMigInfo, nrPages, &demoteNum, &promoteNum);
+    EXPECT_EQ(DEMOTE, remoteMigInfo[index].dir);
+    EXPECT_EQ(1, remoteMigInfo[index].nrMig);
+    EXPECT_EQ(remoteMigInfo[index].nrMig, demoteNum);
+    EXPECT_EQ(0, promoteNum);
+
+    process.scanAttr.actcLen[nid] = 3;
+    demoteNum = 0;
+    promoteNum = 0;
+    CalculateMigInfo(&process, remoteMigInfo, nrPages, &demoteNum, &promoteNum);
+    EXPECT_EQ(PROMOTE, remoteMigInfo[index].dir);
+    EXPECT_EQ(1, remoteMigInfo[index].nrMig);
+    EXPECT_EQ(0, demoteNum);
+    EXPECT_EQ(remoteMigInfo[index].nrMig, promoteNum);
+
+    process.scanAttr.actcLen[nid] = 2;
+    demoteNum = 0;
+    promoteNum = 0;
+    CalculateMigInfo(&process, remoteMigInfo, nrPages, &demoteNum, &promoteNum);
+    EXPECT_EQ(SWAP, remoteMigInfo[index].dir);
+    EXPECT_EQ(0, remoteMigInfo[index].nrMig);
+    EXPECT_EQ(0, demoteNum);
+    EXPECT_EQ(0, promoteNum);
+}
+
+extern "C" int SwapMultiNumaVmStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+                                       uint64_t nrPages[NR_LEVEL], int nrLocalNuma);
+extern "C" int DemoteMultiNumaVmStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+                                         RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM], uint64_t nrPages[NR_LEVEL],
+                                         uint64_t demoteNum);
+extern "C" int PromoteMultiNumaVmStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+                                          RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM], int nrLocalNuma);
+extern "C" int SeparateStrategyMultiNumaVm(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
+TEST_F(SeparateStrategyTest, TestSeparateStrategyMultiNumaVm)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    initializeMigList(mlist);
+    process.separateParam.freqWt = 0;
+    for (int i = 0; i < MAX_NODES; i++) {
+        process.scanAttr.actcLen[i] = 0;
+    }
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(InitSeparateParam).stubs().will(ignoreReturnValue());
+    MOCKER(CalculateMigInfo).stubs().will(ignoreReturnValue());
+    MOCKER(SwapMultiNumaVmStrategy).stubs().will(returnValue(0));
+    int ret = SeparateStrategyMultiNumaVm(&process, mlist);
+    EXPECT_EQ(0, ret);
+
+    GlobalMockObject::verify();
+    uint64_t demoteNum = 1;
+    uint64_t promoteNum = 0;
+    for (int i = 0; i < MAX_NODES; i++) {
+        process.scanAttr.actcLen[i] = 1;
+    }
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(InitSeparateParam).stubs().will(ignoreReturnValue());
+    MOCKER(CalculateMigInfo).stubs().with(any(), any(), any(), outBoundP(&demoteNum, sizeof(demoteNum)),
+         outBoundP(&promoteNum, sizeof(promoteNum)))
+         .will(ignoreReturnValue());
+    MOCKER(DemoteMultiNumaVmStrategy).stubs().will(returnValue(1));
+    ret = SeparateStrategyMultiNumaVm(&process, mlist);
+    EXPECT_EQ(1, ret);
+
+    GlobalMockObject::verify();
+    demoteNum = 0;
+    promoteNum = 1;
+    for (int i = 0; i < MAX_NODES; i++) {
+        process.scanAttr.actcLen[i] = 1;
+    }
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(InitSeparateParam).stubs().will(ignoreReturnValue());
+    MOCKER(CalculateMigInfo).stubs().with(any(), any(), any(), outBoundP(&demoteNum, sizeof(demoteNum)),
+         outBoundP(&promoteNum, sizeof(promoteNum)))
+         .will(ignoreReturnValue());
+    MOCKER(PromoteMultiNumaVmStrategy).stubs().will(returnValue(2));
+    ret = SeparateStrategyMultiNumaVm(&process, mlist);
+    EXPECT_EQ(2, ret);
+}
+
+extern "C" int BuildLevelActcData(ProcessAttr *process, LevelActcData *levelActcData, uint64_t nrPages,
+                                  uint64_t *levelActcLen, int level);
+extern "C" uint64_t CalcMultiNumaVmSwapNumByFreq(ProcessAttr *process, LevelActcData *levelActcData[NR_LEVEL],
+                                                 uint64_t levelActcLen[NR_LEVEL]);
+extern "C" int GroupMigPagesByNode(LevelActcData *levelActcData[NR_LEVEL], uint64_t swapNum, uint64_t nrMig[MAX_NODES],
+                                   uint64_t *migAddrArray[MAX_NODES]);
+extern "C" int BuildSwapMigLists(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+                                 uint64_t nrMig[MAX_NODES], uint64_t *migAddrArray[MAX_NODES], int nrLocalNuma);
+TEST_F(SeparateStrategyTest, TestSwapMultiNumaVmStrategy)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    uint64_t nrPages[NR_LEVEL] = { 0 };
+    int nrLocalNuma = 0;
+
+    nrPages[0] = 1;
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(nullptr)));
+    int ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(-ENOMEM, ret);
+
+    GlobalMockObject::verify();
+    nrPages[0] = 1;
+    LevelActcData *levelActcData_1 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(levelActcData_1)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(1));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(1, ret);
+
+    GlobalMockObject::verify();
+    LevelActcData *levelActcData_2 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(levelActcData_2)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(0)).then(returnValue(2));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(2, ret);
+
+    GlobalMockObject::verify();
+    LevelActcData *levelActcData_3 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(levelActcData_3)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(0)).then(returnValue(0));
+    MOCKER(CalcMultiNumaVmSwapNumByFreq).stubs().will(returnValue((uint64_t)0));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(0, ret);
+
+    GlobalMockObject::verify();
+    nrPages[1] = 1;
+    LevelActcData *levelActcData_4 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    LevelActcData *levelActcData_5 = (LevelActcData *)calloc(nrPages[1], sizeof(LevelActcData));
+    MOCKER(calloc).stubs()
+        .will(returnValue(static_cast<void *>(levelActcData_4)))
+        .then(returnValue(static_cast<void *>(levelActcData_5)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(0)).then(returnValue(0));
+    MOCKER(CalcMultiNumaVmSwapNumByFreq).stubs().will(returnValue((uint64_t)1));
+    MOCKER(GroupMigPagesByNode).stubs().will(returnValue(-ENOMEM));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(-ENOMEM, ret);
+
+    GlobalMockObject::verify();
+    LevelActcData *levelActcData_6 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    LevelActcData *levelActcData_7 = (LevelActcData *)calloc(nrPages[1], sizeof(LevelActcData));
+    MOCKER(calloc).stubs()
+        .will(returnValue(static_cast<void *>(levelActcData_6)))
+        .then(returnValue(static_cast<void *>(levelActcData_7)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(0)).then(returnValue(0));
+    MOCKER(CalcMultiNumaVmSwapNumByFreq).stubs().will(returnValue((uint64_t)1));
+    MOCKER(GroupMigPagesByNode).stubs().will(returnValue(0));
+    MOCKER(BuildSwapMigLists).stubs().will(returnValue(-EINVAL));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(-EINVAL, ret);
+
+    GlobalMockObject::verify();
+    LevelActcData *levelActcData_8 = (LevelActcData *)calloc(nrPages[0], sizeof(LevelActcData));
+    LevelActcData *levelActcData_9 = (LevelActcData *)calloc(nrPages[1], sizeof(LevelActcData));
+    MOCKER(calloc).stubs()
+        .will(returnValue(static_cast<void *>(levelActcData_8)))
+        .then(returnValue(static_cast<void *>(levelActcData_9)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(0)).then(returnValue(0));
+    MOCKER(CalcMultiNumaVmSwapNumByFreq).stubs().will(returnValue((uint64_t)1));
+    MOCKER(GroupMigPagesByNode).stubs().will(returnValue(0));
+    MOCKER(BuildSwapMigLists).stubs().will(returnValue(0));
+    ret = SwapMultiNumaVmStrategy(&process, mlist, nrPages, nrLocalNuma);
+    EXPECT_EQ(0, ret);
+}
+
+extern "C" int BuildDemoteMultiNumaMigLists(uint64_t *migAddrArray[MAX_NODES], uint64_t nrMig[MAX_NODES],
+                                            struct MigList mlist[MAX_NODES][MAX_NODES],
+                                            RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM]);
+TEST_F(SeparateStrategyTest, TestDemoteMultiNumaVmStrategy)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM];
+    uint64_t nrPages[NR_LEVEL] = { 0 };
+    uint64_t demoteNum = 0;
+    uint64_t l1ActcLen = 0;
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(nullptr)));
+    int ret = DemoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrPages, demoteNum);
+    EXPECT_EQ(-ENOMEM, ret);
+
+    GlobalMockObject::verify();
+    nrPages[L1] = 1;
+    LevelActcData *l1ActcData_1 = (LevelActcData *)calloc(nrPages[L1], sizeof(LevelActcData));
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(calloc).stubs().will(returnValue(static_cast<void *>(l1ActcData_1)));
+    MOCKER(BuildLevelActcData).stubs().will(returnValue(1));
+    ret = DemoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrPages, demoteNum);
+    EXPECT_EQ(1, ret);
+
+    GlobalMockObject::verify();
+    demoteNum = 1;
+    l1ActcLen = 1;
+    LevelActcData *l1ActcData_2 = (LevelActcData *)calloc(nrPages[L1], sizeof(LevelActcData));
+    uint64_t *migAddrArray_1 = (uint64_t *)calloc(1, sizeof(LevelActcData));
+    l1ActcData_2[0].node = 0;
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(calloc).stubs()
+        .will(returnValue(static_cast<void *>(l1ActcData_2)))
+        .then(returnValue(static_cast<void *>(migAddrArray_1)));
+    MOCKER(BuildLevelActcData).stubs()
+        .with(any(), any(), any(), outBoundP(&l1ActcLen, sizeof(uint64_t)))
+        .will(returnValue(0));
+    MOCKER(BuildDemoteMultiNumaMigLists).stubs().will(returnValue(0));
+    ret = DemoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrPages, demoteNum);
+    EXPECT_EQ(0, ret);
+}
+
+const int MULTI_NUMA_VM_OOM = 66;
+TEST_F(SeparateStrategyTest, TestPromoteMultiNumaVmStrategy)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM] = {};
+    int nrLocalNuma = 0;
+
+    int ret = PromoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrLocalNuma);
+    EXPECT_EQ(0, ret);
+
+    remoteMigInfo[0].nrMig = 1;
+    remoteMigInfo[0].dir = PROMOTE;
+    ret = PromoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrLocalNuma);
+    EXPECT_EQ(-MULTI_NUMA_VM_OOM, ret);
+
+    nrLocalNuma = 1;
+    process.numaAttr.numaNodes = 0b0000001;
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue((uint64_t)1));
+    ret = PromoteMultiNumaVmStrategy(&process, mlist, remoteMigInfo, nrLocalNuma);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(0, remoteMigInfo[0].nrMig);
+}
+
+TEST_F(SeparateStrategyTest, TestBuildLevelActcData)
+{
+    ProcessAttr process = {};
+    LevelActcData *levelActcData = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    uint64_t nrPages = 1;
+    uint64_t levelActcLen = 0;
+    int level = 0;
+
+    for (int i = 0; i < MAX_NODES; i++) {
+        process.scanAttr.actcLen[i] = 0;
+    }
+    int ret = BuildLevelActcData(&process, levelActcData, nrPages, &levelActcLen, level);
+    EXPECT_EQ(0, ret);
+
+    process.scanAttr.actcLen[5] = 1;
+    level = L2;
+    process.scanAttr.actcData[5] = (ActcData *)calloc(1, sizeof(ActcData));
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    ret = BuildLevelActcData(&process, levelActcData, nrPages, &levelActcLen, level);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(levelActcData[0].node, 5);
+    EXPECT_EQ(levelActcLen, 1);
+
+    free(levelActcData);
+    free(process.scanAttr.actcData[5]);
+}
+
+extern "C" int BuildMigListForDirection(MigrateDirection dir, uint64_t *migAddrArray[MAX_NODES],
+                                        uint64_t nrMig[MAX_NODES], uint64_t destFreeList[MAX_NODES],
+                                        struct MigList mlist[MAX_NODES][MAX_NODES]);
+TEST_F(SeparateStrategyTest, TestBuildSwapMigLists)
+{
+    ProcessAttr process = {};
+    struct MigList mlist[MAX_NODES][MAX_NODES];
+    uint64_t nrMig[MAX_NODES] = { 0 };
+    uint64_t *migAddrArray[MAX_NODES] = { NULL };
+    int nrLocalNuma = 4;
+
+    process.numaAttr.numaNodes = 0b0000001;
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue((uint64_t)1));
+    MOCKER(BuildMigListForDirection).stubs().will(returnValue(-ENOMEM));
+    int ret = BuildSwapMigLists(&process, mlist, nrMig, migAddrArray, nrLocalNuma);
+    EXPECT_EQ(-ENOMEM, ret);
+
+    GlobalMockObject::verify();
+    process.numaAttr.numaNodes = 0b0100001;
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue((uint64_t)1));
+    MOCKER(BuildMigListForDirection).stubs()
+        .will(returnValue(0))
+        .then(returnValue(-MULTI_NUMA_VM_OOM));
+    ret = BuildSwapMigLists(&process, mlist, nrMig, migAddrArray, nrLocalNuma);
+    EXPECT_EQ(-MULTI_NUMA_VM_OOM, ret);
+}
+
+TEST_F(SeparateStrategyTest, TestBuildMigListForDirection)
+{
+    MigrateDirection dir;
+    uint64_t *migAddrArray[MAX_NODES] = { NULL };
+    uint64_t nrMig[MAX_NODES] = { 0 };
+    uint64_t destFreeList[MAX_NODES] = { 0 };
+    struct MigList mlist[MAX_NODES][MAX_NODES] = {};
+
+    dir = SWAP;
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    int ret = BuildMigListForDirection(dir, migAddrArray, nrMig, destFreeList, mlist);
+    EXPECT_EQ(-EINVAL, ret);
+
+    GlobalMockObject::verify();
+    dir = PROMOTE;
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    ret = BuildMigListForDirection(dir, migAddrArray, nrMig, destFreeList, mlist);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(0, mlist[4][0].nr);
+}
+
+TEST_F(SeparateStrategyTest, TestBuildMigListForDirectionPromote)
+{
+    MigrateDirection dir;
+    uint64_t *migAddrArray[MAX_NODES] = { NULL };
+    uint64_t nrMig[MAX_NODES] = { 0 };
+    uint64_t destFreeList[MAX_NODES] = { 0 };
+    struct MigList mlist[MAX_NODES][MAX_NODES] = {};
+    dir = PROMOTE;
+    nrMig[4] = 1;
+    migAddrArray[4] = (uint64_t *)calloc(nrMig[4], sizeof(uint64_t));
+    destFreeList[0] = 1;
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    int ret = BuildMigListForDirection(dir, migAddrArray, nrMig, destFreeList, mlist);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(1, mlist[4][0].nr);
+    EXPECT_EQ(0, destFreeList[0]);
+    EXPECT_NE(nullptr, mlist[4][0].addr);
+    free(migAddrArray[4]);
+    free(mlist[4][0].addr);
+}
+
+TEST_F(SeparateStrategyTest, TestGroupMigPagesByNode)
+{
+    LevelActcData *levelActcData[NR_LEVEL] = { NULL };
+    uint64_t swapNum = 0;
+    uint64_t nrMig[MAX_NODES] = { 0 };
+    uint64_t *migAddrArray[MAX_NODES] = { NULL };
+
+    for (int i = 0; i < MAX_NODES; i++) {
+        nrMig[i] = 1;
+    }
+    int ret = GroupMigPagesByNode(levelActcData, swapNum, nrMig, migAddrArray);
+    EXPECT_EQ(0, ret);
+
+    swapNum = 1;
+    levelActcData[0] = (LevelActcData *)calloc(nrMig[0], sizeof(LevelActcData));
+    levelActcData[1] = (LevelActcData *)calloc(nrMig[1], sizeof(LevelActcData));
+    levelActcData[0][0].node = 0;
+    levelActcData[1][0].node = 5;
+    ret = GroupMigPagesByNode(levelActcData, swapNum, nrMig, migAddrArray);
+    EXPECT_EQ(0, ret);
+    EXPECT_EQ(levelActcData[0][0].addr, migAddrArray[0][0]);
+    EXPECT_EQ(levelActcData[1][0].addr, migAddrArray[5][0]);
+
+    for (int i = 0; i < MAX_NODES; i++) {
+        if (!migAddrArray[i]) {
+            free(migAddrArray[i]);
+        }
+    }
+    free(levelActcData[0]);
+    free(levelActcData[1]);
+}
+
+extern "C" uint64_t CalMultiNumaVmLowMigrateNum(uint64_t migrateNum, uint64_t freqWt, uint32_t slowThred,
+                                                LevelActcData *levelActcData[NR_LEVEL]);
+TEST_F(SeparateStrategyTest, TestCalcMultiNumaVmSwapNumByFreq)
+{
+    ProcessAttr process = {};
+    LevelActcData *levelActcData[NR_LEVEL] = { NULL };
+    uint64_t levelActcLen[NR_LEVEL] = { 1 };
+
+    for (int i = 0; i < NR_LEVEL; i++) {
+        levelActcData[i] = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    }
+
+    process.numaAttr.numaNodes = 0b1000001;
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue((uint64_t)1));
+    MOCKER(CalMultiNumaVmLowMigrateNum).stubs().will(returnValue((uint64_t)1));
+    uint64_t ret = CalcMultiNumaVmSwapNumByFreq(&process, levelActcData, levelActcLen);
+    EXPECT_EQ(1, ret);
+}
+
+TEST_F(SeparateStrategyTest, TestCalMultiNumaVmLowMigrateNum)
+{
+    uint64_t migrateNum = 1;
+    uint64_t freqWt = 0;
+    uint32_t slowThred = 0;
+    LevelActcData *levelActcData[NR_LEVEL] = { NULL };
+
+    for (int i = 0; i < NR_LEVEL; i++) {
+        levelActcData[i] = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    }
+
+    uint64_t ret = CalMultiNumaVmLowMigrateNum(migrateNum, freqWt, slowThred, levelActcData);
+    EXPECT_EQ(0, ret);
+}
+
+extern "C" int FreqDescFunc(const void *actc1, const void *actc2);
+TEST_F(SeparateStrategyTest, TestFreqDescFunc)
+{
+    LevelActcData *levelActcData_1 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    LevelActcData *levelActcData_2 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+
+    // a1->freq < a2->freq
+    levelActcData_1->freq = 1;
+    levelActcData_2->freq = 2;
+    int ret = FreqDescFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(1, ret);
+
+    // a1->freq > a2->freq
+    levelActcData_1->freq = 2;
+    levelActcData_2->freq = 1;
+    ret = FreqDescFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(-1, ret);
+
+    // a1->freq == a2->freq
+    levelActcData_1->freq = 1;
+    levelActcData_2->freq = 1;
+    levelActcData_1->prior = 3;
+    levelActcData_2->prior = 1;
+    ret = FreqDescFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(2, ret);
+
+    free(levelActcData_1);
+    free(levelActcData_2);
+}
+
+extern "C" int FreqAscFunc(const void *actc1, const void *actc2);
+TEST_F(SeparateStrategyTest, TestFreqAscFunc)
+{
+    LevelActcData *levelActcData_1 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+    LevelActcData *levelActcData_2 = (LevelActcData *)calloc(1, sizeof(LevelActcData));
+
+    levelActcData_1->freq = 1;
+    levelActcData_2->freq = 2;
+    int ret = FreqAscFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(-1, ret);
+
+    levelActcData_1->freq = 2;
+    levelActcData_2->freq = 1;
+    ret = FreqAscFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(1, ret);
+
+    levelActcData_1->freq = 1;
+    levelActcData_2->freq = 1;
+    levelActcData_1->prior = 3;
+    levelActcData_2->prior = 1;
+    ret = FreqAscFunc(levelActcData_1, levelActcData_2);
+    EXPECT_EQ(-2, ret);
+}
+
+TEST_F(SeparateStrategyTest, TestBuildDemoteMultiNumaMigLists)
+{
+    uint64_t *migAddrArray[MAX_NODES] = { NULL };
+    uint64_t nrMig[MAX_NODES] = { 0 };
+    struct MigList mlist[MAX_NODES][MAX_NODES] = {};
+    RemoteMigInfo remoteMigInfo[REMOTE_NUMA_NUM] = {};
+    remoteMigInfo[0].dir = DEMOTE;
+    remoteMigInfo[0].nrMig = 1;
+
+    MOCKER(GetNrLocalNuma).stubs().will(returnValue(4));
+    MOCKER(GetNrFreeHugePagesByNode).stubs().will(returnValue(2));
+    MOCKER(BuildMigListForDirection).stubs().will(returnValue(-ENOMEM));
+    int ret = BuildDemoteMultiNumaMigLists(migAddrArray, nrMig, mlist, remoteMigInfo);
+    EXPECT_EQ(-ENOMEM, ret);
+}

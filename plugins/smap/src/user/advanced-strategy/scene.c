@@ -498,6 +498,21 @@ static void GetMaxNuma(struct ProcessManager *manager, int *maxL1node, int *maxL
     *maxL2node = l2Node;
 }
 
+static bool ProcessMultiNumaVmNode(ProcessAttr *process)
+{
+    if (IsMultiNumaVm(process)) {
+        int ret = memcpy_s(process->strategyAttr.l3RemoteMemRatio,
+            sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM,
+            process->strategyAttr.l2RemoteMemRatio, sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM);
+        if (ret) {
+            SMAP_LOGGER_ERROR("memcpy l3 remote mem ratio failed.");
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 static void ConfigMultiVmRatioInGroups(struct ProcessManager *manager)
 {
     int i, maxL1node = 0, maxL2node = 0;
@@ -512,11 +527,7 @@ static void ConfigMultiVmRatioInGroups(struct ProcessManager *manager)
             continue;
         }
 
-        if (IsMultiNumaVm(current)) {
-            int ret = memcpy_s(current->strategyAttr.l3RemoteMemRatio,
-                sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM,
-                current->strategyAttr.l2RemoteMemRatio, sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM);
-            SMAP_LOGGER_DEBUG("memcpy l3 remote mem ratio ret %d.", ret);
+        if (ProcessMultiNumaVmNode(current)) {
             current = current->next;
             continue;
         }

@@ -511,6 +511,16 @@ static void ConfigMultiVmRatioInGroups(struct ProcessManager *manager)
             current = current->next;
             continue;
         }
+
+        if (IsMultiNumaVm(current)) {
+            int ret = memcpy_s(current->strategyAttr.l3RemoteMemRatio,
+                sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM,
+                current->strategyAttr.l2RemoteMemRatio, sizeof(double) * LOCAL_NUMA_NUM * REMOTE_NUMA_NUM);
+            SMAP_LOGGER_DEBUG("memcpy l3 remote mem ratio ret %d.", ret);
+            current = current->next;
+            continue;
+        }
+
         int l1 = GetAttrL1(current);
         int l2 = GetAttrL2(current);
         if (processed[l1][l2]) { // 如果这个近端-远端组处理过了则跳过

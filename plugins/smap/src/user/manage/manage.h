@@ -343,28 +343,17 @@ struct ProcessMemBitmap {
 
 typedef struct {
     pid_t pid;
-    int localMemRatio;
     uint32_t scanTime;
     uint32_t duration;
     int scanType;
-    MigrateMode migrateMode;
     int count;
     struct {
         int nid;
+        int ratio;
         uint64_t memSize;
+        MigrateMode migrateMode;
     } numaParam[REMOTE_NUMA_NUM];
 } ProcessParam;
-
-struct MigrateOutHashNode {
-    pid_t pid;
-    int count;
-    MigrateMode migrateMode;
-    int ratio;
-    struct {
-        int destNid;
-        uint64_t memSize;
-    } hashValue[REMOTE_NUMA_NUM];
-};
 
 uint64_t CalcRemoteBorrowPages(uint64_t size);
 

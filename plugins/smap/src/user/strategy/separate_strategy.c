@@ -1111,21 +1111,43 @@ static void CalculateMigInfo(ProcessAttr *process, RemoteMigInfo remoteMigInfo[R
                              uint64_t nrPages[NR_LEVEL], uint64_t *demoteNum, uint64_t *promoteNum)
 {
     int nrLocalNuma = GetNrLocalNuma();
-    for (int i = 0; i < process->remoteNumaCnt; i++) {
-        int nid = process->migrateParam[i].nid;
-        int index = nid - nrLocalNuma;
-        uint64_t targetL2Page = KBTo2M(process->migrateParam[i].memSize);
-        if (targetL2Page > process->scanAttr.actcLen[nid]) {
-            remoteMigInfo[index].dir = DEMOTE;
-            remoteMigInfo[index].nrMig = targetL2Page - process->scanAttr.actcLen[nid];
-            *demoteNum += remoteMigInfo[index].nrMig;
-        } else if (targetL2Page < process->scanAttr.actcLen[nid]) {
-            remoteMigInfo[index].dir = PROMOTE;
-            remoteMigInfo[index].nrMig = process->scanAttr.actcLen[nid] - targetL2Page;
-            *promoteNum += remoteMigInfo[index].nrMig;
-        } else {
-            remoteMigInfo[index].nrMig = 0;
-            remoteMigInfo[index].dir = SWAP;
+    if (GetRunMode() == MEM_POOL_MODE) {
+        for (int i = 0; i < process->remoteNumaCnt; i++) {
+            int nid = process->migrateParam[i].nid;
+            int index = nid - nrLocalNuma;
+            uint64_t targetL2Page = KBTo2M(process->migrateParam[i].memSize);
+            if (targetL2Page > process->scanAttr.actcLen[nid]) {
+                remoteMigInfo[index].dir = DEMOTE;
+                remoteMigInfo[index].nrMig = targetL2Page - process->scanAttr.actcLen[nid];
+                *demoteNum += remoteMigInfo[index].nrMig;
+            } else if (targetL2Page < process->scanAttr.actcLen[nid]) {
+                remoteMigInfo[index].dir = PROMOTE;
+                remoteMigInfo[index].nrMig = process->scanAttr.actcLen[nid] - targetL2Page;
+                *promoteNum += remoteMigInfo[index].nrMig;
+            } else {
+                remoteMigInfo[index].nrMig = 0;
+                remoteMigInfo[index].dir = SWAP;
+            }
+        }
+    } else {
+        int l1Node = GetAttrL1(process);
+        for (int l2Node = nrLocalNuma; l2Node < nrLocalNuma + REMOTE_NUMA_NUM; l2Node++) {
+            if (NotInAttrL2(process, l2Node)) {
+                continue;
+            }
+            int index = l2Node - nrLocalNuma;
+            if (process->strategyAttr.nrMigratePages[l1Node][l2Node] > 0) {
+                remoteMigInfo[index].dir = DEMOTE;
+                remoteMigInfo[index].nrMig = process->strategyAttr.nrMigratePages[l1Node][l2Node];
+                *demoteNum += remoteMigInfo[index].nrMig;
+            } else if (process->strategyAttr.nrMigratePages[l2Node][l1Node] > 0) {
+                remoteMigInfo[index].dir = PROMOTE;
+                remoteMigInfo[index].nrMig = process->strategyAttr.nrMigratePages[l2Node][l1Node];
+                *promoteNum += remoteMigInfo[index].nrMig;
+            } else {
+                remoteMigInfo[index].nrMig = 0;
+                remoteMigInfo[index].dir = SWAP;
+            }
         }
     }
 }

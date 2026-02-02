@@ -19,6 +19,7 @@
 extern "C" {
 #endif
 
+#define REMOTE_NUMA_NUM 18
 #define MAX_NR_MIGOUT 40
 #define MAX_NR_MIGBACK 50
 #define MAX_NR_MIGNUMA 50
@@ -43,12 +44,18 @@ typedef enum {
     MIG_MEMSIZE_MODE
 } MigrateMode;
 
-struct MigrateOutPayload {
+struct MigrateOutPayloadInner {
     int destNid;
-    pid_t pid;
     int ratio;
-    uint64_t memSize;
-    MigrateMode migrateMode;
+    uint64_t memSize; // 内存迁移大小(KB)
+    MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
+};
+
+struct MigrateOutPayload {
+    int srcNid; // 是否指定迁出源节点（-1表示不指定）
+    pid_t pid;
+    int count;
+    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM];
 };
 
 struct MigrateOutMsg {

@@ -356,42 +356,42 @@ TEST_F(InterfaceTest, IsNidInNumastatTrue)
     free(cmdline);
 }
 
-extern "C" bool IsMigParaValid(struct MigrateOutPayload *payload, uint32_t *nodeBitmap, int pidType);
+extern "C" bool IsMigParaValid(struct MigrateOutPayload *payload);
 extern "C" bool IsPidRemoteNidValid(int *nidArray, int nidCnt, pid_t pid, uint32_t *nodeBitmap, int pidType);
 extern "C" bool IsDestNidVaild(int nid, pid_t pid);
 TEST_F(InterfaceTest, IsMigParaValid)
 {
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
-        .migrateMode = MIG_MEMSIZE_MODE,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
+    payload.inner[0].migrateMode = MIG_MEMSIZE_MODE;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(MEM_POOL_MODE));
 
-    bool ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    bool ret = IsMigParaValid(&payload);
     EXPECT_EQ(true, ret);
 }
 
 TEST_F(InterfaceTest, IsMigParaValidGreaterThanMigrateMode)
 {
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
-    payload.migrateMode = static_cast<MigrateMode>(2);
+    payload.inner[0].migrateMode = static_cast<MigrateMode>(2);
     MOCKER(GetRunMode).stubs().will(returnValue(MEM_POOL_MODE));
 
-    bool ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    bool ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -400,7 +400,7 @@ TEST_F(InterfaceTest, IsMigParaValidPassNullPtr)
     bool ret;
     struct MigrateOutPayload *payload = nullptr;
 
-    ret = IsMigParaValid(payload, nullptr, PAGETYPE_2M);
+    ret = IsMigParaValid(payload);
     EXPECT_EQ(false, ret);
     free(payload);
 }
@@ -409,17 +409,17 @@ TEST_F(InterfaceTest, IsMigParaValidLessThanMigrateMode)
 {
     bool ret;
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
-    payload.migrateMode = static_cast<MigrateMode>(-1);
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
+    payload.inner[0].migrateMode = static_cast<MigrateMode>(-1);
 
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
-    ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -427,18 +427,18 @@ TEST_F(InterfaceTest, IsMigParaValidWaterlineModeAndMigMemsizeMode)
 {
     bool ret;
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(0));
-    payload.migrateMode = MIG_MEMSIZE_MODE;
+    payload.inner[0].migrateMode = MIG_MEMSIZE_MODE;
 
-    ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -446,18 +446,18 @@ TEST_F(InterfaceTest, IsMigParaValidMemPoolModeAndMigRatioMode)
 {
     bool ret;
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(1));
-    payload.migrateMode = MIG_RATIO_MODE;
+    payload.inner[0].migrateMode = MIG_RATIO_MODE;
 
-    ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -465,18 +465,18 @@ TEST_F(InterfaceTest, IsMigParaValidMigRatioModeWithInvalidRatio)
 {
     bool ret;
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(1));
     MOCKER(IsRatioValid).stubs().will(returnValue(false));
-    payload.migrateMode = MIG_RATIO_MODE;
-    ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    payload.inner[0].migrateMode = MIG_RATIO_MODE;
+    ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -484,19 +484,19 @@ TEST_F(InterfaceTest, IsMigParaValidInvalidMemSize)
 {
     bool ret;
     struct MigrateOutPayload payload = {
-        .destNid = 4,
         .pid = 123,
-        .ratio = 25,
-        .memSize = 10240,
+        .count = 1,
     };
+    payload.inner[0].memSize = 10240;
+    payload.inner[0].ratio = 25;
     MOCKER(IsRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsDestNidVaild).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(1));
     MOCKER(IsRatioValid).stubs().will(returnValue(true));
-    payload.migrateMode = MIG_MEMSIZE_MODE;
-    payload.memSize = 2049;
-    ret = IsMigParaValid(&payload, nullptr, PAGETYPE_2M);
+    payload.inner[0].migrateMode = MIG_MEMSIZE_MODE;
+    payload.inner[0].memSize = 2049;
+    ret = IsMigParaValid(&payload);
     EXPECT_EQ(false, ret);
 }
 
@@ -578,8 +578,9 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidDestNid)
 
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
 
+    msg.payload[0].count = 1;
     msg.payload[0].pid = 1234;
-    msg.payload[0].destNid = 0;
+    msg.payload[0].inner[0].destNid = 0;
     int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
@@ -595,7 +596,8 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
 {
     struct MigrateOutMsg msg = {.count = 1};
     msg.payload[0].pid = 1234;
-    msg.payload[0].destNid = 4;
+    msg.payload[0].count = 1;
+    msg.payload[0].inner[0].destNid = 4;
     int pidType = PAGETYPE_2M;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
@@ -609,11 +611,11 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
     MOCKER(IsPidRemoteNidValid).stubs().will(returnValue(true));
     MOCKER(IsNodeForbidden).stubs().will(returnValue(true));
 
-    msg.payload[0].migrateMode = (MigrateMode)-1;
+    msg.payload[0].inner[0].migrateMode = (MigrateMode)-1;
     int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.payload[0].migrateMode = (MigrateMode)(MIG_MEMSIZE_MODE + 1);
+    msg.payload[0].inner[0].migrateMode = (MigrateMode)(MIG_MEMSIZE_MODE + 1);
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 }
@@ -633,17 +635,18 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
     MOCKER(IsNodeForbidden).stubs().will(returnValue(true));
     MOCKER(GetRunMode).stubs().will(returnValue(MEM_POOL_MODE));
 
-    msg.payload[0].destNid = 4;
-    msg.payload[0].migrateMode = MIG_RATIO_MODE;
+    msg.payload[0].count = 1;
+    msg.payload[0].inner[0].destNid = 4;
+    msg.payload[0].inner[0].migrateMode = MIG_RATIO_MODE;
     int ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.payload[0].migrateMode = MIG_MEMSIZE_MODE;
-    msg.payload[0].memSize = 2049;
+    msg.payload[0].inner[0].migrateMode = MIG_MEMSIZE_MODE;
+    msg.payload[0].inner[0].memSize = 2049;
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.payload[0].memSize = 2048;
+    msg.payload[0].inner[0].memSize = 2048;
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(0, ret);
 
@@ -656,23 +659,21 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.payload[0].migrateMode = MIG_RATIO_MODE;
-    msg.payload[0].ratio = 101;
+    msg.payload[0].inner[0].migrateMode = MIG_RATIO_MODE;
+    msg.payload[0].inner[0].ratio = 101;
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.payload[0].ratio = 75;
+    msg.payload[0].inner[0].ratio = 75;
     ret = CheckMigrateOutMsg(&msg, pidType, &pidCount);
     EXPECT_EQ(0, ret);
 }
 
 extern "C" int IoctlHandler(const void *msg, int pidType, const unsigned long *ioctlCommands);
-extern "C" int AddProcessNumaBitMap(struct MigrateOutHashNode *hashMsg, int pidCount, uint32_t *nodeBitmap,
-                                    int pidType);
-extern "C" int AddProcessesToGlobalManager(struct MigrateOutHashNode *hashMsg, int pidCount, int pidType,
+extern "C" int AddProcessNumaBitMap(struct MigrateOutMsg *msg, uint32_t *nodeBitmap, int pidType);
+extern "C" int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType,
                                            uint32_t *nodeBitmap, bool *hasInvalidPid);
-extern "C" int ProcessAddTrackingManage(struct MigrateOutHashNode *hashMsg, int pidCount, int pidType,
-                                        uint32_t *nodeBitmap);
+extern "C" int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint32_t *nodeBitmap);
 TEST_F(InterfaceTest, TestSmapMigrateOut)
 {
     int ret;
@@ -725,6 +726,7 @@ TEST_F(InterfaceTest, TestSmapMigrateOutFour)
     MOCKER(SetProcessLocalNuma).stubs().will(returnValue(0));
     MOCKER(IsMigParaValid).stubs().will(returnValue(true));
     MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
+    MOCKER(AddProcessNumaBitMap).stubs().will(returnValue(0));
     ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_2M + 1);
     EXPECT_EQ(-EBADF, ret);
     EnvAtomicSet(&g_status, 0);
@@ -2279,8 +2281,9 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncSuccess)
     int ret;
     struct MigrateOutMsg msg;
     msg.count = 1;
+    msg.payload[0].count = 1;
     msg.payload[0].pid = 1;
-    msg.payload[0].ratio = 25;
+    msg.payload[0].inner[0].ratio = 25;
     int pidType = VM_TYPE;
     uint64_t maxWaitTime = 10000;
 
@@ -2296,8 +2299,9 @@ TEST_F(InterfaceTest, TestSmapMigrateOutSyncFail)
     int ret;
     struct MigrateOutMsg msg;
     msg.count = 1;
+    msg.payload[0].count = 1;
     msg.payload[0].pid = 1;
-    msg.payload[0].ratio = 25;
+    msg.payload[0].inner[0].ratio = 25;
     int pidType = VM_TYPE;
     uint64_t maxWaitTime = 10000;
 
@@ -2956,7 +2960,7 @@ TEST_F(InterfaceTest, TestSmapQueryProcessConfigNormal)
 
 TEST_F(InterfaceTest, TestProcessAddTrackingManageNullMsg)
 {
-    int ret = ProcessAddTrackingManage(nullptr, 0, VM_TYPE, nullptr);
+    int ret = ProcessAddTrackingManage(nullptr, VM_TYPE, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 

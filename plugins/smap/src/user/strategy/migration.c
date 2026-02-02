@@ -290,10 +290,14 @@ static int PerformMigrationPreparation(struct ProcessManager *manager)
         return ret;
     }
     ret = BuildAllPidData();
-    if (ret) {
-        SMAP_LOGGER_ERROR("Build pid data failed! nums:%d.", ret);
+    if (ret < 0) {
+        SMAP_LOGGER_ERROR("Build all pid data failed! ret:%d.", ret);
+        return ret;
     }
-    return ret;
+    if (ret > 0) {
+        SMAP_LOGGER_WARNING("Build pid data failed! nums:%d.", ret);
+    }
+    return 0;
 }
 
 static int SetMigrateThreadNum(struct MigrateMsg *mMsg, uint64_t migratePages, bool isForcedSingleThread)

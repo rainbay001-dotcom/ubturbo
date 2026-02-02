@@ -388,10 +388,10 @@ TEST_F(ManageTest, TestSetProcessConfig)
     ProcessAttr attr;
     ProcessParam param = {
         .pid = 1,
-        .localMemRatio = 50,
         .count = 1,
     };
     param.numaParam[0].nid = 4;
+    param.numaParam[0].ratio = 50;
     attr.numaAttr.numaNodes = 1;
     SetProcessConfig(&attr, &param);
     EXPECT_EQ(attr.pid, 1);
@@ -465,12 +465,12 @@ TEST_F(ManageTest, TestProcessAddManageResetPidConfig)
     g_processManager.processes = &mockProcess;
     ProcessParam param = {
         .pid = pid,
-        .localMemRatio = 50,
         .scanTime = 50,
         .duration = 1,
         .count = 1,
     };
     param.numaParam[0].nid = 5;
+    param.numaParam[0].ratio = 50;
     EnvMutexInit(&g_processManager.lock);
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));
     MOCKER(CheckPid).stubs().will(returnValue(0));
@@ -484,7 +484,7 @@ TEST_F(ManageTest, TestProcessAddManageResetPidConfig)
     EXPECT_EQ(0, ret);
     EXPECT_EQ(param.scanTime, g_processManager.processes->scanTime);
     EXPECT_EQ(param.duration, g_processManager.processes->duration);
-    EXPECT_EQ(param.localMemRatio, g_processManager.processes->initLocalMemRatio);
+    EXPECT_EQ(50., g_processManager.processes->initLocalMemRatio);
     g_processManager.processes = nullptr;
 }
 
@@ -493,13 +493,13 @@ TEST_F(ManageTest, TestProcessAddManageNewPid)
     int ret;
     ProcessParam param = {
         .pid = 123,
-        .localMemRatio = 50,
         .scanTime = 50,
         .duration = 1,
         .scanType = NORMAL_SCAN,
         .count = 1,
     };
     param.numaParam[0].nid = 4;
+    param.numaParam[0].ratio = 50;
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = 0;
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));
@@ -516,7 +516,7 @@ TEST_F(ManageTest, TestProcessAddManageNewPid)
     EXPECT_NE(nullptr, g_processManager.processes);
     EXPECT_EQ(param.scanTime, g_processManager.processes->scanTime);
     EXPECT_EQ(param.duration, g_processManager.processes->duration);
-    EXPECT_EQ(param.localMemRatio, g_processManager.processes->initLocalMemRatio);
+    EXPECT_EQ(50, g_processManager.processes->initLocalMemRatio);
     EXPECT_EQ(0x10, g_processManager.processes->numaAttr.numaNodes);
 
     // when scanType is HAM_SCAN/STATISTIC_SCAN, state should be set to PROC_MOVE
@@ -531,7 +531,7 @@ TEST_F(ManageTest, TestProcessAddManageNewPid)
     EXPECT_NE(nullptr, g_processManager.processes);
     EXPECT_EQ(param.scanTime, g_processManager.processes->scanTime);
     EXPECT_EQ(param.duration, g_processManager.processes->duration);
-    EXPECT_EQ(param.localMemRatio, g_processManager.processes->initLocalMemRatio);
+    EXPECT_EQ(50, g_processManager.processes->initLocalMemRatio);
     EXPECT_EQ(0x11, g_processManager.processes->numaAttr.numaNodes);
     EXPECT_EQ(PROC_MOVE, g_processManager.processes->state);
 }
@@ -541,11 +541,11 @@ TEST_F(ManageTest, TestProcessAddManageNewPidFailed)
     int ret;
     ProcessParam param = {
         .pid = 123,
-        .localMemRatio = 50,
         .scanType = NORMAL_SCAN,
         .count = 1,
     };
     param.numaParam[0].nid = 1;
+    param.numaParam[0].ratio = 50;
     g_processManager.processes = nullptr;
     g_processManager.nr[VM_TYPE] = 0;
     MOCKER(GetPidType).stubs().will(returnValue(VM_TYPE));

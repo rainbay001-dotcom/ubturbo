@@ -66,7 +66,6 @@ struct OldProcessPayload {
 
 struct ProcessPayload {
     pid_t pid;
-    uint8_t ratio; // remote ratio set by upstream component
     uint8_t scanType;
     uint8_t type;
     uint8_t state;
@@ -77,6 +76,7 @@ struct ProcessPayload {
     int count;
     struct {
         int nid;
+        uint8_t ratio; // remote ratio set by upstream component
         uint64_t memSize;
     } migrateParam[REMOTE_NUMA_NUM];
 };

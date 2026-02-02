@@ -380,32 +380,27 @@ static void WriteOneNumaConfig(char *numaBase, struct NumaPayload *np)
     SMAP_LOGGER_DEBUG("Exit WriteOneNumaPayload.");
 }
 
-static void AssignProcessAttrInner(ProcessAttr *attr, struct ProcessPayload *payload, int index)
-{
-    for (int j = REMOTE_NUMA_NUM - 1; j >= 0; j--) {
-        int bit = (payload->numaNodes >> (j + LOCAL_NUMA_NUM)) & 1;
-        if (bit) {
-            attr->strategyAttr.initRemoteMemRatio[index][j] = HUNDRED - payload->ratio;
-            if (EqualToAttrL1(attr, index)) {
-                attr->strategyAttr.memSize[index][j] = payload->migrateParam[0].memSize;
-            }
-        }
-    }
-}
-
 static void AssignProcessAttr(ProcessAttr *attr, struct ProcessPayload *payload)
 {
     attr->pid = payload->pid;
     attr->numaAttr.numaNodes = payload->numaNodes;
     attr->remoteNumaCnt = payload->count;
+    int nrLocalNuma = GetNrLocalNuma();
+    int totalRatio = 0;
     for (int i = 0; i < payload->count; i++) {
         attr->migrateParam[i].nid = payload->migrateParam[i].nid;
         attr->migrateParam[i].memSize = payload->migrateParam[i].memSize;
+        for (int j = 0; j < GetNrLocalNuma(); j++) {
+            if (EqualToAttrL1(attr, j)) {
+                int l2Index = payload->migrateParam[i].nid - nrLocalNuma;
+                attr->strategyAttr.initRemoteMemRatio[j][l2Index] = payload->migrateParam[i].ratio;
+                attr->strategyAttr.memSize[j][l2Index] = payload->migrateParam[i].memSize;
+            }
+        }
+        totalRatio += payload->migrateParam[i].ratio;
     }
-    for (int i = 0; i < GetNrLocalNuma(); i++) {
-        AssignProcessAttrInner(attr, payload, i);
-    }
-    attr->initLocalMemRatio = payload->ratio;
+
+    attr->initLocalMemRatio = HUNDRED - totalRatio;
     attr->type = payload->type;
     attr->state = payload->state;
     attr->scanType = payload->scanType;
@@ -470,9 +465,14 @@ static int RecoverProcessConfig(char *processBase)
         }
         AssignProcessAttr(attr, payload);
         SMAP_LOGGER_INFO(
-            "ProcessPayload %d, type %hu, numaNodes %#x, ratio %hu, state %hu, scan type %hu, scan time %u.",
-            payload->pid, payload->type, payload->numaNodes, payload->ratio, payload->state, payload->scanType,
+            "ProcessPayload %d, type %hu, numaNodes %#x, state %hu, scan type %hu, scan time %u.",
+            payload->pid, payload->type, payload->numaNodes, payload->state, payload->scanType,
             payload->scanTime);
+        for (int j = 0; j < payload->count; j++) {
+            SMAP_LOGGER_INFO(
+                "ProcessPayload %d, destNid %d, ratio %d, memsize %llu.", payload->pid,
+                payload->migrateParam[j].nid, payload->migrateParam[j].ratio, payload->migrateParam[j].memSize);
+        }
         LinkedListAdd(&manager->processes, &attr);
         manager->nr[attr->type]++;
     }
@@ -506,6 +506,18 @@ static int WriteProcessConfig(char *processBase, struct ProcessPayload *p, int n
     return -ret;
 }
 
+static uint8_t GetAttrRemoteMemRatio(ProcessAttr *attr, int nid)
+{
+    int nrLocalNuma = GetNrLocalNuma();
+    int l1Node = GetAttrL1(attr);
+    for (int i = 0; i < REMOTE_NUMA_NUM; i++) {
+        if (nid == i + nrLocalNuma) {
+            return (uint8_t)attr->strategyAttr.initRemoteMemRatio[l1Node][i];
+        }
+    }
+    return 0;
+}
+
 static int BuildAllProcessPayload(struct ProcessPayload **payload, int *len)
 {
     struct ProcessManager *manager = GetProcessManager();
@@ -530,7 +542,6 @@ static int BuildAllProcessPayload(struct ProcessPayload **payload, int *len)
     tmp = p;
     for (ProcessAttr *attr = manager->processes; attr; attr = attr->next) {
         tmp->pid = attr->pid;
-        tmp->ratio = attr->initLocalMemRatio;
         tmp->scanType = attr->scanType;
         tmp->type = attr->type;
         tmp->state = attr->state;
@@ -542,6 +553,7 @@ static int BuildAllProcessPayload(struct ProcessPayload **payload, int *len)
         for (int i = 0; i < tmp->count; i++) {
             tmp->migrateParam[i].nid = attr->migrateParam[i].nid;
             tmp->migrateParam[i].memSize = attr->migrateParam[i].memSize;
+            tmp->migrateParam[i].ratio = GetAttrRemoteMemRatio(attr, tmp->migrateParam[i].nid);
         }
         tmp++;
     }

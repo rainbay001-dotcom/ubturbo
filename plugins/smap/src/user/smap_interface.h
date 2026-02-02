@@ -61,12 +61,18 @@ enum {
 
 typedef enum { INPUT_PROCESS = 0, INPUT_VM, INPUT_MAX } InputPidType;
 
-struct MigrateOutPayload {
+struct MigrateOutPayloadInner {
     int destNid;
-    pid_t pid;
     int ratio;
     uint64_t memSize; // 内存迁移大小(KB)
     MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
+};
+
+struct MigrateOutPayload {
+    int srcNid; // 是否指定迁出源节点（-1表示不指定）
+    pid_t pid;
+    int count;
+    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM];
 };
 
 struct MigrateOutMsg {

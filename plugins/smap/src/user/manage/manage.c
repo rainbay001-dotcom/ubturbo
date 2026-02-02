@@ -542,13 +542,17 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
     attr->scanTime = param->scanTime;
     attr->duration = param->duration;
     attr->scanType = param->scanType;
-    attr->initLocalMemRatio = param->localMemRatio;
-    attr->migrateMode = param->migrateMode;
+    attr->migrateMode = param->numaParam[0].migrateMode;
     attr->remoteNumaCnt = param->count;
     attr->enableSwap = true;
+    attr->initLocalMemRatio = HUNDRED;
+    for (int i = 0; i < param->count; i++) {
+        attr->initLocalMemRatio -= param->numaParam[i].ratio;
+    }
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error");
     }
+    int nrLocalNuma = GetNrLocalNuma();
     SMAP_LOGGER_INFO("attr->scanStart time: %s", ctime(&attr->scanStart));
     int localNumaCnt = GetL1Count(attr->numaAttr.numaNodes);
     SMAP_LOGGER_INFO("Pid: %d local numa cnt: %d.", attr->pid, localNumaCnt);
@@ -559,17 +563,22 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
             attr->migrateParam[i].memSize = param->numaParam[i].memSize;
             SMAP_LOGGER_INFO("Multinuma vm destNid: %d, memSize: %lu", attr->migrateParam[i].nid,
                              attr->migrateParam[i].memSize);
+            
+            for (int j = 0; j < nrLocalNuma && j < LOCAL_NUMA_NUM; j++) {
+                attr->strategyAttr.initRemoteMemRatio[j][param->numaParam[i].nid - nrLocalNuma] =
+                    param->numaParam[i].ratio;
+                SMAP_LOGGER_INFO("Multinuma vm destNid: %d, ratio: %lu", param->numaParam[i].nid,
+                                 param->numaParam[i].ratio);
+            }
             AddAttrL2(attr, param->numaParam[i].nid);
         }
     } else {
-        int nrLocalNuma = GetNrLocalNuma();
         if (param->numaParam[0].nid < nrLocalNuma || param->numaParam[0].nid >= nrLocalNuma + REMOTE_NUMA_NUM) {
             return;
         }
-
         for (int i = 0; i < nrLocalNuma && i < LOCAL_NUMA_NUM; i++) {
             attr->strategyAttr.initRemoteMemRatio[i][param->numaParam[0].nid - nrLocalNuma] =
-                HUNDRED - param->localMemRatio;
+                param->numaParam[0].ratio;
             if (EqualToAttrL1(attr, i)) {
                 attr->migrateParam[0].memSize = param->numaParam[0].memSize;
                 attr->migrateParam[0].nid = param->numaParam[0].nid;
@@ -787,8 +796,8 @@ int ProcessAddManage(ProcessParam *param, uint32_t *nodeBitmap)
             SMAP_LOGGER_WARNING("Synchronize pid %d config maybe failed: %d.", param->pid, ret);
         }
         for (int i = 0; i < param->count; i++) {
-            SMAP_LOGGER_INFO("Update pid:%d success! localMemRatio:%d, migrateMode: %d, destnid: %d, memSize: %llu.",
-                             current->pid, current->initLocalMemRatio, current->migrateMode,
+            SMAP_LOGGER_INFO("Update pid:%d success! migrateMode: %d, destnid: %d, memSize: %llu.",
+                             current->pid, current->migrateMode,
                              current->migrateParam[i].nid, current->migrateParam[i].memSize);
         }
     } else {
@@ -1459,10 +1468,12 @@ static void CalNrPagesLocalTotal(void)
     int ret;
 
     while (attr) {
-        if (!IsMultiNumaVm(attr)) {
-            SMAP_LOGGER_DEBUG("CalNrPagesLocalTotal pid: %d.", attr->pid);
-            CalNrPagesLocalTotalPerPid(attr);
+        if (IsMultiNumaVm(attr) && GetRunMode() == MEM_POOL_MODE) {
+            attr = attr->next;
+            continue;
         }
+        SMAP_LOGGER_DEBUG("CalNrPagesLocalTotal pid: %d.", attr->pid);
+        CalNrPagesLocalTotalPerPid(attr);
         attr = attr->next;
     }
 }
@@ -1685,10 +1696,8 @@ int BuildAllPidData(void)
             failedCount++;
             break;
         }
-        for (ProcessAttr *current = g_processManager.processes; current; current = current->next) {
-            if (current->pid != pmb.pid || current->scanType != NORMAL_SCAN) {
-                continue;
-            }
+        ProcessAttr *current = GetProcessAttrLocked(pmb.pid);
+        if (current && current->scanType == NORMAL_SCAN) {
             SMAP_LOGGER_INFO("Pid %d, numaNodes %#x, nrLocalNuma %u.", current->pid, current->numaAttr.numaNodes,
                              g_processManager.nrLocalNuma);
             SetPidNrPages(current, pmb.nrPages, MAX_NODES);
@@ -1697,7 +1706,6 @@ int BuildAllPidData(void)
                 SMAP_LOGGER_ERROR("Fill pid %d actc data failed.", current->pid);
                 failedCount++;
             }
-            break;
         }
         FreePmbData(&pmb);
         FreeWhiteListBm(&pmb);

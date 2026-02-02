@@ -544,9 +544,10 @@ TEST_F(SmapConfigTest, TestAssignProcessAttr)
 {
     ProcessAttr attr;
     struct ProcessPayload payload = {
-        1025, 25, NORMAL_SCAN, VM_TYPE, PROC_MOVE, 0, 0x11, 200, 1
+        1025, NORMAL_SCAN, VM_TYPE, PROC_MOVE, 0, 0x11, 200, 1, 1
     };
-
+    payload.migrateParam[0].nid = 4;
+    payload.migrateParam[0].ratio = 50;
     memset(&attr, 0, sizeof(ProcessAttr));
     ASSERT_EQ(attr.pid, 0);
     ASSERT_EQ(attr.initLocalMemRatio, 0);
@@ -557,7 +558,7 @@ TEST_F(SmapConfigTest, TestAssignProcessAttr)
     ASSERT_EQ(attr.numaAttr.numaNodes, 0);
     AssignProcessAttr(&attr, &payload);
     EXPECT_EQ(attr.pid, payload.pid);
-    EXPECT_EQ(attr.initLocalMemRatio, payload.ratio);
+    EXPECT_EQ(attr.initLocalMemRatio, payload.migrateParam[0].ratio);
     EXPECT_EQ(attr.type, payload.type);
     EXPECT_EQ(attr.state, payload.state);
     EXPECT_EQ(attr.scanType, payload.scanType);

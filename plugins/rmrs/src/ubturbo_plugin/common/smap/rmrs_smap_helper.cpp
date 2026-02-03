@@ -45,6 +45,7 @@ const int RmrsSmapHelper::smapIOErrorCode = -5;       // SMAP处理异常错误�
 const int RmrsSmapHelper::smapRangeErrorCode = -34;   // SMAP处理异常错误码 Math result not representable -34
 const int RmrsSmapHelper::smapBadFNErrorCode = -9;    // SMAP处理异常错误码 Bad file number -9
 const int RmrsSmapHelper::smapTimeOutErrorCode = -16; // SMAP处理异常错误码, 迁出接口超时返回码 -16
+const int RmrsSmapHelper::smapVmDeleteErrorCode = -3; // SMAP处理异常错误码, 迁出过程中pid被删除 -3
 
 const int RmrsSmapHelper::enableModeDisableNumaMig = 0;
 const int RmrsSmapHelper::enableModeEnableNumaMig = 1;
@@ -452,7 +453,12 @@ RmrsResult RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(std::vector<uint16_t>
             UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
                 << "[RmrsSmapHelper] MigrateColdDataToRemoteNumaSync timeout.";
         }
-        return RMRS_ERROR;
+        if (ret == smapVmDeleteErrorCode) {
+            UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
+                << "[RmrsSmapHelper] MigrateColdDataToRemoteNumaSync has been deleted.";
+            return RMRS_MIGRATE_FAILED_VM_DELETED;
+        }
+        return RMRS_MIGRATE_FAILED;
     }
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateColdDataToRemoteNumaSync end.";
     return RMRS_OK;

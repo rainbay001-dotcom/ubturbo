@@ -82,6 +82,7 @@ public:
     static const int smapRangeErrorCode;    // SMAP处理异常错误码 Math result not representable -34
     static const int smapBadFNErrorCode;    // SMAP处理异常错误码 Bad file number -9
     static const int smapTimeOutErrorCode;  // SMAP处理异常错误码 迁出超时 -16
+    static const int smapVmDeleteErrorCode; // SMAP处理异常错误码, 迁出过程中pid被删除 -3
 
     static const int smapMigrateBackDefaultDestNid; // smapMigrateBack destNid 默认参数设置为 -1
     static const int enableModeDisableNumaMig;      // 关闭远端nume冷热流动标识符 0

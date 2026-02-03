@@ -242,10 +242,8 @@ RmrsResult CallbackManager::MigrateBackRecvHandler(const TurboByteBuffer &req, T
     resp.freeFunc = [](uint8_t *data) {
         delete[] data;
     };
-    if (RMRS_OK != res) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[MemFree][MemFree] Recv memfree res: " << res << ".";
-        return RMRS_ERROR;
-    }
+
+    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[MemFree][MemFree] Recv memfree res: " << res << ".";
 
     if (resp.data == nullptr || resp.len == 0) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)

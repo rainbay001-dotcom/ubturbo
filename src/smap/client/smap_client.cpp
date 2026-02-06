@@ -532,7 +532,7 @@ int ubturbo_smap_process_config_query(int nid, struct ProcessPayload *result, in
         IPC_CLIENT_LOGGER_ERROR("[Smap] Query process config result or outLen is null.\n");
         return -EINVAL;
     }
-    if (inLen <= 0 || inLen > MAX_NR_MIGOUT) {
+    if (inLen <= 0 || inLen > MAX_4K_PROCESSES_CNT) {
         IPC_CLIENT_LOGGER_ERROR("[Smap] Query process config inLen is %d.\n", inLen);
         return -EINVAL;
     }

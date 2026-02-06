@@ -74,10 +74,9 @@ static long ioctl_add_pid(void __user *argp)
 
 	if (copy_from_user(&msg, argp, sizeof(msg)))
 		return -EFAULT;
-	if (check_msg_validity(&msg)) {
-		pr_err("message of add pid is invalid\n");
+	if (check_msg_validity(&msg))
 		return -EINVAL;
-	}
+
 	payload = vzalloc(sizeof(struct access_add_pid_payload) * msg.count);
 	if (!payload) {
 		pr_err("unable to allocate memory for access pid payload\n");
@@ -91,6 +90,8 @@ static long ioctl_add_pid(void __user *argp)
 
 	pr_info("adding pid payload:\n");
 	for (i = 0; i < msg.count; i++) {
+		if (payload[i].pid == NON_EXIST_PID)
+			continue;
 		pr_info("[%d] pid %d, numa_nodes %#x, scan_time %u, ntimes %u, duration %u, type %d\n",
 			i, payload[i].pid, payload[i].numa_nodes,
 			payload[i].scan_time, payload[i].ntimes,

@@ -1071,6 +1071,7 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
 | -EPERM | SMAP未初始化 |
 | -EBUSY | 超时 |
 | -EINVAL | 参数错误 |
+| -ESRCH | pid无效 |
 
 ## 约束 CONSTRAINTS
 

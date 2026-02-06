@@ -1874,7 +1874,7 @@ TEST_F(ManageTest, TestIsPidArrRemoteNumaMatchTwo)
     free(pidArr);
 }
 
-extern "C" bool MigOutIsDone(pid_t pid, bool *isMultiNumaPid);
+extern "C" bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid);
 const int NR_PAGES_L1 = 5;
 const int NR_PAGE = 10;
 const pid_t PID = 123;
@@ -1890,13 +1890,13 @@ TEST_F(ManageTest, TestMigOutIsDoneSuccess)
     attr.migrateMode = MIG_MEMSIZE_MODE;
     attr.strategyAttr.memSize[0][0] = 10240;
     g_processManager.processes = nullptr;
-    ret = MigOutIsDone(pid, &isMultiNumaPid);
+    ret = MigOutIsDone(&attr, &isMultiNumaPid);
     EXPECT_EQ(false, ret);
 
     attr.numaAttr.numaNodes = 0b00010001;
     attr.remoteNumaCnt = 1;
     g_processManager.processes = &attr;
-    ret = MigOutIsDone(pid, &isMultiNumaPid);
+    ret = MigOutIsDone(&attr, &isMultiNumaPid);
     EXPECT_EQ(true, ret);
 }
 

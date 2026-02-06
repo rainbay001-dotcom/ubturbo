@@ -321,42 +321,24 @@ TEST_F(MigInitTest, __IoctlMigrateNumaWithInvalidMsgCount)
     EXPECT_EQ(-EINVAL, ret);
 }
 
-extern "C" int check_mig_msg(struct migrate_pid_remote_numa_msg *msg);
+extern "C" int check_mig_msg(struct mig_payload *payloads, int len);
 TEST_F(MigInitTest, CheckMigMsgNidError)
 {
-    struct migrate_pid_remote_numa_msg msg;
-
+    struct mig_payload payloads;
     nr_local_numa = 4;
-    msg.src_nid = 1;
-    msg.dest_nid = 5;
-    int ret = check_mig_msg(&msg);
+    payloads.src_nid = 1;
+    payloads.dest_nid = 5;
+    int ret = check_mig_msg(&payloads, 1);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.src_nid = 4;
-    msg.dest_nid = 1;
-    ret = check_mig_msg(&msg);
+    payloads.src_nid = 4;
+    payloads.dest_nid = 1;
+    ret = check_mig_msg(&payloads, 1);
     EXPECT_EQ(-EINVAL, ret);
 
-    msg.src_nid = 4;
-    msg.dest_nid = 4;
-    ret = check_mig_msg(&msg);
-    EXPECT_EQ(-EINVAL, ret);
-}
-
-TEST_F(MigInitTest, CheckMigMsgCntError)
-{
-    struct migrate_pid_remote_numa_msg msg;
-
-    msg.src_nid = 4;
-    msg.dest_nid = 5;
-    msg.pid_cnt = 0;
-    int ret = check_mig_msg(&msg);
-    EXPECT_EQ(-EINVAL, ret);
-
-    msg.pid_cnt = 10;
-    msg.pid_list = nullptr;
-    msg.mig_res_array = nullptr;
-    ret = check_mig_msg(&msg);
+    payloads.src_nid = 4;
+    payloads.dest_nid = 4;
+    ret = check_mig_msg(&payloads, 1);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -364,13 +346,10 @@ extern "C" int __ioctl_migrate_pid_remote_numa(void __user *argp);
 TEST_F(MigInitTest, __IoctlMigratePidRemoteNuma)
 {
     struct migrate_pid_remote_numa_msg msg;
-
     msg.pid_cnt = 1;
     MOCKER(copy_from_user).stubs().will(returnValue(0UL));
-    MOCKER(check_mig_msg).stubs().will(returnValue(0));
-    MOCKER(kzalloc).stubs().will(returnValue(static_cast<void*>(nullptr)));
     int ret = __ioctl_migrate_pid_remote_numa(nullptr);
-    EXPECT_EQ(-ENOMEM, ret);
+    EXPECT_EQ(-EINVAL, ret);
 }
 
 extern "C" int __ioctl_check_pagesize(void __user *argp);
@@ -405,29 +384,31 @@ TEST_F(MigInitTest, __IoctlCheckPagesizeAbnormalTwo)
     EXPECT_EQ(-EINVAL, ret);
 }
 
-extern "C" void walkpage_and_migrate(struct migrate_pid_remote_numa_msg *msg, pid_t *pid_arry,
-    int *mig_res);
+extern "C" void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig_res);
 TEST_F(MigInitTest, walkpage_and_migrate_Success)
 {
     struct pagemapread pm = { 0 };
     pm.mig_info.mig_cnt = 1;
-    struct migrate_pid_remote_numa_msg msg = {
+    pm.mig_info.page_cnt = 4;
+    struct mig_payload payload = {
+        .pid = 1234,
         .src_nid = 4,
         .dest_nid = 5,
-        .pid_cnt = 2,
+        .ratio = 25,
+        .mem_size = 0,
+        .is_ratio_mode = true,
     };
-    pid_t pid_arry[] = {1234, 5678};
-    int successful_pids[2] = {0};
+
+    int successful_pids[1] = {0};
 
     MOCKER(get_node_page_cnt_iomem).stubs().will(returnValue(1));
     MOCKER(walk_pid_pagemap).stubs()
         .with(outBoundP(&pm, sizeof(pm))).will(ignoreReturnValue());
     MOCKER(smap_migrate).stubs().will(returnValue(0));
 
-    walkpage_and_migrate(&msg, pid_arry, successful_pids);
+    walkpage_and_migrate(&payload, 1, successful_pids);
 
     EXPECT_EQ(successful_pids[0], 1);
-    EXPECT_EQ(successful_pids[1], 1);
 }
 
 extern "C" long smu_mig_ioctl(struct file *file, unsigned int cmd, unsigned long arg);

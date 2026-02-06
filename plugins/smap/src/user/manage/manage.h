@@ -277,11 +277,19 @@ struct MigrateNumaIoctlMsg {
     uint64_t memids[MAX_NR_MIGRATE_NUMA_RANGE];
 };
 
-struct MigPidRemoteNumaIoctlMsg {
+struct MigPayload {
+    pid_t pid;
     int srcNid;
     int destNid;
+    int ratio;
+    uint64_t memSize;
+    bool isRatioMode;
+    uint64_t successCnt;
+};
+
+struct MigPidRemoteNumaIoctlMsg {
     int pidCnt;
-    pid_t *pidList;
+    struct MigPayload *payloads;
     int *migResArray; // 迁移结果
 };
 
@@ -411,8 +419,6 @@ bool IsHugeAligned(uint64_t addr);
 int IsHugePageRange(const char *line);
 
 bool CheckReadyMigrateBack(int destNid);
-
-int IsPidArrRemoteNumaMatch(pid_t *pidArr, int len, int nid);
 
 RunMode GetRunMode(void);
 void SetRunMode(RunMode runMode);

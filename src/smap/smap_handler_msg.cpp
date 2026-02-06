@@ -971,65 +971,29 @@ int SmapMigrateRemoteNumaCodec::DecodeResponse(TurboByteBuffer &buffer)
     return *static_cast<int *>(static_cast<void *>(buffer.data));
 }
 
-int SmapMigratePidRemoteNumaCodec::EncodeRequest(TurboByteBuffer &buffer, pid_t *pidArr, int len, int srcNid,
-                                                 int destNid)
+int SmapMigratePidRemoteNumaCodec::EncodeRequest(TurboByteBuffer &buffer, MigrateEscapeMsg *msg)
 {
-    size_t size = buffer.len = len * sizeof(pid_t) + 3 * sizeof(int);
+    size_t size = sizeof(MigrateEscapeMsg);
     buffer.data = new (std::nothrow) uint8_t[size];
     if (!buffer.data) {
         return -EINVAL;
     }
-    int ret = memcpy_s(buffer.data, size, &len, sizeof(int));
+    int ret = memcpy_s(buffer.data, size, msg, size);
     if (ret) {
         SmapResetBuf(&buffer);
         return ret;
     }
-    size_t copied = sizeof(int);
-    ret = memcpy_s(buffer.data + copied, size - copied, &srcNid, sizeof(int));
-    if (ret) {
-        SmapResetBuf(&buffer);
-        return ret;
-    }
-    copied += sizeof(int);
-    ret = memcpy_s(buffer.data + copied, size - copied, &destNid, sizeof(int));
-    if (ret) {
-        SmapResetBuf(&buffer);
-        return ret;
-    }
-    copied += sizeof(int);
-    ret = memcpy_s(buffer.data + copied, size - copied, pidArr, len * sizeof(pid_t));
-    if (ret) {
-        SmapResetBuf(&buffer);
-        return ret;
-    }
+    buffer.len = size;
     return ret;
 }
 
-int SmapMigratePidRemoteNumaCodec::DecodeRequest(const TurboByteBuffer &buffer, pid_t *&pidArr, int &len, int &srcNid,
-                                                 int &destNid)
+int SmapMigratePidRemoteNumaCodec::DecodeRequest(const TurboByteBuffer &buffer, MigrateEscapeMsg &msg)
 {
-    if (buffer.len < sizeof(int)) {
+    if (buffer.len < sizeof(MigrateEscapeMsg)) {
         return -EINVAL;
     }
-    len = *static_cast<int *>(static_cast<void *>(buffer.data));
-    if (buffer.len < sizeof(int) + sizeof(int) + sizeof(int) + len * sizeof(pid_t)) {
-        return -EINVAL;
-    }
-    size_t copied = sizeof(int);
-    srcNid = *static_cast<int *>(static_cast<void *>(buffer.data + sizeof(int)));
-    copied += sizeof(int);
-    destNid = *static_cast<int *>(static_cast<void *>(buffer.data + copied));
-    copied += sizeof(int);
-    pidArr = new (std::nothrow) pid_t[len];
-    if (!pidArr) {
-        return -EINVAL;
-    }
-    int ret = memcpy_s(pidArr, len * sizeof(pid_t), buffer.data + copied, len * sizeof(pid_t));
-    if (ret) {
-        delete[] pidArr;
-        pidArr = nullptr;
-    }
-    return ret;
+    msg = *static_cast<MigrateEscapeMsg *>(static_cast<void *>(buffer.data));
+    return 0;
 }
 
 int SmapMigratePidRemoteNumaCodec::EncodeResponse(TurboByteBuffer &buffer, int returnValue)

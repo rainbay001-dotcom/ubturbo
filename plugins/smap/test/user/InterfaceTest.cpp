@@ -2037,116 +2037,142 @@ TEST_F(InterfaceTest, TestSmapMigrateRemoteNumaNormalThree)
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaNotRun)
 {
-    pid_t pidArr[] = { 1 };
-    int srcNid = 4;
-    int dstNid = 5;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 3;
     EnvAtomicSet(&g_status, 0);
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EPERM, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteEqSrcDst)
 {
-    pid_t pidArr[] = { 1 };
-    int srcNid = 4;
-    int dstNid = 4;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 4;
     EnvAtomicSet(&g_status, 1);
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaInvalidSrcNid)
 {
-    pid_t pidArr[] = { 1 };
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+
     // srcnid less than nrLocalNuma
-    int srcNid = 3;
-    int dstNid = 5;
+    msg.payload[0].srcNid = 3;
+    msg.payload[0].destNid = 5;
     EnvAtomicSet(&g_status, 1);
     g_processManager.nrLocalNuma = 4;
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 
     // srcnid greater than nrLocalNuma
-    srcNid = g_processManager.nrLocalNuma + REMOTE_NUMA_BITS;
-    ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    msg.payload[0].srcNid = g_processManager.nrLocalNuma + REMOTE_NUMA_BITS;
+    ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaInvaliDestNid)
 {
-    pid_t pidArr[] = { 1 };
-    int srcNid = 4;
-    int dstNid = 3;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 3;
+
     EnvAtomicSet(&g_status, 1);
     g_processManager.nrLocalNuma = 4;
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
     // destnid less than nrLocalNuma
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 
     // destnid greater than nrLocalNuma
-    dstNid = g_processManager.nrLocalNuma + REMOTE_NUMA_BITS;
-    ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    msg.payload[0].destNid  = g_processManager.nrLocalNuma + REMOTE_NUMA_BITS;
+    ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaInvalidLenPid)
 {
-    pid_t pidArr[] = { 1 };
-    int srcNid = 4;
-    int dstNid = 5;
+    struct MigrateEscapeMsg msg = {
+        .count = 0,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 5;
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
     // len = 0
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 0, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 
     // len = 1 + MAX_2M_PROCESSES_CNT
-    ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1 + MAX_2M_PROCESSES_CNT, srcNid, dstNid);
+    msg.count = (1 + MAX_2M_PROCESSES_CNT);
+    ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 
-    // pid = nullptr
-    ret = ubturbo_smap_pid_remote_numa_migrate(nullptr, 1, srcNid, dstNid);
+    // nullptr
+    ret = ubturbo_smap_pid_remote_numa_migrate(nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaInvalidScan)
 {
-    pid_t pidArr[] = { 1 };
-    int srcNid = 4;
-    int dstNid = 5;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 5;
+    msg.payload[0].destNid = 6;
     ProcessAttr attr = {};
     attr.pid = 1;
     attr.next = nullptr;
     attr.scanType = HAM_SCAN;
+    attr.numaAttr.numaNodes = 0b01100000;
     g_processManager.processes = &attr;
 
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
     MOCKER(PidIsValid).stubs().will(returnValue(true));
 
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
 }
 
-extern "C" int IsPidArrRemoteNumaMatch(pid_t *pidArr, int len, int nid);
+extern "C" int IsPidArrRemoteNumaMatch(struct MigrateEscapeMsg *msg);
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrRemoteNumaMatchFail)
 {
-    pid_t pidArr[] = { 1 };
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 5;
     ProcessAttr attr = {};
     attr.pid = 1;
     attr.scanType = NORMAL_SCAN;
     attr.next = nullptr;
     attr.numaAttr.numaNodes = 0b01100000; // 5 6
     g_processManager.processes = &attr;
-    int srcNid = 4;
-    int dstNid = 5;
+
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
     MOCKER(PidIsValid).stubs().will(returnValue(true));
 
     // 0b01100000 not eq 4 5
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-ENXIO, ret);
 
     g_processManager.processes = nullptr;
@@ -2154,7 +2180,13 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrRemoteNumaMatchFail)
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrIsPidArrInStateFail)
 {
-    pid_t pidArr[] = { 1 };
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 5;
+
     ProcessAttr attr = {};
     attr.pid = 1;
     attr.scanType = NORMAL_SCAN;
@@ -2162,20 +2194,25 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrIsPidArrInStateFail)
     attr.numaAttr.numaNodes = 0b00110000; // 4 5
     attr.state = PROC_IDLE;
     g_processManager.processes = &attr;
-    int srcNid = 4;
-    int dstNid = 5;
+
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsNidInNumastat).stubs().will(returnValue(true));
     MOCKER(PidIsValid).stubs().will(returnValue(true));
 
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-EINVAL, ret);
     g_processManager.processes = nullptr;
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrMigratePidRemoteNumaFail)
 {
-    pid_t pidArr[] = { 1 };
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 5;
+
     ProcessAttr attr = {};
     attr.pid = 1;
     attr.scanType = NORMAL_SCAN;
@@ -2183,26 +2220,31 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrMigratePidRemoteNumaFa
     attr.numaAttr.numaNodes = 0b00110000; // 4 5
     attr.state = PROC_MOVE;
     g_processManager.processes = &attr;
-    int srcNid = 4;
-    int dstNid = 5;
+
     struct ProcessManager manager;
     EnvMutexInit(&manager.lock);
     MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
-    MOCKER(IsRemoteNidValid).stubs().with(eq(dstNid)).will(returnValue(true));
-    MOCKER(IsRemoteNidValid).stubs().with(eq(srcNid)).will(returnValue(true));
+    MOCKER(IsRemoteNidValid).stubs().with(eq(msg.payload[0].destNid)).will(returnValue(true));
+    MOCKER(IsRemoteNidValid).stubs().with(eq(msg.payload[0].srcNid)).will(returnValue(true));
     MOCKER(IsPidArrValid).stubs().will(returnValue(true));
     MOCKER(IsPidArrRemoteNumaMatch).stubs().will(returnValue(1));
 
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(1, ret);
     g_processManager.processes = nullptr;
 }
 
 TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrChangePidRemoteByPid)
 {
-    pid_t pidArr[] = { 1 };
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].pid = 1;
+    msg.payload[0].srcNid = 4;
+    msg.payload[0].destNid = 5;
+
     ProcessAttr attr = {};
     attr.pid = 1;
     attr.scanType = NORMAL_SCAN;
@@ -2210,21 +2252,20 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrChangePidRemoteByPid)
     attr.numaAttr.numaNodes = 0b00110000; // 4 5
     attr.state = PROC_MOVE;
     g_processManager.processes = &attr;
-    int srcNid = 4;
-    int dstNid = 5;
+
     struct ProcessManager manager;
     EnvMutexInit(&manager.lock);
     MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
     EnvAtomicSet(&g_status, 1);
     MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
-    MOCKER(IsRemoteNidValid).stubs().with(eq(dstNid)).will(returnValue(true));
-    MOCKER(IsRemoteNidValid).stubs().with(eq(srcNid)).will(returnValue(true));
+    MOCKER(IsRemoteNidValid).stubs().with(eq(msg.payload[0].destNid)).will(returnValue(true));
+    MOCKER(IsRemoteNidValid).stubs().with(eq(msg.payload[0].srcNid)).will(returnValue(true));
     MOCKER(IsPidArrValid).stubs().will(returnValue(true));
     MOCKER(IsPidArrRemoteNumaMatch).stubs().will(returnValue(0));
     MOCKER(IsPidArrInState).stubs().will(returnValue(1));
     MOCKER(reinterpret_cast<int (*)(int, unsigned long, void *)>(ioctl)).stubs().will(returnValue(0));
     MOCKER(ChangePidRemoteByPid).stubs().will(returnValue(0));
-    int ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, srcNid, dstNid);
+    int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     EXPECT_EQ(-REMOTE_MIG_FAIL, ret);
     g_processManager.processes = nullptr;
 }
@@ -3134,4 +3175,45 @@ TEST_F(InterfaceTest, TestSmapQueryRemoteNumaFreq)
     EXPECT_EQ(0, ret);
     EXPECT_EQ(20, freq[0]);
     EXPECT_EQ(0, freq[1]);
+}
+
+TEST_F(InterfaceTest, TestIsPidArrRemoteNumaMatch)
+{
+    int ret;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].srcNid = 6;
+    msg.payload[0].pid = 1;
+
+    ProcessAttr attr = {};
+    attr.numaAttr.numaNodes = 0b01000001;
+    EnvMutexInit(&g_processManager.lock);
+    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(&attr));
+    ret = IsPidArrRemoteNumaMatch(&msg);
+    EXPECT_EQ(0, ret);
+}
+
+TEST_F(InterfaceTest, TestIsPidArrRemoteNumaMatchTwo)
+{
+    int ret;
+    struct MigrateEscapeMsg msg = {
+        .count = 1,
+    };
+    msg.payload[0].srcNid = 6;
+    msg.payload[0].pid = 1;
+
+    ProcessAttr *arr = nullptr;
+    ProcessAttr process = { .pid = 1 };
+    g_processManager.processes = &process;
+    process.numaAttr.numaNodes = 0b00100001;
+    EnvMutexInit(&g_processManager.lock);
+    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(arr));
+    ret = IsPidArrRemoteNumaMatch(&msg);
+    EXPECT_EQ(-EINVAL, ret);
+
+    GlobalMockObject::verify();
+    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(&process));
+    ret = IsPidArrRemoteNumaMatch(&msg);
+    EXPECT_EQ(-ENXIO, ret);
 }

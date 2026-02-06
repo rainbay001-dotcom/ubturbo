@@ -78,6 +78,7 @@ typedef struct {
 
 struct remote_migrate_info {
 	pid_t pid;
+	u64 page_cnt;
 	int remote_nid;
 	unsigned int mig_cnt;
 	u64 folios_len;

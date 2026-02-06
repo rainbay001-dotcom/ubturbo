@@ -477,7 +477,7 @@ TEST_F(ManageTest, TestProcessAddManageResetPidConfig)
     MOCKER(GetProcessAttrLocked).stubs().will(returnValue(&mockProcess));
     MOCKER(SyncAllProcessConfig).stubs().will(returnValue(0));
     ret = ProcessAddManage(&param, &localNodeBitmap);
-    EXPECT_EQ(-EINVAL, ret);
+    EXPECT_EQ(0, ret);
 
     mockProcess.numaAttr.numaNodes = 47;
     ret = ProcessAddManage(&param, &localNodeBitmap);
@@ -1574,18 +1574,19 @@ TEST_F(ManageTest, TestChangePidRemoteByPid)
     int destNid = 6;
     int pidLen = 1;
     struct MigPidRemoteNumaIoctlMsg msg = {
-        .srcNid = 4,
-        .destNid = 6,
         .pidCnt = 1,
     };
     msg.migResArray = (int *)calloc(1, sizeof(int));
-    msg.pidList = (pid_t *)malloc(sizeof(pid_t));
+    msg.payloads = (struct MigPayload *)malloc(sizeof(struct MigPayload));
     ProcessAttr pid1 = {};
     pid1.pid = 100;
 
     pid1.numaAttr.numaNodes = 0b00010001;
     g_processManager.processes = &pid1;
-    msg.pidList[0] = pid1.pid;
+    msg.payloads[0].pid = pid1.pid;
+    msg.payloads[0].srcNid = 4;
+    msg.payloads[0].destNid = 6;
+
     EnvMutexInit(&g_processManager.lock);
     MOCKER(AccessIoctlAddPid).stubs().will(returnValue(0));
     int ret = ChangePidRemoteByPid(&msg);
@@ -1596,7 +1597,7 @@ TEST_F(ManageTest, TestChangePidRemoteByPid)
     ret = ChangePidRemoteByPid(&msg);
     EXPECT_EQ(EBADF, ret);
     free(msg.migResArray);
-    free(msg.pidList);
+    free(msg.payloads);
 }
 
 TEST_F(ManageTest, TestEnableProcessMigrateDisableInvalid)
@@ -1830,48 +1831,6 @@ TEST_F(ManageTest, TestBuildAndFillBitmapBuf)
     MOCKER(AccessRead).stubs().will(returnValue(EIO));
     ret = BuildAndFillBitmapBuf(&len, &buf);
     EXPECT_EQ(EIO, ret);
-}
-
-extern "C" int IsPidArrRemoteNumaMatch(pid_t *pidArr, int len, int nid);
-TEST_F(ManageTest, TestIsPidArrRemoteNumaMatch)
-{
-    int ret;
-    int len = 1;
-    int nid = 6;
-    pid_t *pidArr = (pid_t *)malloc(sizeof(pid_t) * len);
-    pidArr[0] = 1;
-
-    ProcessAttr attr = {};
-    attr.numaAttr.numaNodes = 0b01000001;
-    EnvMutexInit(&g_processManager.lock);
-    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(&attr));
-    ret = IsPidArrRemoteNumaMatch(pidArr, len, nid);
-    EXPECT_EQ(0, ret);
-    free(pidArr);
-}
-
-TEST_F(ManageTest, TestIsPidArrRemoteNumaMatchTwo)
-{
-    int ret;
-    int len = 1;
-    int nid = 6;
-    pid_t *pidArr = (pid_t *)malloc(sizeof(pid_t) * len);
-    pidArr[0] = 1;
-
-    ProcessAttr *arr = nullptr;
-    ProcessAttr process = { .pid = 1 };
-    g_processManager.processes = &process;
-    process.numaAttr.numaNodes = 0b00100001;
-    EnvMutexInit(&g_processManager.lock);
-    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(arr));
-    ret = IsPidArrRemoteNumaMatch(pidArr, len, nid);
-    EXPECT_EQ(-EINVAL, ret);
-
-    GlobalMockObject::verify();
-    MOCKER(GetProcessAttrLocked).stubs().will(returnValue(&process));
-    ret = IsPidArrRemoteNumaMatch(pidArr, len, nid);
-    EXPECT_EQ(-ENXIO, ret);
-    free(pidArr);
 }
 
 extern "C" bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid);

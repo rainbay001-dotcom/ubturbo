@@ -363,7 +363,7 @@ static bool CheckMigOutPayloadItems(struct MigrateOutPayload *payload, int *tota
             SMAP_LOGGER_ERROR("mig para pid:%d destnode%d invalid.", payload->pid, payload->inner[i].destNid);
             return false;
         }
-        if (!IsDestNidVaild(payload->inner[i].destNid, payload->pid)) {
+        if (!IsDestNidVaild(payload->inner[i].destNid, payload->pid) && payload->count <= 1) {
             SMAP_LOGGER_ERROR("mig para pid:%d destnode%d conflict.", payload->pid, payload->inner[i].destNid);
             return false;
         }
@@ -402,10 +402,6 @@ static bool IsMigParaValid(struct MigrateOutPayload *payload)
 {
     if (!payload) {
         SMAP_LOGGER_ERROR("migrate out payload is null.");
-        return false;
-    }
-    if (payload->count <= 0 || payload->count > REMOTE_NUMA_NUM) {
-        SMAP_LOGGER_ERROR("pid: %d, migrate out payload count:%d is invalid.", payload->pid, payload->count);
         return false;
     }
 
@@ -460,7 +456,14 @@ static int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType)
         SMAP_LOGGER_ERROR("migrate out count will exceed current max pid count: %d.", GetCurrentMaxNrPid());
         return -EINVAL;
     }
+
     for (i = 0; i < msg->count; i++) {
+        if (msg->payload[i].count <= 0 || msg->payload[i].count > REMOTE_NUMA_NUM) {
+            SMAP_LOGGER_ERROR("pid: %d, migrate out payload count:%d is invalid.",
+                              msg->payload[i].pid, msg->payload[i].count);
+            return false;
+        }
+
         for (int j = 0; j < msg->payload[i].count; j++) {
             SMAP_LOGGER_INFO("mig out msg num:[%d] pid:%d, destNid:%d, ratio:%d, memSize:%llu, migMode:%d.", j,
                 msg->payload[i].pid, msg->payload[i].inner[j].destNid, msg->payload[i].inner[j].ratio,
@@ -1663,120 +1666,241 @@ static bool IsScanTypeValid(pid_t *pidArr, int len)
     return true;
 }
 
-static int SmapMigratePidRemoteNumaCheck(pid_t *pidArr, int len, int srcNid, int destNid)
+/*
+ * 检查pidArr的远端NUMA是否都是nid
+ *
+ * 返回值：0-是，其它-异常
+ */
+static int IsPidArrRemoteNumaMatch(struct MigrateEscapeMsg *msg)
 {
-    if (EnvAtomicRead(&g_status) != RUNNING) {
-        SMAP_LOGGER_ERROR("smap isn't running, migrate pid remote numa failed.");
-        return -EPERM;
+    struct ProcessManager *manager = GetProcessManager();
+    int ret = 0;
+    EnvMutexLock(&manager->lock);
+    for (int i = 0; i < msg->count; i++) {
+        ProcessAttr *attr = GetProcessAttrLocked(msg->payload[i].pid);
+        if (!attr) {
+            SMAP_LOGGER_ERROR("GetProcessAttrLocked pid %d null.", msg->payload[i].pid);
+            ret = -EINVAL;
+            break;
+        }
+        if (NotInAttrL2(attr, msg->payload[i].srcNid)) {
+            SMAP_LOGGER_ERROR("pid %d remote nid is not %d", msg->payload[i].pid, msg->payload[i].srcNid);
+            ret = -ENXIO;
+            break;
+        }
     }
-    if (srcNid == destNid) {
-        SMAP_LOGGER_ERROR("srcNid must not equal destNid.");
-        return -EINVAL;
+    EnvMutexUnlock(&manager->lock);
+    return ret;
+}
+
+static bool IsRemoteNidRatioValid(pid_t pid, int nid, int ratio)
+{
+    int nrLocalNuma = GetNrLocalNuma();
+    if (ratio < 0 || ratio > HUNDRED) {
+        return false;
     }
-    if (!IsRemoteNidValid(srcNid)) {
-        SMAP_LOGGER_ERROR("srcNid %d invalid, migrate pid remote numa failed.", srcNid);
-        return -EINVAL;
+    ProcessAttr *attr = GetProcessAttr(pid);
+    if (!attr) {
+        return false;
     }
-    if (!IsRemoteNidValid(destNid)) {
-        SMAP_LOGGER_ERROR("destNid %d invalid, migrate pid remote numa failed.", destNid);
-        return -EINVAL;
+    int l1node = GetAttrL1(attr);
+    int curRatio = attr->strategyAttr.initRemoteMemRatio[l1node][nid - nrLocalNuma];
+    if (ratio > curRatio) {
+        SMAP_LOGGER_ERROR("migrate ratio %d exceeds pid remote node%d ratio%d.", ratio, nid, curRatio);
+        return false;
     }
-    if (!IsPidArrValid(pidArr, len, false)) {
+    return true;
+}
+
+static bool IsRemoteNidMemSizeValid(pid_t pid, int nid, uint64_t memSize)
+{
+    int nrLocalNuma = GetNrLocalNuma();
+    if (memSize % KB_PER_2MB != 0) {
+        return false;
+    }
+    ProcessAttr *attr = GetProcessAttr(pid);
+    if (!attr) {
+        return false;
+    }
+    int l1node = GetAttrL1(attr);
+    uint64_t curMemSize = attr->strategyAttr.memSize[l1node][nid - nrLocalNuma];
+    if (memSize > curMemSize) {
+        SMAP_LOGGER_ERROR("migrate memSize %d exceeds pid remote node%d memSize%d.", memSize, nid, curMemSize);
+        return false;
+    }
+    return true;
+}
+
+static int SmapMigratePidRemoteNumaCheckInner(struct MigrateEscapeMsg *msg)
+{
+    pid_t pidArr[MAX_NR_MIGRATE_ESCAPE];
+    for (int i = 0; i < msg->count; i++) {
+        pidArr[i] = msg->payload[i].pid;
+    }
+
+    if (!IsPidArrValid(pidArr, msg->count, false)) {
         SMAP_LOGGER_ERROR("ubturbo_smap_pid_remote_numa_migrate not all pid is valid.");
         return -EINVAL;
     }
-    if (!IsScanTypeValid(pidArr, len)) {
+
+    if (!IsScanTypeValid(pidArr, msg->count)) {
         SMAP_LOGGER_ERROR("ubturbo_smap_pid_remote_numa_migrate not all scan type is valid.");
         return -EINVAL;
     }
 
-    return 0;
-}
-static int BuildMigRemoteNumaMsg(pid_t *pidArr, int len, int srcNid, int destNid, struct MigPidRemoteNumaIoctlMsg *msg)
-{
-    int i;
-    msg->srcNid = srcNid;
-    msg->destNid = destNid;
-    msg->pidCnt = len;
-    msg->pidList = malloc(len * sizeof(pid_t));
-    if (!msg->pidList) {
-        SMAP_LOGGER_ERROR("malloc pid list failed.");
-        return -ENOMEM;
+    int ret = IsPidArrRemoteNumaMatch(msg);
+    if (ret) {
+        SMAP_LOGGER_ERROR("not all pid remote numa valid, start proc move failed ret: %d.", ret);
+        return ret;
     }
-    msg->migResArray = calloc(len, sizeof(int));
-    if (!msg->migResArray) {
-        SMAP_LOGGER_ERROR("calloc success pid list failed.");
-        free(msg->pidList);
-        msg->pidList = NULL;
-        return -ENOMEM;
-    }
-    for (i = 0; i < len; i++) {
-        msg->pidList[i] = pidArr[i];
-    }
-    return 0;
-}
 
-int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int destNid)
-{
-    int ret;
-    struct MigPidRemoteNumaIoctlMsg msg;
     struct ProcessManager *manager = GetProcessManager();
-    SMAP_LOGGER_INFO("received ubturbo_smap_pid_remote_numa_migrate msg, srcNid:%d, destNid:%d.", srcNid, destNid);
-    ret = SmapMigratePidRemoteNumaCheck(pidArr, len, srcNid, destNid);
-    if (ret) {
-        return ret;
-    }
-    ret = IsPidArrRemoteNumaMatch(pidArr, len, srcNid);
-    if (ret) {
-        SMAP_LOGGER_ERROR("not all pid remote numa is %d, start proc move failed ret: %d.", srcNid, ret);
-        return ret;
-    }
     EnvMutexLock(&manager->lock);
-    ret = IsPidArrInState(pidArr, len, PROC_MOVE);
+    ret = IsPidArrInState(pidArr, msg->count, PROC_MOVE);
     if (ret != 1) {
         SMAP_LOGGER_ERROR("not all pid in correct state, start proc move failed ret: %d.", ret);
         EnvMutexUnlock(&manager->lock);
         return -EINVAL;
     }
     EnvMutexUnlock(&manager->lock);
+    return 0;
+}
 
-    ret = BuildMigRemoteNumaMsg(pidArr, len, srcNid, destNid, &msg);
+static int SmapMigratePidRemoteNumaCheck(struct MigrateEscapeMsg *msg)
+{
+    if (!msg) {
+        SMAP_LOGGER_ERROR("msg is null migrate pid remote numa failed.");
+        return -EINVAL;
+    }
+
+    if (msg->count <= 0 || msg->count > MAX_NR_MIGRATE_ESCAPE) {
+        SMAP_LOGGER_ERROR("msg count %d invalid, migrate pid remote numa failed.", msg->count);
+        return -EINVAL;
+    }
+
+    for (int i = 0; i < msg->count; i++) {
+        if (msg->payload[i].srcNid == msg->payload[i].destNid) {
+            SMAP_LOGGER_ERROR("srcNid must not equal destNid.");
+            return -EINVAL;
+        }
+        if (!IsRemoteNidValid(msg->payload[i].srcNid)) {
+            SMAP_LOGGER_ERROR("[%d] srcNid %d invalid, migrate pid remote numa failed.", i, msg->payload[i].srcNid);
+            return -EINVAL;
+        }
+        if (!IsRemoteNidValid(msg->payload[i].destNid)) {
+            SMAP_LOGGER_ERROR("[%d] destNid %d invalid, migrate pid remote numa failed.", i, msg->payload[i].destNid);
+            return -EINVAL;
+        }
+
+        if (msg->payload[i].migrateMode < MIG_RATIO_MODE || msg->payload[i].migrateMode > MIG_MEMSIZE_MODE) {
+            SMAP_LOGGER_ERROR("[%d] pid: %d migrateMode %d invalid.",
+                i, msg->payload[i].pid, msg->payload[i].migrateMode);
+            return -EINVAL;
+        }
+
+        if (GetRunMode() == WATERLINE_MODE && msg->payload[i].migrateMode == MIG_MEMSIZE_MODE) {
+            SMAP_LOGGER_ERROR("[%d] smap runMode is WATERLINE_MODE, not supported MIG_MEMSIZE_MODE.", i);
+            return -EINVAL;
+        }
+        if (GetRunMode() == MEM_POOL_MODE && msg->payload[i].migrateMode != MIG_MEMSIZE_MODE) {
+            SMAP_LOGGER_ERROR("[%d] smap runMode is MEM_POOL_MODE, not supported mode except MIG_MEMSIZE_MODE.", i);
+            return -EINVAL;
+        }
+        if (msg->payload[i].migrateMode == MIG_RATIO_MODE &&
+                !IsRemoteNidRatioValid(msg->payload[i].pid, msg->payload[i].srcNid, msg->payload[i].ratio)) {
+            SMAP_LOGGER_ERROR("[%d] pid: %d ratio %d invalid.", i, msg->payload[i].pid, msg->payload[i].ratio);
+            return -EINVAL;
+        }
+        if (msg->payload[i].migrateMode == MIG_MEMSIZE_MODE &&
+                !IsRemoteNidMemSizeValid(msg->payload[i].pid, msg->payload[i].srcNid, msg->payload[i].memSize)) {
+            SMAP_LOGGER_ERROR("[%d] pid: %d memSize %d invalid.", i, msg->payload[i].pid, msg->payload[i].memSize);
+            return -EINVAL;
+        }
+    }
+
+    return SmapMigratePidRemoteNumaCheckInner(msg);
+}
+
+static int BuildMigRemoteNumaMsg(struct MigrateEscapeMsg *msg, struct MigPidRemoteNumaIoctlMsg *ioctlMsg)
+{
+    int i;
+
+    ioctlMsg->pidCnt = msg->count;
+    ioctlMsg->payloads = malloc(msg->count * sizeof(struct MigPayload));
+    if (!ioctlMsg->payloads) {
+        SMAP_LOGGER_ERROR("malloc pid list failed.");
+        return -ENOMEM;
+    }
+    ioctlMsg->migResArray = calloc(msg->count, sizeof(int));
+    if (!ioctlMsg->migResArray) {
+        SMAP_LOGGER_ERROR("calloc success pid list failed.");
+        free(ioctlMsg->payloads);
+        ioctlMsg->payloads = NULL;
+        return -ENOMEM;
+    }
+    for (i = 0; i < msg->count; i++) {
+        ioctlMsg->payloads[i].pid = msg->payload[i].pid;
+        ioctlMsg->payloads[i].srcNid = msg->payload[i].srcNid;
+        ioctlMsg->payloads[i].destNid = msg->payload[i].destNid;
+        ioctlMsg->payloads[i].ratio = msg->payload[i].ratio;
+        ioctlMsg->payloads[i].memSize = msg->payload[i].memSize;
+        ioctlMsg->payloads[i].isRatioMode = GetRunMode() == WATERLINE_MODE ? true : false;
+    }
+    return 0;
+}
+
+int ubturbo_smap_pid_remote_numa_migrate(struct MigrateEscapeMsg *msg)
+{
+    int ret;
+    SMAP_LOGGER_INFO("received ubturbo_smap_pid_remote_numa_migrate msg.");
+    if (EnvAtomicRead(&g_status) != RUNNING) {
+        SMAP_LOGGER_ERROR("smap isn't running, migrate pid remote numa failed.");
+        return -EPERM;
+    }
+    struct MigPidRemoteNumaIoctlMsg ioctlMsg;
+    struct ProcessManager *manager = GetProcessManager();
+
+    ret = SmapMigratePidRemoteNumaCheck(msg);
+    if (ret) {
+        return ret;
+    }
+
+    ret = BuildMigRemoteNumaMsg(msg, &ioctlMsg);
     if (ret) {
         SMAP_LOGGER_ERROR("build mig remote numa msg failed. ret: %d", ret);
         return ret;
     }
 
-    ret = ioctl(manager->fds.migrate, SMAP_MIG_PID_REMOTE_NUMA, &msg);
+    ret = ioctl(manager->fds.migrate, SMAP_MIG_PID_REMOTE_NUMA, &ioctlMsg);
     if (ret) {
         SMAP_LOGGER_ERROR("migrate pid remote numa ioctl failed.");
         ret = -REMOTE_MIG_FAIL;
         goto out;
     }
 
-    for (int i = 0; i < msg.pidCnt; i++) {
-        if (msg.migResArray[i] != 1) {
+    for (int i = 0; i < ioctlMsg.pidCnt; i++) {
+        if (ioctlMsg.migResArray[i] != 1) {
             ret = -REMOTE_MIG_FAIL;
             goto out;
         }
     }
 
-    ret = ChangePidRemoteByPid(&msg);
+    ret = ChangePidRemoteByPid(&ioctlMsg);
     if (ret) {
         SMAP_LOGGER_ERROR("change pid remote numa failed, ret: %d.", ret);
     }
 out:
-    free(msg.pidList);
-    free(msg.migResArray);
+    free(ioctlMsg.payloads);
+    free(ioctlMsg.migResArray);
     SMAP_LOGGER_INFO("ubturbo_smap_pid_remote_numa_migrate done, ret: %d.", ret);
     return ret;
 }
 
-static int AssignOldProcessPayload(struct OldProcessPayload *result, ProcessAttr *attr)
+static int AssignOldProcessPayload(struct OldProcessPayload *result, ProcessAttr *attr, int l2Node)
 {
     int len, l2Index;
     int nrLocalNuma = GetNrLocalNuma();
     int l1Node = GetAttrL1(attr);
-    int l2Node = GetAttrL2(attr);
     if (l1Node < 0 || l2Node < nrLocalNuma) {
         SMAP_LOGGER_ERROR("AssignOldProcessPayload pid %d L1 %d or L2 %d is invalid.", attr->pid, l1Node, l2Node);
         return -EINVAL;
@@ -1843,11 +1967,11 @@ int ubturbo_smap_process_config_query(int nid, struct OldProcessPayload *result,
 
     EnvMutexLock(&manager->lock);
     for (ProcessAttr *attr = manager->processes; attr; attr = attr->next) {
-        if (NotEqualToAttrL2(attr, nid)) {
+        if (!InAttrL2(attr, nid)) {
             SMAP_LOGGER_INFO("Skip pid %d because L2 node != %d.", attr->pid, nid);
             continue;
         }
-        ret = AssignOldProcessPayload(&result[i], attr);
+        ret = AssignOldProcessPayload(&result[i], attr, nid);
         if (ret) {
             SMAP_LOGGER_ERROR("Smap pid %d config is invalid.", attr->pid);
             break;

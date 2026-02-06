@@ -19,6 +19,7 @@
 extern "C" {
 #endif
 
+#define MAX_NR_MIGRATE_ESCAPE 300
 #define REMOTE_NUMA_NUM 18
 #define MAX_NR_MIGOUT 40
 #define MAX_NR_MIGBACK 50
@@ -107,6 +108,20 @@ struct ProcessPayload {
     int16_t l2Node[4];
     uint32_t scanTime;
     uint64_t memSize;
+};
+
+struct MigrateEscapePayload {
+    pid_t pid;
+    int srcNid;
+    int destNid;
+    int ratio;
+    uint64_t memSize;
+    MigrateMode migrateMode;
+};
+
+struct MigrateEscapeMsg {
+    int count;
+    struct MigrateEscapePayload payload[MAX_NR_MIGRATE_ESCAPE];
 };
 
 typedef void (*Logfunc)(int level, const char *str, const char *moduleName);
@@ -272,7 +287,7 @@ int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg);
  * @param destNid  [IN] 目标远端NUMA
  * @return int  0：操作成功；非0：操作失败
  */
-int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int destNid);
+int ubturbo_smap_pid_remote_numa_migrate(struct MigrateEscapeMsg *msg);
 
 /* *
  * @brief   查询远端设置为nid的进程

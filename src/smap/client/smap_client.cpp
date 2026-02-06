@@ -490,20 +490,16 @@ int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg)
     return ret;
 }
 
-int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int destNid)
+int ubturbo_smap_remote_numa_migrate(struct MigrateEscapeMsg *msg)
 {
     TurboByteBuffer send;
     TurboByteBuffer recv;
     SmapMigratePidRemoteNumaCodec handler;
-    if (!pidArr) {
-        IPC_CLIENT_LOGGER_ERROR("[Smap] Migrate pid remote numa pidArr is null.\n");
+    if (!msg) {
+        IPC_CLIENT_LOGGER_ERROR("[Smap] Migrate pid remote numa msg is null.\n");
         return -EINVAL;
     }
-    if (len <= 0 || len > MAX_NR_MIGOUT) {
-        IPC_CLIENT_LOGGER_ERROR("[Smap] Migrate pid remote numa len is %d.\n", len);
-        return -EINVAL;
-    }
-    int ret = handler.EncodeRequest(send, pidArr, len, srcNid, destNid);
+    int ret = handler.EncodeRequest(send, msg);
     if (ret) {
         IPC_CLIENT_LOGGER_ERROR("[Smap] ubturbo_smap_pid_remote_numa_migrate Encode request error %d.\n", ret);
         return IPC_ERROR;

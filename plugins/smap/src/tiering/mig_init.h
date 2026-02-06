@@ -13,6 +13,8 @@
 #include "smap_migrate_pages.h"
 #include "smap_migrate_wrapper.h"
 
+#define KB_TO_2M 11
+#define KB_TO_4K 2
 #define BASE_MINOR 0
 #define NR_MINOR 1
 #define SMAP_MIG_DEV "smap_mig_dev"
@@ -31,6 +33,7 @@ typedef struct {
 
 struct remote_migrate_info {
 	pid_t pid;
+	u64 page_cnt;
 	int remote_nid;
 	unsigned int mig_cnt;
 	u64 folios_len;

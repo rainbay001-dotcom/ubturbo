@@ -87,12 +87,20 @@ struct migrate_numa_msg {
 	u64 memids[MAX_NR_MIGNUMA];
 };
 
+struct mig_payload {
+    pid_t pid;
+    int src_nid;
+    int dest_nid;
+    int ratio;
+    u64 mem_size;
+    bool is_ratio_mode;
+    u64 success_cnt;
+};
+
 struct migrate_pid_remote_numa_msg {
-	int src_nid;
-	int dest_nid;
-	int pid_cnt;
-	pid_t *pid_list;
-	int *mig_res_array;
+    int pid_cnt;
+    struct mig_payload *payloads;
+    int *mig_res_array; // 迁移结果
 };
 
 typedef enum {

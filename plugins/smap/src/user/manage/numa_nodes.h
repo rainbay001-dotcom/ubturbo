@@ -83,6 +83,11 @@ static inline void ClearL2(uint32_t *nodes)
     *nodes &= ~REMOTE_NUMA_MASK;
 }
 
+static inline void ClearNodeBit(uint32_t *nodes, int pos)
+{
+    *nodes &= ~(1 << pos);
+}
+
 static inline void SetL2(uint32_t *nodes, int pos)
 {
     ClearL2(nodes);
@@ -114,6 +119,17 @@ static inline int GetL1Count(uint32_t nodes)
 {
     int count = 0;
     for (int i = 0; i < LOCAL_NUMA_BITS; i++) {
+        if (nodes & (1U << i)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static inline int GetL2Count(uint32_t nodes)
+{
+    int count = 0;
+    for (int i = LOCAL_NUMA_BITS; i < MAX_NODES; i++) {
         if (nodes & (1U << i)) {
             count++;
         }

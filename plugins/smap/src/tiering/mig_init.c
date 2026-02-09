@@ -358,7 +358,8 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 
 			pr_info("pid :%d total page count:%llu", payloads[i].pid, pm.mig_info.page_cnt);
 			if (payloads[i].is_ratio_mode) {
-				mig_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + HALF_HUNDRED) / HUNDRED;
+				u64 keep_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + HALF_HUNDRED) / HUNDRED;
+				mig_cnt = pm.mig_info.mig_cnt - keep_cnt;
 			} else {
 				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);
 			}
@@ -372,11 +373,10 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 					payloads[i].pid, mig_cnt, payloads[i].src_nid, payloads[i].dest_nid);
 
 			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt, payloads[i].dest_nid, false);
-
+			payloads[i].success_cnt += (mig_cnt - failed_cnt);
 			vfree(pm.mig_info.folios);
 			if (failed_cnt == 0) {
 				mig_res[i] = 1;
-				payloads[i].success_cnt = mig_cnt;
 				successful_cnt++;
 			}
 		}
@@ -385,8 +385,6 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 			return;
 		}
 	} while (retry--);
-	pr_err("migrate pids remote numa failed after %d try\n",
-	       MAX_MIGRATE_PID_NUMA_RETRY_TIME);
 }
 
 static int copy_to_user_mig_res(struct migrate_pid_remote_numa_msg *msg,

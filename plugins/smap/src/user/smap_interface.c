@@ -1788,18 +1788,27 @@ static int IsPidArrRemoteNumaMatch(struct MigrateEscapeMsg *msg)
     return ret;
 }
 
-static bool IsRemoteNidRatioValid(pid_t pid, int nid, int ratio)
+static int GetAttrNidInitRatio(pid_t pid, int nid)
 {
     int nrLocalNuma = GetNrLocalNuma();
-    if (ratio < 0 || ratio > HUNDRED) {
-        return false;
-    }
     ProcessAttr *attr = GetProcessAttr(pid);
     if (!attr) {
-        return false;
+        return -EINVAL;
     }
     int l1node = GetAttrL1(attr);
     int curRatio = attr->strategyAttr.initRemoteMemRatio[l1node][nid - nrLocalNuma];
+    return attr->strategyAttr.initRemoteMemRatio[l1node][nid - nrLocalNuma];
+}
+
+static bool IsRemoteNidRatioValid(pid_t pid, int nid, int ratio)
+{
+    if (ratio <= 0 || ratio > HUNDRED) {
+        return false;
+    }
+    int curRatio = GetAttrNidInitRatio(pid, nid);
+    if (curRatio < 0) {
+        return false;
+    }
     if (ratio > curRatio) {
         SMAP_LOGGER_ERROR("migrate ratio %d exceeds pid remote node%d ratio%d.", ratio, nid, curRatio);
         return false;
@@ -1807,18 +1816,26 @@ static bool IsRemoteNidRatioValid(pid_t pid, int nid, int ratio)
     return true;
 }
 
-static bool IsRemoteNidMemSizeValid(pid_t pid, int nid, uint64_t memSize)
+static uint64_t GetAttrNidInitMemSize(pid_t pid, int nid)
 {
     int nrLocalNuma = GetNrLocalNuma();
-    if (memSize % KB_PER_2MB != 0) {
-        return false;
-    }
     ProcessAttr *attr = GetProcessAttr(pid);
     if (!attr) {
-        return false;
+        return -EINVAL;;
     }
     int l1node = GetAttrL1(attr);
-    uint64_t curMemSize = attr->strategyAttr.memSize[l1node][nid - nrLocalNuma];
+    return attr->strategyAttr.memSize[l1node][nid - nrLocalNuma];
+}
+
+static bool IsRemoteNidMemSizeValid(pid_t pid, int nid, uint64_t memSize)
+{
+    if (memSize % KB_PER_2MB != 0 || memSize == 0) {
+        return false;
+    }
+    uint64_t curMemSize = GetAttrNidInitMemSize(pid, nid);
+    if (curMemSize < 0) {
+        return false;
+    }
     if (memSize > curMemSize) {
         SMAP_LOGGER_ERROR("migrate memSize %d exceeds pid remote node%d memSize%d.", memSize, nid, curMemSize);
         return false;
@@ -1937,7 +1954,8 @@ static int BuildMigRemoteNumaMsg(struct MigrateEscapeMsg *msg, struct MigPidRemo
         ioctlMsg->payloads[i].pid = msg->payload[i].pid;
         ioctlMsg->payloads[i].srcNid = msg->payload[i].srcNid;
         ioctlMsg->payloads[i].destNid = msg->payload[i].destNid;
-        ioctlMsg->payloads[i].ratio = msg->payload[i].ratio;
+        int srcRatio = GetAttrNidInitRatio(msg->payload[i].pid, msg->payload[i].srcNid);
+        ioctlMsg->payloads[i].ratio = srcRatio - msg->payload[i].ratio;
         ioctlMsg->payloads[i].memSize = msg->payload[i].memSize;
         ioctlMsg->payloads[i].isRatioMode = GetRunMode() == WATERLINE_MODE ? true : false;
     }

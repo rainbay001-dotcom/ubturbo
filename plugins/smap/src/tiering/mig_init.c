@@ -358,7 +358,7 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 
 			pr_info("pid :%d total page count:%llu", payloads[i].pid, pm.mig_info.page_cnt);
 			if (payloads[i].is_ratio_mode) {
-				mig_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + (HUNDRED / 2)) / HUNDRED;
+				mig_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + HALF_HUNDRED) / HUNDRED;
 			} else {
 				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);
 			}
@@ -371,8 +371,7 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 			pr_info("pid:%d migrate page count: %llu, from: %d to: %d\n",
 					payloads[i].pid, mig_cnt, payloads[i].src_nid, payloads[i].dest_nid);
 
-			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt,
-						   payloads[i].dest_nid, false);
+			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt, payloads[i].dest_nid, false);
 
 			vfree(pm.mig_info.folios);
 			if (failed_cnt == 0) {

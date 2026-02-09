@@ -1991,7 +1991,7 @@ static void ChangePidRemoteMemory(ProcessAttr *attr, int srcNodeIndex, int destN
         uint64_t srcMemSize = 0;
         int remoteNidIndex;
         for (int i = 0; i < attr->remoteNumaCnt; i++) {
-            int srcNid = srcNodeIndex += nrLocalNuma;
+            int srcNid = srcNodeIndex + nrLocalNuma;
             if (srcNid == attr->migrateParam[i].nid) {
                 srcMemSize = attr->migrateParam[i].memSize;
                 remoteNidIndex = i;

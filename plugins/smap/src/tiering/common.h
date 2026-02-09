@@ -14,6 +14,7 @@
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 
 #define HUNDRED 100
+#define HALF_HUNDRED (HUNDRED / 2)
 #define MILLION 1000000
 #define UNIT_OF_TIME 1000
 #define CYCLE_MAX_RECORD 1000

@@ -820,7 +820,7 @@ static void ClearManagedProcessNuma(int nr, struct RemovePayload *payload)
             ClearNodeBit(&attr->numaAttr.numaNodes, l2Index + LOCAL_NUMA_BITS);
         }
         attr->remoteNumaCnt = GetL2Count(attr->numaAttr.numaNodes);
-        if (attr->remoteNumaCnt == 0) { 
+        if (attr->remoteNumaCnt == 0) {
             LinkedListRemove(&attr, &manager->processes);
             SMAP_LOGGER_INFO("Remove pid: %d, from managed process.", pid);
             manager->nr[type]--;

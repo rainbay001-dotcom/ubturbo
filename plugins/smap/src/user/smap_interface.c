@@ -737,7 +737,7 @@ static int CheckSmapRemoveMsg(struct RemoveMsg *msg, int pidType)
     }
     for (int i = 0; i < msg->count; i++) {
         if (msg->payload[i].count <= 0 || msg->payload[i].count > REMOTE_NUMA_NUM) {
-            SMAP_LOGGER_ERROR("[%d] smap remove payload nid count%d invalid.", i, msg->>payload[i].count);
+            SMAP_LOGGER_ERROR("[%d] smap remove payload nid count%d invalid.", i, msg->payload[i].count);
             return -EINVAL;
         }
         for (int j = 0; j < msg->payload[i].count; j++) {

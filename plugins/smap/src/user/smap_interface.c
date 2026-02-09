@@ -1821,7 +1821,7 @@ static uint64_t GetAttrNidInitMemSize(pid_t pid, int nid)
     int nrLocalNuma = GetNrLocalNuma();
     ProcessAttr *attr = GetProcessAttr(pid);
     if (!attr) {
-        return -EINVAL;;
+        return -EINVAL;
     }
     int l1node = GetAttrL1(attr);
     return attr->strategyAttr.memSize[l1node][nid - nrLocalNuma];

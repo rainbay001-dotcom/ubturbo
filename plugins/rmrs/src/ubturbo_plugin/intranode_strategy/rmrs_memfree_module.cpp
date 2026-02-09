@@ -53,7 +53,7 @@ RmrsResult RmrsMemFreeModule::ReturnRemoteNuma(std::vector<ReturnVmInfo> &canRet
         return res;
     }
     // 移除pid进程管理
-    res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(pidsList);
+    res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(remoteNumaIdList, pidsList);
     if (res != RMRS_OK) {
         LOG_ERROR << "[MemFree][MemFree] Rm pid mgr failed " << res << ".";
         return res;

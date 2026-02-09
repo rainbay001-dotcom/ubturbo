@@ -70,11 +70,22 @@ struct RemoteNumaInfo {
 
 struct RemovePayload {
     pid_t pid;
+    int count;
+    int nid[REMOTE_NUMA_NUM_RMRS];
 
     std::string ToString() const
     {
         std::ostringstream oss;
         oss << R"("pid":)" << pid;
+        oss << R"({"count":)" << count << R"(,)";
+        oss << R"("nid":[)";
+        for (size_t i = 0; i < count; ++i) {
+            if (i != 0) {
+                oss << R"(,)";
+            }
+            oss << nid[i];
+        }
+        oss << R"(]})";
         return oss.str();
     }
 };

@@ -215,17 +215,19 @@ bool RmrsRollbackModule::DoMigrateRollback(std::unordered_map<pid_t, uint16_t> v
     // 移除pid进程管理
     // oriSize为0的才考虑移除进程管理
     std::vector<pid_t> emptyPidList; // 存储 memSize == 0 的 pid
+    std::vector<uint16_t> emptyRemoteNumaIdList;
 
     for (size_t i = 0; i < pidList.size(); ++i) {
         if (memSizeList[i] == 0) {
             emptyPidList.push_back(pidList[i]);
+            emptyRemoteNumaIdList.push_back(remoteNumaIdList[i]);
         }
     }
     // 移除pid进程管理
     if (emptyPidList.empty()) {
         return true;
     }
-    res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(emptyPidList);
+    res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(emptyRemoteNumaIdList, emptyPidList);
     if (res != 0) {
         LOG_ERROR << "[MemRollback] Rm pid mgr failed " << res << ".";
         return false;

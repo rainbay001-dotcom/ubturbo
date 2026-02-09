@@ -74,17 +74,23 @@ N/A
 ```
 #define MAX_NR_MIGOUT 40 
 
-struct MigrateOutPayload { 
-    int destNid; 
-    pid_t pid; 
-    int ratio; 
-    uint64_t memSize; 
+struct MigrateOutPayloadInner {
+    int destNid;
+    int ratio;
+    uint64_t memSize;
     MigrateMode migrateMode;
-}; 
+};
 
-struct MigrateOutMsg { 
-    int count; 
-    struct MigrateOutPayload payload[MAX_NR_MIGOUT]; 
+struct MigrateOutPayload {
+    int srcNid;
+    pid_t pid;
+    int count;
+    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM];
+};
+
+struct MigrateOutMsg {
+    int count;
+    struct MigrateOutPayload payload[MAX_NR_MIGOUT];
 };
 ```
 
@@ -202,7 +208,7 @@ struct MigrateBackMsg {
 
 #### 函数定义
 
-从SMAP管理的虚机/进程中移除指定的虚机/进程。
+移除指定的虚机/进程的远端numa，当远端numa全被移除时，整个进程被移除SMAP管理。
 
 #### 实现方法
 
@@ -218,8 +224,10 @@ struct MigrateBackMsg {
 ```
 #define MAX_NR_REMOVE 40
 
-struct RemovePayload { 
-    pid_t pid; 
+struct RemovePayload {
+    pid_t pid;
+    int count;
+    int nid[REMOTE_NUMA_NUM];
 };
 
 struct RemoveMsg { 
@@ -414,23 +422,28 @@ struct EnableNodeMsg {
 
 #### 实现方法
 
-<pre class="screen"><p class="p" id="p53951577571">int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int destNid);</p></pre>
+<pre class="screen"><p class="p" id="p53951577571">int ubturbo_smap_pid_remote_numa_migrate(struct MigrateEscapeMsg *msg);</p></pre>
 
 #### 参数说明
 
 | 参数名 | 数据类型 | 有效性规格 | 参数类型 | 描述 |
 | --- | --- | --- | --- | --- |
-| pidArr | pid\_t \* | NA | 入参 | 虚机PID数组。 |
-| len | int | 1-100的整数 | 入参 | 虚机PID数组长度。 |
-| srcNid | int | 远端NUMA ID | 入参 | PID源远端NUMA。 |
-| destNid | int | 远端NUMA ID | 入参 | PID目的远端NUMA。 |
+| msg | struct MigrateEscapeMsg \* | NA | 入参 | 迁移PID远端NUMA的消息。|
+| msg.count | int | 1-300的整数 | 入参 | 进程数量。|
+| msg.payload | struct MigrateNumaPayload | 长度固定为300 | 入参 | 进程迁移配置 |
+| msg.payload[].pid | pid\_t | NA | 入参 | 进程PID |
+| msg.payload[].srcNid | int | NA | 入参 | PID源远端NUMA |
+| msg.payload[].destNid | int| NA | 入参 | PID目的端远端NUMA |
+| msg.payload[].ratio | int| NA | 入参 | 迁移比例 |
+| msg.payload[].srcNid | memSize\_t | NA | 入参 | 迁移大小 |
+| msg.payload[].migrateMode | int | NA | 入参 | 迁移模式 |
 
 #### 返回值
 
 * 成功返回0。
 * SMAP未初始化返回-1。
 * 迁移成功但修改进程远端NUMA失败返回-9。
-* PID的远端NUMA不全为srcNid，返回-6。
+* srcNid不是PID的源远端NUMA，返回-6。
 * 参数错误返回-22。
 * 内存申请失败返回-12。
 

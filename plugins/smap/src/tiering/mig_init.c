@@ -297,54 +297,56 @@ static int __ioctl_migrate_numa(void __user *argp)
 	return 0;
 }
 
-static int check_mig_msg(struct migrate_pid_remote_numa_msg *msg)
+static int check_mig_msg(struct mig_payload *payloads, int len)
 {
-	if (!is_numa_remote(msg->src_nid)) {
-		pr_err("invalid source node id: %d passed to check params\n",
-		       msg->src_nid);
-		return -EINVAL;
-	}
-	if (!is_numa_remote(msg->dest_nid)) {
-		pr_err("invalid destination node id: %d passed to check params\n",
-		       msg->dest_nid);
-		return -EINVAL;
-	}
-	if (msg->dest_nid == msg->src_nid) {
-		pr_err("source and destination node id should not be the same\n");
-		return -EINVAL;
-	}
-	if (msg->pid_cnt <= 0 || msg->pid_cnt > get_max_pid_cnt()) {
-		pr_err("invalid pid count passed to check params\n");
-		return -EINVAL;
-	}
-	if (!msg->pid_list || !msg->mig_res_array) {
-		pr_err("null pid list or null migrate result array passed to check params\n");
-		return -EINVAL;
+	for (int i = 0; i < len; i++) {
+		if (!is_numa_remote(payloads[i].src_nid)) {
+			pr_err("invalid source node id: %d passed to check params\n",
+				   payloads[i].src_nid);
+			return -EINVAL;
+		}
+		if (!is_numa_remote(payloads[i].dest_nid)) {
+			pr_err("invalid destination node id: %d passed to check params\n",
+				   payloads[i].dest_nid);
+			return -EINVAL;
+		}
+		if (payloads[i].dest_nid == payloads[i].src_nid) {
+			pr_err("source and destination node id should not be the same\n");
+			return -EINVAL;
+		}
+		if (payloads[i].ratio <= 0 || payloads[i].ratio > HUNDRED) {
+			pr_err("migrate ratio: %d invalid\n", payloads[i].ratio);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
 
-static void walkpage_and_migrate(struct migrate_pid_remote_numa_msg *msg,
-				 pid_t *pid_array, int *mig_res)
+static void init_pm_info(struct pagemapread *pm, struct mig_payload *payload)
+{
+	int page_size = smap_pgsize == HUGE_PAGE ? PAGE_SIZE_2M : PAGE_SIZE_4K;
+	pm->mig_type = REMOTE_MIGRATE;
+	pm->mig_info.pid = payload->pid;
+	pm->mig_info.folios_len = get_node_page_cnt_iomem(payload->src_nid, page_size);
+	pm->mig_info.remote_nid = payload->src_nid;
+}
+
+static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig_res)
 {
 	int i;
 	unsigned int failed_cnt;
+	u64 mig_cnt;
 	int successful_cnt = 0;
-	int page_size = smap_pgsize == HUGE_PAGE ? PAGE_SIZE_2M : PAGE_SIZE_4K;
 
 	int retry = MAX_MIGRATE_PID_NUMA_RETRY_TIME;
 	do {
-		for (i = 0; i < msg->pid_cnt; i++) {
+		for (i = 0; i < len; i++) {
 			struct pagemapread pm = { 0 };
 			if (mig_res[i] == 1) {
 				continue;
 			}
 			failed_cnt = 0;
-			pm.mig_type = REMOTE_MIGRATE;
-			pm.mig_info.pid = pid_array[i];
-			pm.mig_info.folios_len = get_node_page_cnt_iomem(
-				msg->src_nid, page_size);
-			pm.mig_info.remote_nid = msg->src_nid;
+			init_pm_info(&pm, &payloads[i]);
 			pm.mig_info.folios = vzalloc(sizeof(struct folio *) *
 						     pm.mig_info.folios_len);
 			if (!pm.mig_info.folios) {
@@ -353,12 +355,25 @@ static void walkpage_and_migrate(struct migrate_pid_remote_numa_msg *msg,
 			}
 
 			walk_pid_pagemap(&pm);
-			pr_info("pid:%d migrate page count: %d, from: %d to: %d\n",
-				pid_array[i], pm.mig_info.mig_cnt, msg->src_nid,
-				msg->dest_nid);
-			failed_cnt = smap_migrate(pm.mig_info.folios,
-						  pm.mig_info.mig_cnt,
-						  msg->dest_nid, false);
+
+			pr_info("pid :%d total page count:%llu", payloads[i].pid, pm.mig_info.page_cnt);
+			if (payloads[i].is_ratio_mode) {
+				u64 keep_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + HALF_HUNDRED) / HUNDRED;
+				mig_cnt = pm.mig_info.mig_cnt - keep_cnt;
+			} else {
+				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);
+			}
+
+			for (int j = mig_cnt; j < pm.mig_info.mig_cnt; j++) {
+				folio_put(pm.mig_info.folios[j]);
+			}
+
+			mig_cnt = MIN(mig_cnt, pm.mig_info.mig_cnt);
+			pr_info("pid:%d migrate page count: %llu, from: %d to: %d\n",
+					payloads[i].pid, mig_cnt, payloads[i].src_nid, payloads[i].dest_nid);
+
+			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt, payloads[i].dest_nid, false);
+			payloads[i].success_cnt += (mig_cnt - failed_cnt);
 			vfree(pm.mig_info.folios);
 			if (failed_cnt == 0) {
 				mig_res[i] = 1;
@@ -366,16 +381,14 @@ static void walkpage_and_migrate(struct migrate_pid_remote_numa_msg *msg,
 			}
 		}
 
-		if (successful_cnt == msg->pid_cnt) {
+		if (successful_cnt == len) {
 			return;
 		}
 	} while (retry--);
-	pr_err("migrate pids remote numa failed after %d try\n",
-	       MAX_MIGRATE_PID_NUMA_RETRY_TIME);
 }
 
 static int copy_to_user_mig_res(struct migrate_pid_remote_numa_msg *msg,
-				void __user *argp, pid_t *pid_array,
+				void __user *argp, struct mig_payload *payload,
 				int *mig_res)
 {
 	if (copy_to_user(argp, msg, sizeof(*msg))) {
@@ -383,8 +396,8 @@ static int copy_to_user_mig_res(struct migrate_pid_remote_numa_msg *msg,
 		return -EFAULT;
 	}
 
-	if (copy_to_user(msg->pid_list, pid_array,
-			 sizeof(pid_t) * msg->pid_cnt)) {
+	if (copy_to_user(msg->payloads, payload,
+			 sizeof(struct mig_payload) * msg->pid_cnt)) {
 		pr_err("failed to copy pid list to user space\n");
 		return -EFAULT;
 	}
@@ -403,43 +416,52 @@ static int __ioctl_migrate_pid_remote_numa(void __user *argp)
 	int ret = 0;
 	int *mig_res = NULL;
 	struct migrate_pid_remote_numa_msg msg;
-	pid_t *pid_array = NULL;
+	struct mig_payload *payloads = NULL;
 	if (copy_from_user(&msg, argp, sizeof(msg))) {
 		pr_err("failed to copy migrate pid remote NUMA message from user space\n");
 		return -EFAULT;
 	}
-	if (check_mig_msg(&msg)) {
-		pr_err("invalid params passed to migrate pid remote NUMA\n");
+	if (msg.pid_cnt <= 0 || msg.pid_cnt > get_max_pid_cnt()) {
+		pr_err("invalid pid count passed to check params\n");
+		return -EINVAL;
+	}
+	if (!msg.payloads || !msg.mig_res_array) {
+		pr_err("null pid payloads or null migrate result array passed to check params\n");
 		return -EINVAL;
 	}
 
-	pid_array = kzalloc(sizeof(pid_t) * msg.pid_cnt, GFP_KERNEL);
-	if (!pid_array) {
+	payloads = kzalloc(sizeof(struct mig_payload) * msg.pid_cnt, GFP_KERNEL);
+	if (!payloads) {
 		pr_err("unable to allocate memory for pid array\n");
 		return -ENOMEM;
 	}
-	if (copy_from_user(pid_array, msg.pid_list,
-			   sizeof(pid_t) * msg.pid_cnt)) {
+	if (copy_from_user(payloads, msg.payloads,
+			   sizeof(struct mig_payload) * msg.pid_cnt)) {
 		pr_err("failed to copy pid array from user space\n");
-		kfree(pid_array);
+		kfree(payloads);
 		return -EFAULT;
+	}
+
+	if (check_mig_msg(payloads, msg.pid_cnt)) {
+		pr_err("invalid params passed to migrate pid remote NUMA\n");
+		return -EINVAL;
 	}
 
 	mig_res = kzalloc(msg.pid_cnt * sizeof(int), GFP_KERNEL);
 	if (!mig_res) {
 		pr_err("unable to allocate memory for migrate result\n");
-		kfree(pid_array);
+		kfree(payloads);
 		return -ENOMEM;
 	}
 
-	walkpage_and_migrate(&msg, pid_array, mig_res);
+	walkpage_and_migrate(payloads, msg.pid_cnt, mig_res);
 
-	ret = copy_to_user_mig_res(&msg, argp, pid_array, mig_res);
+	ret = copy_to_user_mig_res(&msg, argp, payloads, mig_res);
 	if (ret)
 		pr_err("failed to copy migrate result to user space\n");
 
 	kfree(mig_res);
-	kfree(pid_array);
+	kfree(payloads);
 	return ret;
 }
 

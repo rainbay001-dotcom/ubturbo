@@ -21,6 +21,7 @@
 extern "C" {
 #endif
 
+#define MAX_NR_MIGRATE_ESCAPE 300
 #define MAX_NR_MIGBACK 50
 #define MAX_NR_MIGNUMA 50
 #define MAX_NR_REMOVE MAX_NR_MIGOUT
@@ -94,6 +95,8 @@ struct MigrateBackMsg {
 
 struct RemovePayload {
     pid_t pid;
+    int count;
+    int nid[REMOTE_NUMA_NUM];
 };
 
 struct RemoveMsg {
@@ -110,6 +113,20 @@ struct SetRemoteNumaInfoMsg {
     int srcNid; // 设置-1时表示每个本地numa都可用此远端numa
     int destNid;
     uint64_t size;
+};
+
+struct MigrateEscapePayload {
+    pid_t pid;
+    int srcNid;
+    int destNid;
+    int ratio;
+    uint64_t memSize;
+    MigrateMode migrateMode;
+};
+
+struct MigrateEscapeMsg {
+    int count;
+    struct MigrateEscapePayload payload[MAX_NR_MIGRATE_ESCAPE];
 };
 
 enum {
@@ -281,7 +298,7 @@ int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg);
  * @param destNid  [IN] 目标远端NUMA
  * @return int  0：操作成功；非0：操作失败
  */
-int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int destNid);
+int ubturbo_smap_pid_remote_numa_migrate(struct MigrateEscapeMsg *msg);
 
 /* *
  * @brief   查询远端设置为nid的进程

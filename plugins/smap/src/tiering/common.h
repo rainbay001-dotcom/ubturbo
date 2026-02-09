@@ -14,6 +14,7 @@
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
 
 #define HUNDRED 100
+#define HALF_HUNDRED (HUNDRED / 2)
 #define MILLION 1000000
 #define UNIT_OF_TIME 1000
 #define CYCLE_MAX_RECORD 1000
@@ -87,12 +88,20 @@ struct migrate_numa_msg {
 	u64 memids[MAX_NR_MIGNUMA];
 };
 
+struct mig_payload {
+    pid_t pid;
+    int src_nid;
+    int dest_nid;
+    int ratio;
+    u64 mem_size;
+    bool is_ratio_mode;
+    u64 success_cnt;
+};
+
 struct migrate_pid_remote_numa_msg {
-	int src_nid;
-	int dest_nid;
-	int pid_cnt;
-	pid_t *pid_list;
-	int *mig_res_array;
+    int pid_cnt;
+    struct mig_payload *payloads;
+    int *mig_res_array; // 迁移结果
 };
 
 typedef enum {

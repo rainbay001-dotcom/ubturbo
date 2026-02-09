@@ -268,7 +268,7 @@ static int add_to_bm(unsigned long vaddr, pagemap_entry_t *pme,
 		if (!page) {
 			goto inc_pm_pos;
 		}
-
+		pm->mig_info.page_cnt++;
 		if (!is_paddr_belong_remote_node(paddr,
 						 pm->mig_info.remote_nid)) {
 			goto inc_pm_pos;

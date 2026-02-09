@@ -45,7 +45,7 @@ using SmapAddProcessTrackingFunc = int (*)(pid_t *pidArr, uint32_t *scanTime, ui
 using SmapRemoveProcessTrackingFunc = int (*)(pid_t *pidArr, int len, int flag);
 using SmapEnableProcessMigrateFunc = int (*)(pid_t *pidArr, int len, int enable, int flags);
 using SmapMigrateRemoteNumaFunc = int (*)(struct MigrateNumaMsg *msg);
-using SmapMigratePidRemoteNumaFunc = int (*)(pid_t *pidArr, int len, int srcNid, int destNid);
+using SmapMigratePidRemoteNumaFunc = int (*)(struct MigrateEscapeMsg *msg);
 using SmapQueryProcessConfigFunc = int (*)(int nid, struct ProcessPayload *result, int inLen, int *outLen);
 using SmapQueryRemoteNumaFreqFunc = int (*)(uint16_t *numa, uint64_t *freq, uint16_t length);
 

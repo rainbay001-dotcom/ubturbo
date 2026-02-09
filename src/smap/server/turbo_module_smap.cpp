@@ -401,24 +401,19 @@ RetCode SmapMigrateRemoteNumaHandler(const TurboByteBuffer &inputBuffer, TurboBy
 
 RetCode SmapMigratePidRemoteNumaHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer &outputBuffer)
 {
-    pid_t *pidArr;
-    int len;
-    int srcNid;
-    int destNid;
-    int ret;
+    MigrateEscapeMsg msg{};
     SmapMigratePidRemoteNumaCodec codec;
-    ret = codec.DecodeRequest(inputBuffer, pidArr, len, srcNid, destNid);
+    int ret = codec.DecodeRequest(inputBuffer, msg);
     if (ret) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE)
-            << "[Smap] SmapMigrateRemoteNumaHandler DecodeRequest error " << ret;
+            << "[Smap] SmapMigratePidRemoteNumaHandler DecodeRequest error " << ret;
         return TURBO_ERROR;
     }
-    int result = g_smapMigratePidRemoteNuma(pidArr, len, srcNid, destNid);
-    delete[] pidArr;
+    int result = g_smapMigratePidRemoteNuma(&msg);
     ret = codec.EncodeResponse(outputBuffer, result);
     if (ret) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE)
-            << "[Smap] SmapMigrateRemoteNumaHandler EncodeResponse error " << ret;
+            << "[Smap] SmapMigratePidRemoteNumaHandler EncodeResponse error " << ret;
         return TURBO_ERROR;
     }
     return TURBO_OK;

@@ -148,11 +148,14 @@ int ubturbo_smap_migrate_out(struct MigrateOutMsg *msg, int pidType);
 | msg | IN | 配置参数。 |
 | msg.count | IN | 配置数量。 |
 | msg.payload | IN | 配置数组。 |
-| msg.payload.destNid | IN | 远端NUMA。 |
+| msg.payload.srcNid | IN | 近端迁出NUMA。 |
 | msg.payload.pid | IN | 进程PID。 |
-| msg.payload.ratio | IN | 迁出比例。 |
-| msg.payload.memSize | IN | 迁出大小，单位KB。 |
-| msg.payload.migrateMode | IN | 迁移模式，0：按比例， 1：按大小。 |
+| msg.payload.count | IN | PID迁出配置数量。 |
+| msg.payload.inner | IN | PID迁出配置数组。 |
+| msg.payload.inner.destNid | IN | 远端numa。 |
+| msg.payload.inner.ratio | IN | 迁出比例。 |
+| msg.payload.inner.memSize | IN | 迁出大小，单位KB。 |
+| msg.payload.inner.migrateMode | IN | 迁移模式，0：按比例， 1：按大小。 |
 | pidType | IN | 进程页面类型，0：4K，1：2M。 |
 
 ## 返回值 RETURN VALUE
@@ -193,17 +196,20 @@ int ubturbo_smap_migrate_out(struct MigrateOutMsg *msg, int pidType);
 int main(void)
 {
     int ret;
+    struct MigrateOutMsg payload = {
+        .srcNid = 0,
+        .pid = 10253,
+        .count = 1,
+        .inner = {
+            .destNid = 4,
+            .ratio = 25,
+            .memSize = 0,
+            .migrateMode = 0,
+        };
+    };
     struct MigrateOutMsg msg = {
         .count = 1,
-        .payload = {
-            {
-                .destNid = 4,
-                .pid = 10253,
-                .ratio = 25,
-                .memSize = 0,
-                .migrateMode = 0,
-            }
-        };
+        .payload = payload,
     };
 
     ret = ubturbo_smap_migrate_out(&msg, 1);
@@ -395,7 +401,7 @@ int ubturbo_smap_remove(struct RemoveMsg *msg, int pidType);
 
 ## 描述 DESCRIPTION
 
-从SMAP管理的虚机/进程中移除指定的虚机/进程。
+移除指定的虚机/进程的远端numa，当远端numa全被移除时，整个进程被移除SMAP管理。
 
 ## 参数 Parameters
 
@@ -405,6 +411,8 @@ int ubturbo_smap_remove(struct RemoveMsg *msg, int pidType);
 | msg.count | IN | 进程数量。 |
 | msg.payload | IN | 进程信息。 |
 | msg.payload.pid | IN | 进程PID。 |
+| msg.payload.count | IN | 要移除进程的远端numa个数。 |
+| msg.payload.nid | IN | 要移除进程的远端numa数组 |
 | pidType | IN | 进程页面类型，0：4K，1：2M。 |
 
 ## 返回值 RETURN VALUE
@@ -432,7 +440,7 @@ int ubturbo_smap_remove(struct RemoveMsg *msg, int pidType);
 
 ## 样例 EXAMPLES
 
-以下程序将PID为10253的借虚机进程从SMAP管理中移除。
+以下程序将PID为10253的虚机进程，虚机远端numa为4，从SMAP管理中移除。
 
 ```c
 #include <stdio.h>
@@ -445,6 +453,8 @@ int main(void)
         .count = 1,
         .payload = {
             .pid = 10253,
+            .count = 1,
+            .nid = { 4 },
         }
     };
 
@@ -832,10 +842,15 @@ int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int
 
 | name | IN/OUT | description |
 | --- | --- | --- |
-| pidArr | IN | 进程PID数组。 |
-| len | IN | 数组长度。 |
-| srcNid | IN | 源NUMA。 |
-| destNid | IN | 目的NUMA。 |
+| msg | IN | 迁移PID远端NUMA的消息。|
+| msg.count | IN | 进程数量。 |
+| msg.payload | IN | 进程迁移配置 |
+| msg.payload[].pid | IN | 进程PID |
+| msg.payload[].srcNid | IN | PID源远端NUMA |
+| msg.payload[].destNid | IN | PID目的端远端NUMA |
+| msg.payload[].ratio | IN | 迁移比例 |
+| msg.payload[].srcNid | IN | 迁移大小 |
+| msg.payload[].migrateMode | IN | 迁移模式 |
 
 ## 返回值 RETURN VALUE
 
@@ -846,7 +861,7 @@ int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int
 | Error | Description |
 | --- | --- |
 | -EPERM | SMAP未初始化 |
-| -ENXIO | PID的远端NUMA不全为srcNid |
+| -ENXIO | srcNid不是PID的远端NUMA |
 | -EBADF | 迁移成功但修改进程远端NUMA失败 |
 | -ENOMEM | 内存申请失败 |
 | -EINVAL | 参数错误 |
@@ -864,7 +879,7 @@ int ubturbo_smap_pid_remote_numa_migrate(pid_t *pidArr, int len, int srcNid, int
 
 ## 样例 EXAMPLES
 
-以下程序将PID为10253的进程的NUMA4上的内存迁移到NUMA5上。
+以下程序将PID为10253的进程在NUMA4上的内存迁移进程总内存的25%到NUMA5上。
 
 ```c
 #include <stdio.h>
@@ -874,8 +889,19 @@ int main(void)
 {
     int ret;
     pid_t pidArr[1] = { 10253 };
+    struct MigrateEscapeMsg msg =  {
+        .count = 1,
+        .payload = {
+            .pid = 10253,
+            .srcNid = 4;
+            .destNid = 5,
+            .ratio = 25,
+            .memSize = 0,
+            .migrateMode = 0,
+        };
+    };
 
-    ret = ubturbo_smap_pid_remote_numa_migrate(pidArr, 1, 4, 5);
+    ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
     if (ret != 0) {
         return ret;
     }
@@ -1085,7 +1111,7 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
 
 ## 样例 EXAMPLES
 
-以下程序配置PID为10253的虚机进程迁出到NUMA4上，迁出比例为25%，最多等待60s。
+以下程序配置PID为10253的虚机进程迁出到NUMA4上，迁出大小为100MB，最多等待60s。
 
 ```c
 #include <stdio.h>
@@ -1094,17 +1120,20 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
 int main(void)
 {
     int ret;
+    struct MigrateOutMsg payload = {
+        .srcNid = 0,
+        .pid = 10253,
+        .count = 1,
+        .inner = {
+            .destNid = 4,
+            .ratio = 0,
+            .memSize = 102400,
+            .migrateMode = 1,
+        };
+    };
     struct MigrateOutMsg msg = {
         .count = 1,
-        .payload = {
-            {
-                .destNid = 4,
-                .pid = 10253,
-                .ratio = 25,
-                .memSize = 0,
-                .migrateMode = 0,
-            }
-        };
+        .payload = payload,
     };
 
     ret = ubturbo_smap_migrate_out_sync(&msg, 1, 60000);

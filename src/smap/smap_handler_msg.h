@@ -153,8 +153,8 @@ public:
 
 class SmapMigratePidRemoteNumaCodec {
 public:
-    int EncodeRequest(TurboByteBuffer &buffer, pid_t *pidArr, int len, int srcNid, int destNid);
-    int DecodeRequest(const TurboByteBuffer &buffer, pid_t *&pidArr, int &len, int &srcNid, int &destNid);
+    int EncodeRequest(TurboByteBuffer &buffer, MigrateEscapeMsg *msg);
+    int DecodeRequest(const TurboByteBuffer &buffer, MigrateEscapeMsg &msg);
     int EncodeResponse(TurboByteBuffer &buffer, int returnValue);
     int DecodeResponse(TurboByteBuffer &buffer);
 };

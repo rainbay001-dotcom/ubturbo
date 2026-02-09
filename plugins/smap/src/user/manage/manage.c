@@ -783,12 +783,6 @@ int ProcessAddManage(ProcessParam *param, uint32_t *nodeBitmap)
     }
     current = GetProcessAttrLocked(param->pid);
     if (current) {
-        for (int i = 0; i < param->count; ++i) {
-            if (param->numaParam[i].nid > 0 && NotInAttrL2(current, param->numaParam[i].nid)) {
-                SMAP_LOGGER_ERROR("pid %d destnid is different.", param->pid);
-                return -EINVAL;
-            }
-        }
         SetProcessConfig(current, param);
         SMAP_LOGGER_INFO("Set pid %d scan cycle to %ums.", current->pid, current->scanTime);
         ret = SyncAllProcessConfig();
@@ -1961,31 +1955,6 @@ bool IsAllL2NodePidInState(enum ProcessState state, int l2Node)
     return true;
 }
 
-/*
- * 检查pidArr的远端NUMA是否都是nid
- *
- * 返回值：0-是，其它-异常
- */
-int IsPidArrRemoteNumaMatch(pid_t *pidArr, int len, int nid)
-{
-    int ret = 0;
-    EnvMutexLock(&g_processManager.lock);
-    for (int i = 0; i < len; i++) {
-        ProcessAttr *attr = GetProcessAttrLocked(pidArr[i]);
-        if (!attr) {
-            SMAP_LOGGER_ERROR("GetProcessAttrLocked pid %d null.", pidArr[i]);
-            ret = -EINVAL;
-            break;
-        }
-        if (NotEqualToAttrL2(attr, nid)) {
-            SMAP_LOGGER_ERROR("pid %d remote nid is not %d", pidArr[i], nid);
-            ret = -ENXIO;
-            break;
-        }
-    }
-    EnvMutexUnlock(&g_processManager.lock);
-    return ret;
-}
 
 static void SetChangePidRemoteMsgPayload(int srcNid, int destNid, int *i, int maxProcessCnt,
                                          struct AccessAddPidPayload *payload)
@@ -2005,7 +1974,50 @@ static void SetChangePidRemoteMsgPayload(int srcNid, int destNid, int *i, int ma
     }
 }
 
-static void ChangePidRemoteMemory(ProcessAttr *attr, int srcNode, int destNode)
+static void ChangePidRemoteMemory(ProcessAttr *attr, int srcNodeIndex, int destNodeIndex, uint64_t memSize, int ratio)
+{
+    int nrLocalNuma = GetNrLocalNuma();
+    int l1node;
+    if (GetRunMode() == WATERLINE_MODE) {
+        l1node = GetAttrL1(attr);
+        if (ratio >= attr->strategyAttr.initRemoteMemRatio[l1node][srcNodeIndex]) {
+            ClearNodeBit(&attr->numaAttr.numaNodes, srcNodeIndex + LOCAL_NUMA_BITS);
+        }
+        for (int i = 0; i < g_processManager.nrLocalNuma; i++) {
+            attr->strategyAttr.initRemoteMemRatio[i][destNodeIndex] += ratio;
+            attr->strategyAttr.initRemoteMemRatio[i][srcNodeIndex] -= ratio;
+        }
+    } else if (GetRunMode() == MEM_POOL_MODE) {
+        uint64_t srcMemSize = 0;
+        int remoteNidIndex;
+        for (int i = 0; i < attr->remoteNumaCnt; i++) {
+            int srcNid = srcNodeIndex + nrLocalNuma;
+            if (srcNid == attr->migrateParam[i].nid) {
+                srcMemSize = attr->migrateParam[i].memSize;
+                remoteNidIndex = i;
+                break;
+            }
+        }
+        if (memSize >= srcMemSize) {
+            ClearNodeBit(&attr->numaAttr.numaNodes, srcNodeIndex + LOCAL_NUMA_BITS);
+            attr->migrateParam[remoteNidIndex].nid = 0;
+        }
+        attr->migrateParam[remoteNidIndex].memSize -= memSize;
+
+        for (int i = 0; i < g_processManager.nrLocalNuma; i++) {
+            attr->strategyAttr.memSize[i][destNodeIndex] += memSize;
+            attr->strategyAttr.memSize[i][srcNodeIndex] -= memSize;
+        }
+    }
+
+    AddAttrL2(attr, destNodeIndex + nrLocalNuma);
+    attr->remoteNumaCnt = GetL2Count(attr->numaAttr.numaNodes);
+    attr->migrateParam[attr->remoteNumaCnt].nid = destNodeIndex + nrLocalNuma;
+    attr->migrateParam[attr->remoteNumaCnt].memSize += memSize;
+    SMAP_LOGGER_INFO("========= remoteNumaCnt %d", attr->remoteNumaCnt);
+}
+
+static void ChangePidRemoteMemoryByNuma(ProcessAttr *attr, int srcNode, int destNode)
 {
     if (GetRunMode() == WATERLINE_MODE) {
         for (int i = 0; i < g_processManager.nrLocalNuma; i++) {
@@ -2059,7 +2071,7 @@ int ChangePidRemoteByNuma(int srcNid, int destNid)
                 attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode];
             attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode] = 0;
         }
-        ChangePidRemoteMemory(attr, srcNode, destNode);
+        ChangePidRemoteMemoryByNuma(attr, srcNode, destNode);
         SetAttrL2(attr, destNid);
     }
     ret = SyncAllProcessConfig();
@@ -2204,18 +2216,36 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
     return ret;
 }
 
-static void SetPayloadValue(struct AccessAddPidPayload *payload, struct MigPidRemoteNumaIoctlMsg *msg, int len,
-                            int destNid)
+static void SetPayloadValue(struct AccessAddPidPayload *payload, struct MigPidRemoteNumaIoctlMsg *msg, int len)
 {
+    int runMode = GetRunMode();
+    uint64_t srcMemSize;
+    int l1node;
+    int l2node;
+    int nrLocalNuma = GetNrLocalNuma();
     for (int i = 0; i < len; i++) {
-        ProcessAttr *attr = GetProcessAttrLocked(msg->pidList[i]);
+        ProcessAttr *attr = GetProcessAttrLocked(msg->payloads[i].pid);
         if (!attr) {
-            SMAP_LOGGER_ERROR("GetProcessAttrLocked pid %d null.", msg->pidList[i]);
+            SMAP_LOGGER_ERROR("GetProcessAttrLocked pid %d null.", msg->payloads[i].pid);
             continue;
         }
         payload[i].pid = attr->pid;
         payload[i].numaNodes = attr->numaAttr.numaNodes;
-        SetL2ByNid(&payload[i].numaNodes, destNid);
+        l1node = GetAttrL1(attr);
+        l2node = msg->payloads[i].srcNid;
+        // 远端单numa->远端多numa，使用AddL2ByNid
+        if (runMode == WATERLINE_MODE) {
+            if (msg->payloads[i].ratio >=
+                attr->strategyAttr.initRemoteMemRatio[l1node][l2node - nrLocalNuma]) {
+                ClearNodeBit(&payload[i].numaNodes, l2node + (LOCAL_NUMA_BITS - nrLocalNuma));
+            }
+        } else { // MEM_POOL_MODE
+            if (msg->payloads[i].memSize >= attr->strategyAttr.memSize[l1node][l2node - nrLocalNuma]) {
+                ClearNodeBit(&payload[i].numaNodes, l2node + (LOCAL_NUMA_BITS - nrLocalNuma));
+            }
+        }
+
+        AddL2ByNid(&payload[i].numaNodes, msg->payloads[i].destNid);
         payload[i].scanTime = attr->scanTime;
         payload[i].duration = attr->duration;
         payload[i].type = attr->scanType;
@@ -2225,14 +2255,11 @@ static void SetPayloadValue(struct AccessAddPidPayload *payload, struct MigPidRe
 int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg)
 {
     int maxProcessCnt = GetCurrentMaxNrPid();
-    if (!msg || !msg->pidList || !msg->migResArray || msg->pidCnt <= 0 || msg->pidCnt > maxProcessCnt) {
+    if (!msg || !msg->payloads || !msg->migResArray || msg->pidCnt <= 0 || msg->pidCnt > maxProcessCnt) {
         SMAP_LOGGER_ERROR("ChangePidRemoteByPid msg invalid.");
         return -EINVAL;
     }
 
-    int len = msg->pidCnt;
-    int srcNode = msg->srcNid - g_processManager.nrLocalNuma;
-    int destNode = msg->destNid - g_processManager.nrLocalNuma;
     struct AccessAddPidPayload *payload = malloc(sizeof(struct AccessAddPidPayload) * maxProcessCnt);
     if (!payload) {
         SMAP_LOGGER_ERROR("ChangePidRemoteByPid malloc payload failed.");
@@ -2240,9 +2267,9 @@ int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg)
     }
 
     EnvMutexLock(&g_processManager.lock);
-    SetPayloadValue(payload, msg, len, msg->destNid);
-    SMAP_LOGGER_INFO("ChangePidRemoteByPid ioctl begin, len: %d.", len);
-    int ret = AccessIoctlAddPid(len, payload);
+    SetPayloadValue(payload, msg, msg->pidCnt);
+    SMAP_LOGGER_INFO("ChangePidRemoteByPid ioctl begin, len: %d.", msg->pidCnt);
+    int ret = AccessIoctlAddPid(msg->pidCnt, payload);
     free(payload);
     if (ret) {
         SMAP_LOGGER_ERROR("ChangePidRemoteByNuma ioctl failed: %d.", ret);
@@ -2250,20 +2277,28 @@ int ChangePidRemoteByPid(struct MigPidRemoteNumaIoctlMsg *msg)
         return ret;
     }
     SMAP_LOGGER_INFO("ChangePidRemoteByNuma ioctl done.");
-    for (int i = 0; i < len; i++) {
-        ProcessAttr *attr = GetProcessAttrLocked(msg->pidList[i]);
+    for (int i = 0; i < msg->pidCnt; i++) {
+        ProcessAttr *attr = GetProcessAttrLocked(msg->payloads[i].pid);
         if (!attr) {
-            SMAP_LOGGER_ERROR("GetProcessAttrLocked pid %d null.", msg->pidList[i]);
             continue;
         }
-        SMAP_LOGGER_INFO("change pid %d L2 from %d to %d.", attr->pid, msg->srcNid, msg->destNid);
-        for (int j = 0; j < g_processManager.nrLocalNuma; j++) {
-            attr->strategyAttr.remoteNrPagesAfterMigrate[j][destNode] +=
-                attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode];
-            attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode] = 0;
+        int srcNode = msg->payloads[i].srcNid - g_processManager.nrLocalNuma;
+        int destNode = msg->payloads[i].destNid - g_processManager.nrLocalNuma;
+        SMAP_LOGGER_INFO("change pid %d L2 from %d to %d.", attr->pid,
+            msg->payloads[i].srcNid, msg->payloads[i].destNid);
+        if (GetL1Count(attr->numaAttr.numaNodes) > 1) { // 容器本地多numa
+            for (int j = 0; j < g_processManager.nrLocalNuma; j++) {
+                attr->strategyAttr.remoteNrPagesAfterMigrate[j][destNode] +=
+                    attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode];
+                attr->strategyAttr.remoteNrPagesAfterMigrate[j][srcNode] = 0;
+            }
+        } else {
+            int l1node = GetAttrL1(attr);
+            attr->strategyAttr.remoteNrPagesAfterMigrate[l1node][destNode] += msg->payloads[i].successCnt;
+            attr->strategyAttr.remoteNrPagesAfterMigrate[l1node][srcNode] -= msg->payloads[i].successCnt;
         }
-        ChangePidRemoteMemory(attr, srcNode, destNode);
-        SetAttrL2(attr, msg->destNid);
+
+        ChangePidRemoteMemory(attr, srcNode, destNode, msg->payloads[i].memSize, msg->payloads[i].ratio);
     }
     ret = SyncAllProcessConfig();
     if (ret) {

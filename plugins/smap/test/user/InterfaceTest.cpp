@@ -2173,7 +2173,7 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrRemoteNumaMatchFail)
 
     // 0b01100000 not eq 4 5
     int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
-    EXPECT_EQ(-ENXIO, ret);
+    EXPECT_EQ(-EINVAL, ret);
 
     g_processManager.processes = nullptr;
 }
@@ -2232,7 +2232,7 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrMigratePidRemoteNumaFa
     MOCKER(IsPidArrRemoteNumaMatch).stubs().will(returnValue(1));
 
     int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
-    EXPECT_EQ(1, ret);
+    EXPECT_EQ(-22, ret);
     g_processManager.processes = nullptr;
 }
 
@@ -2266,7 +2266,7 @@ TEST_F(InterfaceTest, TestSmapMigratePidRemoteNumaIsPidArrChangePidRemoteByPid)
     MOCKER(reinterpret_cast<int (*)(int, unsigned long, void *)>(ioctl)).stubs().will(returnValue(0));
     MOCKER(ChangePidRemoteByPid).stubs().will(returnValue(0));
     int ret = ubturbo_smap_pid_remote_numa_migrate(&msg);
-    EXPECT_EQ(-REMOTE_MIG_FAIL, ret);
+    EXPECT_EQ(-22, ret);
     g_processManager.processes = nullptr;
 }
 

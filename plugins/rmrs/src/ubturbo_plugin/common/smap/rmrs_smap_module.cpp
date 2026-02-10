@@ -22,7 +22,6 @@ void *SmapModule::smapHandle = nullptr;
 SmapInitFunc SmapModule::smapInitFunc = nullptr;
 SmapMigrateOutFunc SmapModule::smapMigrateOutFunc = nullptr;
 SmapMigrateOutSyncFunc SmapModule::smapMigrateOutSyncFunc = nullptr;
-SmapQueryVmFreqFunc SmapModule::smapQueryVmFreqFunc = nullptr;
 SetSmapRemoteNumaInfoFunc SmapModule::setSmapRemoteNumaInfoFunc = nullptr;
 SetSmapRunModeFunc SmapModule::setSmapRunModeFunc = nullptr;
 SmapRemoveFunc SmapModule::smapRemoveFunc = nullptr;
@@ -125,26 +124,6 @@ SmapMigrateOutSyncFunc SmapModule::GetSmapMigrateOutSync()
     return smapMigrateOutSyncFunc;
 }
 
-SmapQueryVmFreqFunc SmapModule::GetSmapQueryVmFreq()
-{
-    if (smapQueryVmFreqFunc != nullptr) {
-        return smapQueryVmFreqFunc;
-    }
-
-    if (smapHandle == nullptr) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapModule] Smap handle is nullptr.";
-        return nullptr;
-    }
-
-    smapQueryVmFreqFunc = (SmapQueryVmFreqFunc)(dlsym(smapHandle, "ubturbo_smap_freq_query"));
-    if (smapQueryVmFreqFunc == nullptr) {
-        UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[RmrsSmapModule] Get ubturbo_smap_vm_freq_query ptr failed.";
-        return nullptr;
-    }
-    return smapQueryVmFreqFunc;
-}
-
 void SmapModule::CloseSmapHandle()
 {
     if (smapHandle) {
@@ -158,7 +137,6 @@ void SmapModule::CloseSmapHandle()
     smapMigrateOutFunc = nullptr;
     smapHandle = nullptr;
     smapMigrateOutSyncFunc = nullptr;
-    smapQueryVmFreqFunc = nullptr;
     setSmapRemoteNumaInfoFunc = nullptr;
     setSmapRunModeFunc = nullptr;
     smapRemoveFunc = nullptr;

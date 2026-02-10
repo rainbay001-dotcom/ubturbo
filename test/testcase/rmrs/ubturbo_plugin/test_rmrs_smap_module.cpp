@@ -38,16 +38,6 @@ protected:
     }
 };
 
-TEST_F(TestRmrsSmapModule, GetSmapQueryVmFreq_nullptr)
-{
-    MOCKER_CPP(dlsym, void*(*)(void*, const char*))
-        .stubs()
-        .will(returnValue(static_cast<void*>(nullptr)));
-
-    SmapQueryVmFreqFunc result = SmapModule::GetSmapQueryVmFreq();
-    ASSERT_EQ(result, nullptr);
-}
-
 TEST_F(TestRmrsSmapModule, GetSetSmapRunModeFunc_nullptr)
 {
     MOCKER_CPP(dlsym, void*(*)(void*, const char*))

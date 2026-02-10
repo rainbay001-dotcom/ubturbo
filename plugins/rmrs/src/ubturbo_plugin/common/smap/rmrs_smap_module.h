@@ -156,7 +156,6 @@ struct ProcessPayload {
 using SmapInitFunc = int (*)(const uint32_t, void(int, const char *, const char *));
 using SmapMigrateOutFunc = int (*)(MigrateOutMsg *, int);
 using SmapMigrateOutSyncFunc = int (*)(MigrateOutMsg *, int, uint64_t);
-using SmapQueryVmFreqFunc = int (*)(int, uint16_t *, uint32_t, uint32_t&);
 using SetSmapRemoteNumaInfoFunc = int (*)(RemoteNumaInfo *);
 using SetSmapRunModeFunc = int (*)(int);
 using SmapRemoveFunc = int (*)(RemoveMsg *, int);
@@ -186,8 +185,6 @@ public:
 
     static SmapMigrateOutSyncFunc GetSmapMigrateOutSync();
 
-    static SmapQueryVmFreqFunc GetSmapQueryVmFreq();
-
     static void CloseSmapHandle();
 
     static SetSmapRunModeFunc GetSetSmapRunModeFunc();
@@ -207,7 +204,6 @@ private:
     static SmapInitFunc smapInitFunc;
     static SmapMigrateOutFunc smapMigrateOutFunc;
     static SmapMigrateOutSyncFunc smapMigrateOutSyncFunc;
-    static SmapQueryVmFreqFunc smapQueryVmFreqFunc;
     static SetSmapRemoteNumaInfoFunc setSmapRemoteNumaInfoFunc;
     static SetSmapRunModeFunc setSmapRunModeFunc;
     static SmapRemoveFunc smapRemoveFunc;

@@ -65,7 +65,8 @@ using RmrsResult = uint32_t;
 #define RMRS_OK RMRS_COMMON_ERROR(0)                         /* 正确 */
 #define RMRS_ERROR RMRS_COMMON_ERROR(1)                      /* 错误 */
 #define RMRS_ERROR_NOENT RMRS_COMMON_ERROR(2)                /* No such file or directory */
-#define RMRS_ERROR_NOMEM RMRS_COMMON_ERROR(3)                /* Out of memory */
+#define RMRS_MIGRATE_FAILED_VM_DELETED RMRS_COMMON_ERROR(24) /* SMAP迁移失败-迁移过程中虚机被删除 */
+#define RMRS_MIGRATE_FAILED RMRS_COMMON_ERROR(3)             /* SMAP失败通用错误码 */
 #define RMRS_ERROR_ACCES RMRS_COMMON_ERROR(4)                /* Permission denied */
 #define RMRS_ERROR_SRCH RMRS_COMMON_ERROR(5)                 /* No such process */
 #define RMRS_ERROR_EXIST RMRS_COMMON_ERROR(6)                /* File exists */

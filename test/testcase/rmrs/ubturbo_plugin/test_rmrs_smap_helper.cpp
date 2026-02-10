@@ -150,7 +150,7 @@ TEST_F(TestRmrsSmapHelper, MigrateColdDataToRemoteNumaSync_Fail_M1)
     MOCKER(&SmapModule::GetSmapMigrateOutSync).stubs().will(returnValue(smapMigrateOutSyncFunc));
     RmrsResult ret =
         RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(remoteNumaIdsIn, pidsIn, memSizeList, waitTime);
-    EXPECT_EQ(ret, RMRS_ERROR);
+    EXPECT_EQ(ret, RMRS_MIGRATE_FAILED);
     GlobalMockObject::verify();
 }
 
@@ -180,7 +180,7 @@ TEST_F(TestRmrsSmapHelper, MigrateColdDataToRemoteNumaSync_Fail_M16)
     MOCKER(&SmapModule::GetSmapMigrateOutSync).stubs().will(returnValue(smapMigrateOutSyncFunc));
     RmrsResult ret =
         RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(remoteNumaIdsIn, pidsIn, memSizeList, waitTime);
-    EXPECT_EQ(ret, RMRS_ERROR);
+    EXPECT_EQ(ret, RMRS_MIGRATE_FAILED);
     GlobalMockObject::verify();
 }
 
@@ -264,107 +264,6 @@ TEST_F(TestRmrsSmapHelper, MigrateColdDataToRemoteNumaSync_Success)
     RmrsResult ret =
         RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(remoteNumaIdsIn, pidsIn, memSizeList, waitTime);
     EXPECT_EQ(ret, RMRS_OK);
-    GlobalMockObject::verify();
-}
-
-/*
- * 用例描述：
- * 查询虚拟机冷热信息成功
- * 测试步骤：
- * 1. 构造查询虚拟机冷热信息成功场景
- * 预期结果：
- * 返回值为 RMRS_OK
- */
-TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Success)
-{
-    int pidIn = 123456;
-    uint16_t dataIn = 0;
-    uint32_t lengthIn;
-    uint32_t lengthOut;
-    uint16_t *dataInPtr = &dataIn;
-
-    SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,
-                                                 uint16_t &param4) -> int {
-        return 0;
-    };
-    MOCKER(&SmapModule::GetSmapQueryVmFreq).stubs().will(returnValue(smapQueryVmFreqFunc));
-    RmrsResult ret = RmrsSmapHelper::QueryVMFreqArray(pidIn, dataInPtr, lengthIn, lengthOut);
-    EXPECT_EQ(ret, RMRS_OK);
-    GlobalMockObject::verify();
-}
-
-/*
- * 用例描述：
- * 查询虚拟机冷热信息失败
- * 测试步骤：
- * 1. 构造查询虚拟机冷热信息失败场景，nullptr
- * 预期结果：
- * 返回值为 RMRS_ERROR
- */
-TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_Nullptr)
-{
-    int pidIn = 123456;
-    uint16_t dataIn = 0;
-    uint32_t lengthIn;
-    uint32_t lengthOut;
-    uint16_t *dataInPtr = &dataIn;
-
-    SmapQueryVmFreqFunc smapQueryVmFreqFunc = nullptr;
-    MOCKER(&SmapModule::GetSmapQueryVmFreq).stubs().will(returnValue(smapQueryVmFreqFunc));
-    RmrsResult ret = RmrsSmapHelper::QueryVMFreqArray(pidIn, dataInPtr, lengthIn, lengthOut);
-    EXPECT_EQ(ret, RMRS_ERROR);
-    GlobalMockObject::verify();
-}
-
-/*
- * 用例描述：
- * 查询虚拟机冷热信息失败
- * 测试步骤：
- * 1. 构造查询虚拟机冷热信息失败场景，错误码为 -1
- * 预期结果：
- * 返回值为 RMRS_ERROR
- */
-TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_M1)
-{
-    int pidIn = 123456;
-    uint16_t dataIn = 0;
-    uint32_t lengthIn;
-    uint32_t lengthOut;
-    uint16_t *dataInPtr = &dataIn;
-
-    SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,
-                                                 uint16_t &param4) -> int {
-        return -1;
-    };
-    MOCKER(&SmapModule::GetSmapQueryVmFreq).stubs().will(returnValue(smapQueryVmFreqFunc));
-    RmrsResult ret = RmrsSmapHelper::QueryVMFreqArray(pidIn, dataInPtr, lengthIn, lengthOut);
-    EXPECT_EQ(ret, RMRS_ERROR);
-    GlobalMockObject::verify();
-}
-
-/*
- * 用例描述：
- * 查询虚拟机冷热信息失败
- * 测试步骤：
- * 1. 构造查询虚拟机冷热信息失败场景，错误码为 -22
- * 预期结果：
- * 返回值为 RMRS_ERROR
- */
-TEST_F(TestRmrsSmapHelper, QueryVMFreqArray_Faild_M22)
-{
-    int pidIn = 123456;
-    uint16_t dataIn = 0;
-    uint32_t lengthIn;
-    uint32_t lengthOut;
-    uint16_t *dataInPtr = &dataIn;
-
-    SmapQueryVmFreqFunc smapQueryVmFreqFunc = [](int param1, uint16_t *param2, uint16_t param3,
-                                                 uint16_t &param4) -> int {
-        return -22;
-    };
-    MOCKER(&SmapModule::GetSmapQueryVmFreq).stubs().will(returnValue(smapQueryVmFreqFunc));
-    RmrsResult ret = RmrsSmapHelper::QueryVMFreqArray(pidIn, dataInPtr, lengthIn, lengthOut);
-    EXPECT_EQ(ret, RMRS_ERROR);
     GlobalMockObject::verify();
 }
 

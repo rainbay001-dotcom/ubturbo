@@ -76,13 +76,13 @@ int get_urma_trans_segment(struct urma_trans_segment_info *src_info, struct urma
     
     write_lock(&g_mgr->sge_meta_lock);
     hash_for_each_possible(g_mgr->sge_meta_hashtable, sge, node, src_key) {
-        if (sge->info.start_va < src_info->addr && sge->info.end_va >= (src_info->addr + src_info->len - 1)) {
+        if (sge->info.start_va <= src_info->addr && sge->info.end_va >= (src_info->addr + src_info->len - 1)) {
             src_info->sge = sge->info.sge;
             break;
         }
     }
     hash_for_each_possible(g_mgr->sge_meta_hashtable, sge, node, dst_key) {
-        if (sge->info.start_va < dst_info->addr && sge->info.end_va >= (dst_info->addr + dst_info->len - 1)) {
+        if (sge->info.start_va <= dst_info->addr && sge->info.end_va >= (dst_info->addr + dst_info->len - 1)) {
             dst_info->sge = sge->info.i_seg;
             break;
         }

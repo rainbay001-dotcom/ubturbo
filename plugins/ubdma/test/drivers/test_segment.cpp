@@ -52,6 +52,7 @@ extern "C" {
     int ub_dma_register_segment(u64 pa_start, u64 pa_end);
     void unregister_urma_segment(struct urma_sge_info *sge_info);
     void ub_dma_unregister_segment(void);
+    int urma_meta_sge_init(void);
 }
 
 TEST_F(TestSegment, check_mem_info_test)
@@ -97,6 +98,7 @@ TEST_F(TestSegment, ub_dma_register_segment_test)
     GlobalMockObject::verify();
     MOCKER(check_mem_info).stubs().will(returnValue(0));
     MOCKER(urma_register_segment).stubs().will(returnValue(0));
+    urma_meta_sge_init();
     ret1 = ub_dma_register_segment(pa_start, pa_end);
     EXPECT_EQ(ret1, 0);
 
@@ -110,5 +112,5 @@ TEST_F(TestSegment, get_urma_trans_segment_test)
     struct urma_trans_segment_info *src_info;
     struct urma_trans_segment_info *dst_info;
     int ret = get_urma_trans_segment(src_info, dst_info);
-    EXPECT_EQ(-EINVAL, ret);
+    EXPECT_EQ(0, ret);
 }

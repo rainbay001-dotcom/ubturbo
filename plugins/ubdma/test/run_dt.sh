@@ -134,5 +134,5 @@ echo Success
 
 mkdir -p build/gcovr_report
 lcov --d ./ --c --output-file test.info --rc lcov_branch_coverage=1
-lcov -e test.info "*/UB-DMA-Driver/src/*" -output-file coverage.info --rc lcov_branch_coverage=1
+lcov -e test.info "*/ubturbo/plugins/ubdma/src/*" -output-file coverage.info --rc lcov_branch_coverage=1
 genhtml -o gcovr_report coverage.info --show-details --legend --rc lcov_branch_coverage=1

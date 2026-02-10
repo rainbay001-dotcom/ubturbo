@@ -43,6 +43,7 @@ protected:
 
 extern "C" {
 void mem_nf_register_sge(struct work_struct *w __always_unused);
+int ub_dma_unregister_segment(u64 pa_start, u64 pa_end);
 int ub_dma_register_segment(u64 pa_start, u64 pa_end);
 int pfn_valid(unsigned long pfn);
 int memory_notifier_cb(struct memory_notify *mnb, unsigned long action);
@@ -84,7 +85,7 @@ TEST_F(TestMemoryNotify, pre_offline_notifier_cb_test)
 {
     mem_nf_work_info *memwrk = (mem_nf_work_info*)malloc(sizeof(mem_nf_work_info));
     EXPECT_TRUE(memwrk != nullptr);
-    MOCKER(ub_dma_register_segment).stubs().will(returnValue(1));
+    MOCKER(ub_dma_unregister_segment).stubs().will(returnValue(1));
     mem_nf_unregister_sge(&memwrk->work);
     memory_notify mnb;
     mnb.start_pfn = 0x2314123;

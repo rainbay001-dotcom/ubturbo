@@ -7,6 +7,7 @@
 #ifndef __LINUX_RWLOCK_H
 #define __LINUX_RWLOCK_H
 
+#define rwlock_init(lock)
 #define write_lock(lock)
 #define write_unlock(lock)
 

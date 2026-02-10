@@ -20,6 +20,7 @@
 #include <linux/rwlock_rt.h>
 #include <linux/dma-direction.h>
 #include <linux/workqueue.h>
+#include <linux/rwlock.h>
 
 #define ALIGN(x, a)		__ALIGN_KERNEL((x), (a))
 

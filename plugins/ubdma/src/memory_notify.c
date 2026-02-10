@@ -22,8 +22,6 @@ struct mem_nf_work_info {
     u64 end_pa;
 };
 
-u64 g_page_size = 0;
-
 static struct workqueue_struct *mem_nf_wq;
 
 static void mem_nf_register_sge(struct work_struct *w __always_unused)
@@ -56,10 +54,7 @@ static int memory_notifier_cb(struct memory_notify *mnb, unsigned long action)
         return -EINVAL;
     }
     start_pa = PFN_PHYS(start_pfn);
-    end_pa = PFN_PHYS(end_pfn) + page_size(page) - 1;
-    if (!g_page_size) {
-        g_page_size = page_size(page);
-    }
+    end_pa = PFN_PHYS(end_pfn) + PAGE_SIZE - 1;
     info = kzalloc(sizeof(*info), GFP_KERNEL);
     if (!info) {
         ub_dma_log_err("alloc mem_nf_work_info failed\n");
@@ -100,7 +95,7 @@ static int pre_offline_notifier_cb(struct memory_notify *mnb, unsigned long acti
         return -EINVAL;
     }
     start_pa = (uint64_t)PFN_PHYS(start_pfn);
-    end_pa = (uint64_t)PFN_PHYS(end_pfn) + g_page_size - 1;
+    end_pa = (uint64_t)PFN_PHYS(end_pfn) + PAGE_SIZE - 1;
 
     info = kzalloc(sizeof(*info), GFP_KERNEL);
     if (!info) {

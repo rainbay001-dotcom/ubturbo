@@ -4,159 +4,176 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/hashtable.h>
 
 #include "ub_dma_log.h"
 #include "segment_manager.h"
 
-LIST_HEAD(urma_meta_sge_list);
+#define URMA_SGE_HASH_BIT 9
+#define HASH_KEY_MASK_BIT 27
 
-DEFINE_RWLOCK(urma_meta_sge_list_lock);
+struct urma_sge_segment_manager {
+    DECLARE_HASHTABLE(sge_meta_hashtable, URMA_SGE_HASH_BIT);
+    rwlock_t sge_meta_lock;
+};
+
+struct urma_sge_meta_node {
+    struct hlist_node node;
+    struct urma_sge_info info;
+};
+
+static struct urma_sge_segment_manager *g_mgr;
+
+int urma_meta_sge_init(void)
+{
+    g_mgr = kzalloc(sizeof(struct urma_sge_segment_manager), GFP_KERNEL);
+    if (!g_mgr) {
+        ub_dma_log_err("alloc urma meta segment manager failed.\n");
+        return -ENOMEM;
+    }
+    hash_init(g_mgr->sge_meta_hashtable);
+    rwlock_init(&g_mgr->sge_meta_lock);
+ 
+    return 0;
+}
 
 static int check_mem_info(u64 pa_start, u64 pa_end)
 {
-    unsigned long pfn_start;
-    unsigned long pfn_end;
-    int start_nid;
-    int end_nid;
+    unsigned long pfn_start, pfn_end;
+    int start_nid, end_nid;
 
     if (pa_end <= pa_start) {
-        ub_dma_log_err("pa_end is less than pa_start\n");
+        ub_dma_log_err("pa_end is less than pa_start.\n");
         return -EINVAL;
     }
     pfn_start = PHYS_PFN(pa_start);
     pfn_end = PHYS_PFN(pa_end);
     if (!pfn_valid(pfn_start) || !pfn_to_online_page(pfn_start) ||
         !pfn_valid(pfn_end) || !pfn_to_online_page(pfn_end)) {
-        ub_dma_log_err("pfn_start or pfn_end is invalid\n");
+        ub_dma_log_err("pfn start or pfn end is invaild.\n");
         return -EINVAL;
     }
     start_nid = pfn_to_nid(pfn_start);
     end_nid = pfn_to_nid(pfn_end);
     if (start_nid != end_nid) {
-        ub_dma_log_err("start_nid(%d) is not equal to end_nid(%d)\n", start_nid, end_nid);
+        ub_dma_log_err("start node id(%d) is not equal to end node id(%d).\n", start_nid, end_nid);
         return -EINVAL;
     }
 
     return 0;
 }
 
-static inline bool is_target_segment(uint64_t start_va, uint64_t end_va, uint64_t addr, uint32_t len)
+static inline bool is_target_segment(u64 start_va, u64 end_va, u64 addr, u32 len)
 {
-    if (start_va <= addr && end_va >= (addr + len - 1)) {
-        return true;
-    }
-    return false;
+    return start_va <= addr && end_va >= (addr + len - 1) ? true: false;
 }
 
 int get_urma_trans_segment(struct urma_trans_segment_info *src_info, struct urma_trans_segment_info *dst_info)
 {
-    struct urma_sge_info *sge;
-
-    write_lock(&urma_meta_sge_list_lock);
-    list_for_each_entry(sge, &urma_meta_sge_list, node) {
-        if (src_info->sge == NULL && is_target_segment(sge->start_va, sge->end_va, src_info->addr, src_info->len)) {
-            src_info->sge = sge->sge;
-        }
-        if (dst_info->sge == NULL && is_target_segment(sge->start_va, sge->end_va, dst_info->addr, dst_info->len)) {
-            dst_info->sge = sge->i_seg;
-        }
-        if (dst_info->sge != NULL && src_info->sge != NULL) {
-            write_unlock(&urma_meta_sge_list_lock);
-            return 0;
+    struct urma_sge_meta_node *sge;
+    u64 src_key = src_info->addr >> HASH_KEY_MASK_BIT;
+    u64 dst_key = dst_info->addr >> HASH_KEY_MASK_BIT;
+    
+    write_lock(&g_mgr->sge_meta_lock);
+    hash_for_each_possible(g_mgr->sge_meta_hashtable, sge, node, src_key) {
+        if (sge->info.start_va < src_info->addr && sge->info.end_va >= (src_info->addr + src_info->len - 1)) {
+            src_info->sge = sge->info.sge;
+            break;
         }
     }
+    hash_for_each_possible(g_mgr->sge_meta_hashtable, sge, node, dst_key) {
+        if (sge->info.start_va < dst_info->addr && sge->info.end_va >= (dst_info->addr + dst_info->len - 1)) {
+            dst_info->sge = sge->info.i_seg;
+            break;
+        }
+    }
+    if (!src_info->sge || !dst_info->sge) {
+        write_unlock(&g_mgr->sge_meta_lock);
+        ub_dma_log_err("fali to get urma trans sgemnet.\n");
+        return -EINVAL;
+    }
 
-    write_unlock(&urma_meta_sge_list_lock);
-    ub_dma_log_err("fail get urma trans segment\n");
-    return -EINVAL;
+    write_unlock(&g_mgr->sge_meta_lock);
+    return 0;
 }
 
 int ub_dma_register_segment(u64 pa_start, u64 pa_end)
 {
     int ret;
-    uint64_t start_va;
-    uint64_t end_va;
-    struct urma_sge_info *sge;
-    struct urma_sge_info *_sge;
+    u64 start_va, end_va;
+    u64 key;
+    struct urma_sge_meta_node *sge;
 
     ret = check_mem_info(pa_start, pa_end);
     if (ret) {
         return ret;
     }
 
-    sge = kzalloc(sizeof(struct urma_sge_info), GFP_KERNEL);
+    sge = kzalloc(sizeof(struct urma_sge_meta_node), GFP_KERNEL);
     if (!sge) {
-        ub_dma_log_err("alloc sge failed");
+        ub_dma_log_err("alloc segment failed.\n");
         return -ENOMEM;
     }
 
-    start_va = (uint64_t)phys_to_virt(pa_start);
-    end_va = (uint64_t)phys_to_virt(pa_end);
-    write_lock(&urma_meta_sge_list_lock);
-    list_for_each_entry(_sge, &urma_meta_sge_list, node) {
-        if (start_va >= _sge->start_va && start_va <= _sge->end_va) {
-            ub_dma_log_err("register start_va is in meta sge\n");
-            ret = -EINVAL;
-            goto err_register_urma_sge;
-        }
-    }
-
-    ret = urma_register_segment(start_va, end_va, sge);
+    start_va = (u64)phys_to_virt(pa_start);
+    end_va = (u64)phys_to_virt(pa_end);
+    write_lock(&g_mgr->sge_meta_lock);
+    ret = urma_register_segment(start_va, end_va, &sge->info);
     if (ret) {
-        ub_dma_log_err("register segment failed\n");
-        goto err_register_urma_sge;
+        write_unlock(&g_mgr->sge_meta_lock);
+        ub_dma_log_err("register segment failed.\n");
+        kfree(sge);
+        return ret;
     }
 
-    sge->start_va = start_va;
-    sge->end_va = end_va;
-    list_add_tail(&sge->node, &urma_meta_sge_list);
-    ub_dma_log_debug("register segment success\n");
-    write_unlock(&urma_meta_sge_list_lock);
+    sge->info.start_va = start_va;
+    sge->info.end_va = end_va;
+    INIT_HLIST_NODE(&sge->node);
+    key =  start_va >> HASH_KEY_MASK_BIT;
+    hash_add(g_mgr->sge_meta_hashtable, &sge->node, key);
+    write_unlock(&g_mgr->sge_meta_lock);
 
     return 0;
-
-err_register_urma_sge:
-    write_unlock(&urma_meta_sge_list_lock);
-    kfree(sge);
-
-    return ret;
 }
 
 int ub_dma_unregister_segment(u64 start_pa, u64 end_pa)
 {
-    struct urma_sge_info *sge;
-    struct urma_sge_info *_sge;
-    u64 start_va;
-    u64 end_va;
+    struct urma_sge_meta_node *sge;
+    struct hlist_node *tmp;
+    u64 start_va, end_va;
+    u64 key;
 
-    start_va = (uint64_t)phys_to_virt(start_pa);
-    end_va = (uint64_t)phys_to_virt(end_pa);
-    write_lock(&urma_meta_sge_list_lock);
-    list_for_each_entry_safe(sge, _sge, &urma_meta_sge_list, node) {
-        if (start_va >= sge->start_va && end_va <= sge->end_va) {
-            unregister_urma_segment(sge);
-            list_del(&sge->node);
-            kfree(sge);
-            write_unlock(&urma_meta_sge_list_lock);
-            return 0;
-        }
+    start_va = (u64)phys_to_virt(start_pa);
+    end_va = (u64)phys_to_virt(end_pa);
+    key = start_va >> HASH_KEY_MASK_BIT;
+    write_lock(&g_mgr->sge_meta_lock);
+    hash_for_each_possible_safe(g_mgr->sge_meta_hashtable, sge, tmp, node, key) {
+        unregister_urma_segment(&sge->info);
+        hash_del(&sge->node);
+        kfree(sge);
+        write_unlock(&g_mgr->sge_meta_lock);
+        return 0;
     }
-    write_unlock(&urma_meta_sge_list_lock);
 
-    ub_dma_log_err("unregister segment failed\n");
+    write_unlock(&g_mgr->sge_meta_lock);
+    ub_dma_log_err("unregister segment failed.\n");
+
     return -ENOENT;
 }
 
 void ub_dma_unregister_all_segment(void)
 {
-    struct urma_sge_info *sge;
-    struct urma_sge_info *_sge;
+    struct urma_sge_meta_node *sge;
+    struct hlist_node *tmp;
+    int bkt;
 
-    write_lock(&urma_meta_sge_list_lock);
-    list_for_each_entry_safe(sge, _sge, &urma_meta_sge_list, node) {
-        unregister_urma_segment(sge);
-        list_del(&sge->node);
+    write_lock(&g_mgr->sge_meta_lock);
+    hash_for_each_safe(g_mgr->sge_meta_hashtable, bkt, tmp, sge, node) {
+        unregister_urma_segment(&sge->info);
+        hash_del(&sge->node);
         kfree(sge);
     }
-    write_unlock(&urma_meta_sge_list_lock);
+    write_unlock(&g_mgr->sge_meta_lock);
+    kfree(g_mgr);
+    g_mgr = NULL;
 }

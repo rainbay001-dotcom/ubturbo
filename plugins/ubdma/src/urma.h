@@ -15,7 +15,6 @@
 typedef void (*ubcore_comp_callback_t)(struct ubcore_jfc *jfc);
 
 struct urma_sge_info {
-    struct list_head node;
     struct ubcore_target_seg *sge;
     struct ubcore_target_seg *i_seg;
     uint64_t start_va;

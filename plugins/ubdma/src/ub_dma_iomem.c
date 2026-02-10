@@ -67,6 +67,7 @@ static int insert_remote_ram(u64 pa_start, u64 pa_end, struct list_head *head)
         list_add_tail(&seg->node, head);
         start = end + 1;
     }
+
     return 0;
 }
 
@@ -86,6 +87,7 @@ static int update_resource(struct resource *r, void *arg)
             return ret;
         }
     }
+
     return ret;
 }
 

@@ -452,16 +452,24 @@ int ub_dma_init(void)
         goto err_release_urma_mem_trans;
     }
 
+    ret = urma_meta_sge_init();
+    if (ret) {
+        ub_dma_log_err("urma meta init failed.\n");
+        goto err_memory_notifier_exit;
+    }
+
     ret = iomem_urma_sge_init();
     if (ret) {
         ub_dma_log_err("refresh remote ram fail\n");
-        goto err_memory_notifier_exit;
+        goto err_unregister_urma_meta_sge;
     }
 
     g_udev = udc;
 
     return 0;
 
+err_unregister_urma_meta_sge:
+    ub_dma_unregister_all_segment();
 err_memory_notifier_exit:
     memory_notifier_exit();
 err_release_urma_mem_trans:

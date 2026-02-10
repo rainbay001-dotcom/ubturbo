@@ -93,6 +93,7 @@ struct mig_payload {
     int src_nid;
     int dest_nid;
     int ratio;
+	int keep_ratio;
     u64 mem_size;
     bool is_ratio_mode;
     u64 success_cnt;

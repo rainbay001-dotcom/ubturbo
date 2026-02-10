@@ -282,6 +282,7 @@ struct MigPayload {
     int srcNid;
     int destNid;
     int ratio;
+    int keepRatio;
     uint64_t memSize;
     bool isRatioMode;
     uint64_t successCnt;

@@ -1954,8 +1954,9 @@ static int BuildMigRemoteNumaMsg(struct MigrateEscapeMsg *msg, struct MigPidRemo
         ioctlMsg->payloads[i].pid = msg->payload[i].pid;
         ioctlMsg->payloads[i].srcNid = msg->payload[i].srcNid;
         ioctlMsg->payloads[i].destNid = msg->payload[i].destNid;
+        ioctlMsg->payloads[i].ratio = msg->payload[i].ratio;
         int srcRatio = GetAttrNidInitRatio(msg->payload[i].pid, msg->payload[i].srcNid);
-        ioctlMsg->payloads[i].ratio = srcRatio - msg->payload[i].ratio;
+        ioctlMsg->payloads[i].keepRatio = srcRatio - msg->payload[i].ratio;
         ioctlMsg->payloads[i].memSize = msg->payload[i].memSize;
         ioctlMsg->payloads[i].isRatioMode = GetRunMode() == WATERLINE_MODE ? true : false;
     }

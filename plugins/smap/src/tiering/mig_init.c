@@ -314,8 +314,8 @@ static int check_mig_msg(struct mig_payload *payloads, int len)
 			pr_err("source and destination node id should not be the same\n");
 			return -EINVAL;
 		}
-		if (payloads[i].ratio < 0 || payloads[i].ratio > HUNDRED) {
-			pr_err("migrate ratio: %d invalid\n", payloads[i].ratio);
+		if (payloads[i].keep_ratio < 0 || payloads[i].keep_ratio > HUNDRED) {
+			pr_err("migrate ratio: %d invalid\n", payloads[i].keep_ratio);
 			return -EINVAL;
 		}
 	}
@@ -358,7 +358,7 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 
 			pr_info("pid :%d total page count:%llu", payloads[i].pid, pm.mig_info.page_cnt);
 			if (payloads[i].is_ratio_mode) {
-				u64 keep_cnt = (pm.mig_info.page_cnt * payloads[i].ratio + HALF_HUNDRED) / HUNDRED;
+				u64 keep_cnt = (pm.mig_info.page_cnt * payloads[i].keep_ratio + HALF_HUNDRED) / HUNDRED;
 				mig_cnt = pm.mig_info.mig_cnt - keep_cnt;
 			} else {
 				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);

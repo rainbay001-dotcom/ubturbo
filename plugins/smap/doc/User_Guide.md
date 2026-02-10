@@ -23,6 +23,7 @@ SMAP是一款Huawei计算产品线自研, 开源的内存迁移工具, 搭配OBM
   <pre class="screen" id="ZH-CN_TOPIC_0000002029393654__screen1743004145"><p class="p" id="p13953174812279">yum install -y qemu*</p><p class="p" id="p295334842710">yum install -y libvirt*</p><p class="p" id="p795354842714">//进行libvirt配置</p><p class="p" id="p139531948192713">systemctl start libvirtd</p></pre>
 * 由于SMAP与HCOM对obmm均有依赖，若先安装smap再安装HCOM会导致HCOM出现异常，因此建议安装SMAP前先安装HCOM，安装方式参见HCOM安装。
 * /dev/shm/smap\_config保存了NUMA和进程配置等信息，使用SMAP动态库的进程如果需要切换用户，则需要先删除该文件。
+* smap的period.config文件依赖ubturbo-rmrs组件，若环境上未安装ubturbo-rmrs，则需要手动创建目录/opt/ubturbo/conf，且确保目录权限和smap二进制文件权限一致。
 
 #### 安装步骤
 

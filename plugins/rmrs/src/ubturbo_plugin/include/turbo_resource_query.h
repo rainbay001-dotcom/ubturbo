@@ -31,7 +31,7 @@ struct MetaNumaInfo {
         std::ostringstream oss;
         oss << "{";
         oss << "numaId:" << numaId << ",";
-        oss << "numaUsedMem:" << numaUsedMem << "BYTE,";
+        oss << "numaUsedMem:" << numaUsedMem << " BYTE,";
         oss << "isLocalNuma:" << isLocalNuma << ",";
         oss << "socketId:" << socketId;
         oss << "}";
@@ -40,33 +40,29 @@ struct MetaNumaInfo {
 };
 
 struct PidInfo {
-    pid_t pid{};
-    std::vector<uint16_t> localNumaIds{}; // 进程id
-    uint64_t totalLocalUsedMem{};
-    uint64_t totalRemoteUsedMem{};
-    std::vector<MetaNumaInfo> metaNumaInfos;
+    pid_t pid{};                                 // 进程id
+    std::vector<uint16_t> localNumaIds{};        // 本地numaId集合
+    uint64_t totalLocalUsedMem{};                // 本地numa上使用的总内存大小
+    uint64_t totalRemoteUsedMem{};               // 远端numa使用的总内存大小
+    std::vector<MetaNumaInfo> metaNumaInfos{};   // pid进程元信息集合
     
     std::string ToString() const
     {
         std::ostringstream oss;
         oss << "{";
-        oss << "pid:" << pid << ",";
-        oss << "localNumaIds:[";
+        oss << "pid:" << pid;
+        oss << ",localNumaIds:[";
         for (size_t i = 0; i < localNumaIds.size(); ++i) {
+            if (i) oss << ", ";
             oss << localNumaIds[i];
-            if (i != localNumaIds.size() - 1) {
-                oss << ", ";
-            }
         }
-        oss << "],";
-        oss << "totalLocalUsedMem:" << totalLocalUsedMem << "BYTE,";
-        oss << "totalRemoteUsedMem:" << totalRemoteUsedMem << "BYTE,";
-        oss << "metaNumaInfos:[";
+        oss << "]";
+        oss << "totalLocalUsedMem:" << totalLocalUsedMem << "BYTE";
+        oss << "totalRemoteUsedMem:" << totalRemoteUsedMem << "BYTE";
+        oss << ",metaNumaInfos:[";
         for (size_t i = 0; i < metaNumaInfos.size(); ++i) {
+            if (i) oss << ", ";
             oss << metaNumaInfos[i].ToString();
-            if (i != metaNumaInfos.size() - 1) {
-                oss << ", ";
-            }
         } 
         oss << "]";
         oss << "}";

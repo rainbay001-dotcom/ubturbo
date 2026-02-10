@@ -314,7 +314,7 @@ static int check_mig_msg(struct mig_payload *payloads, int len)
 			pr_err("source and destination node id should not be the same\n");
 			return -EINVAL;
 		}
-		if (payloads[i].ratio <= 0 || payloads[i].ratio > HUNDRED) {
+		if (payloads[i].ratio < 0 || payloads[i].ratio > HUNDRED) {
 			pr_err("migrate ratio: %d invalid\n", payloads[i].ratio);
 			return -EINVAL;
 		}

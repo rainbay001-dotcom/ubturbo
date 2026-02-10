@@ -765,13 +765,13 @@ static int get_vma_numa_node(struct kvm *kvm, struct vm_area_struct *vma,
 
 	ptep = huge_pte_offset(kvm->mm, addr & hmask, sz);
 	if (!ptep) {
-		return NUMA_NO_NODE;
+		return 0;
 	}
 
 	pte = smap_huge_ptep_get(ptep);
 	if (!pte_present(pte)) {
 		pr_err("PTE is not presented\n");
-		return NUMA_NO_NODE;
+		return 0;
 	}
 
 	paddr = PFN_PHYS(pte_pfn(pte));

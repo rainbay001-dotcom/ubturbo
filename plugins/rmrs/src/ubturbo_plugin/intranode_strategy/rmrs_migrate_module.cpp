@@ -483,7 +483,7 @@ RmrsResult RmrsMigrateModule::DoMigrateExecute(
             return RMRS_ERROR;
         }
         if (waitingTime != 0 && param.memSize[0] == 0) {
-            res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(pids);
+            res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(remoteNumaIds, pids);
             if (res != RMRS_OK) {
                 LOG_ERROR << "[MemMigrate][MemMigrate] Rm pid mgr failed" << res << ".";
             }
@@ -506,7 +506,7 @@ void RmrsMigrateModule::RollbackVmMigrate(
             RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(remoteNumaIds, pids, memSizeList, MIGRATEOUT_TIMEOUT);
         if (res == RMRS_OK && memSizeList[0] == 0) {
             // 移除pid进程管理
-            res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(pids);
+            res = RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(remoteNumaIds, pids);
             if (res != RMRS_OK) {
                 LOG_ERROR << "rm pid mgr failed" << res;
             }

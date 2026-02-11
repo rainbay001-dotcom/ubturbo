@@ -188,7 +188,8 @@ RmrsResult RmrsSmapHelper::GetOriginalHugePages(const std::string &realPath, uin
     return RMRS_OK;
 }
 
-RmrsResult RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(std::vector<pid_t> &vmPids)
+RmrsResult RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(std::vector<uint16_t> &remoteNumaIdList,
+                                                       std::vector<pid_t> &vmPids)
 {
     UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] SmapRemoveVMPidToRemoteNuma start.";
     SmapRemoveFunc smapRemoveFunc = SmapModule::GetSmapRemoveFunc();
@@ -213,6 +214,8 @@ RmrsResult RmrsSmapHelper::SmapRemoveVMPidToRemoteNuma(std::vector<pid_t> &vmPid
     }
 
     for (int i = 0; i < msg.count; i++) {
+        msg.payload[i].count = 1;
+        msg.payload[i].nid[0] = remoteNumaIdList[i];
         msg.payload[i].pid = vmPids[i];
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[RmrsSmapHelper] SmapRemoveVMPidToRemoteNuma load pid = " << msg.payload[i].pid << ".";

@@ -57,7 +57,7 @@ public:
 
     static RmrsResult SmapMode(int runMode);
 
-    static RmrsResult SmapRemoveVMPidToRemoteNuma(std::vector<pid_t> &vmPids);
+    static RmrsResult SmapRemoveVMPidToRemoteNuma(std::vector<uint16_t> &remoteNumaIdList, std::vector<pid_t> &vmPids);
 
     static RmrsResult SmapEnableRemoteNuma(int remoteNumaId);
 

@@ -359,7 +359,7 @@ bool ResourceExport::IsValidLocalNumaNode(const std::filesystem::directory_entry
         localNodeId = static_cast<uint16_t>(std::stoi(match[1]));
     } catch (const std::exception &e) {
         UBTURBO_LOG_WARN(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[GetLocalNodeIds] Failed to parse node id=" << localNodeId << ", error: " << e.what();
+            << "[GetLocalNodeIds] Failed to parse node, path=" << path << ", error: " << e.what();
         return false;
     }
     std::ifstream cpulist(entry.path() / "cpulist");
@@ -380,32 +380,41 @@ mempooling::PidInfo ResourceExport::BuildPidInfoFromNodePages(pid_t pid, bool ha
     std::vector<std::pair<uint16_t, uint64_t>> localVec;
 
     for (const auto &[nodeId, pages] : nodePages) {
-        uint64_t memMB;
+        mempooling::MetaNumaInfo metaNumaInfo;
+        uint64_t memBytes;
         if (hasLibvirt) {
-            memMB = (pages * mempooling::over_commit::VIRT_SIZE) << mempooling::over_commit::KB2BYTE;
+            memBytes = (pages * mempooling::over_commit::VIRT_SIZE) << mempooling::over_commit::KB2BYTE;
         } else {
-            memMB = (pages * mempooling::over_commit::CTR_SIZE) << mempooling::over_commit::KB2BYTE;
+            memBytes = (pages * mempooling::over_commit::CTR_SIZE) << mempooling::over_commit::KB2BYTE;
         }
-        
+        metaNumaInfo.numaId = nodeId;
+        metaNumaInfo.numaUsedMem = memBytes;
+
         if (localNodeIds.count(nodeId)) {
-            pidInfo.localUsedMem += memMB;
-            localVec.emplace_back(nodeId, memMB);
+            pidInfo.totalLocalUsedMem += memBytes;
+            metaNumaInfo.isLocalNuma = true;
+            int socketId = GetNumaIdToSocketId(nodeId);
+            if (socketId >= 0) {
+                metaNumaInfo.socketId = socketId;
+            } else {
+                UBTURBO_LOG_WARN(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
+                    << "[ContainerPidNumaInfo] Get socketId failed, numaId=" << nodeId << ".";
+            }
+            localVec.emplace_back(nodeId, memBytes);
         } else {
-            pidInfo.remoteUsedMem += memMB;
-            pidInfo.remoteNumaId = nodeId;
+            pidInfo.totalRemoteUsedMem += memBytes;
+            metaNumaInfo.isLocalNuma = false;
         }
+        pidInfo.metaNumaInfos.emplace_back(metaNumaInfo);
     }
 
     std::sort(localVec.begin(), localVec.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
 
-    for (const auto &[nodeId, memMB] : localVec) {
+    for (const auto &[nodeId, memBytes] : localVec) {
         pidInfo.localNumaIds.push_back(nodeId);
         UBTURBO_LOG_INFO(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
-            << "[ContainerPidNumaInfo] Collect pid=" << pid << ", local NumaId=" << nodeId << ", used_Mem=" << memMB
+            << "[ContainerPidNumaInfo] Collect pid=" << pid << ", local NumaId=" << nodeId << ", used_Mem=" << memBytes
             << "Byte.";
-    }
-    if (!localVec.empty()) {
-        pidInfo.socketId = GetNumaIdToSocketId(localVec.begin()->first);
     }
     return pidInfo;
 }

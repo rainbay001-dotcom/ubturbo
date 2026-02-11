@@ -11,11 +11,10 @@
 #include <string>
 #include <vector>
 
-
-#include "rmrs_json_util.h"
 #include "rmrs_json_helper.h"
-#include "rmrs_serializer.h"
+#include "rmrs_json_util.h"
 #include "rmrs_serialize.h"
+#include "rmrs_serializer.h"
 
 #define MOCKER_CPP(api, TT) MOCKCPP_NS::mockAPI(#api, reinterpret_cast<TT>(api))
 
@@ -53,8 +52,8 @@ TEST_F(TestRmrsSerializer, PidNumaInfoCollectParam_Serialize_Succeed)
 TEST_F(TestRmrsSerializer, PidNumaInfoCollectResult_Serialize_Succeed)
 {
     std::vector<mempooling::PidInfo> pidInfoList = {
-        {1, 1024, {0}, 0, 1, 0},
-        {2, 2048, {0}, 0, 1, 1},
+        {1, {0}, 1024, 2048, {{0, 1024, true, 0}, {1, 2048, false, -1}}},
+        {2, {1, 2}, 4096, 8192, {{1, 4096, true, 0}, {2, 8192, true, 1}}},
     };
  
     PidNumaInfoCollectResult param1;
@@ -64,18 +63,26 @@ TEST_F(TestRmrsSerializer, PidNumaInfoCollectResult_Serialize_Succeed)
     PidNumaInfoCollectResult param2;
     RmrsInStream inBuilder(outBuilder.GetBufferPointer(), outBuilder.GetSize());
     inBuilder >> param2;
-    EXPECT_EQ(param1.pidInfoList[0].pid, param2.pidInfoList[0].pid);
-    EXPECT_EQ(param1.pidInfoList[0].localUsedMem, param2.pidInfoList[0].localUsedMem);
-    EXPECT_EQ(param1.pidInfoList[0].localNumaIds, param2.pidInfoList[0].localNumaIds);
-    EXPECT_EQ(param1.pidInfoList[0].remoteUsedMem, param2.pidInfoList[0].remoteUsedMem);
-    EXPECT_EQ(param1.pidInfoList[0].remoteNumaId, param2.pidInfoList[0].remoteNumaId);
-    EXPECT_EQ(param1.pidInfoList[0].socketId, param2.pidInfoList[0].socketId);
-    EXPECT_EQ(param1.pidInfoList[1].pid, param2.pidInfoList[1].pid);
-    EXPECT_EQ(param1.pidInfoList[1].localUsedMem, param2.pidInfoList[1].localUsedMem);
-    EXPECT_EQ(param1.pidInfoList[1].localNumaIds, param2.pidInfoList[1].localNumaIds);
-    EXPECT_EQ(param1.pidInfoList[1].remoteUsedMem, param2.pidInfoList[1].remoteUsedMem);
-    EXPECT_EQ(param1.pidInfoList[1].remoteNumaId, param2.pidInfoList[1].remoteNumaId);
-    EXPECT_EQ(param1.pidInfoList[1].socketId, param2.pidInfoList[1].socketId);
+
+    ASSERT_EQ(param1.pidInfoList.size(), param2.pidInfoList.size());
+
+    for (size_t i = 0; i < param1.pidInfoList.size(); ++i) {
+        const auto &a = param1.pidInfoList[i];
+        const auto &b = param2.pidInfoList[i];
+
+        EXPECT_EQ(a.pid, b.pid);
+        EXPECT_EQ(a.localNumaIds, b.localNumaIds);
+        EXPECT_EQ(a.totalLocalUsedMem, b.totalLocalUsedMem);
+        EXPECT_EQ(a.totalRemoteUsedMem, b.totalRemoteUsedMem);
+
+        ASSERT_EQ(a.metaNumaInfos.size(), b.metaNumaInfos.size());
+        for (size_t j = 0; j < a.metaNumaInfos.size(); ++j) {
+            EXPECT_EQ(a.metaNumaInfos[j].numaId, b.metaNumaInfos[j].numaId);
+            EXPECT_EQ(a.metaNumaInfos[j].numaUsedMem, b.metaNumaInfos[j].numaUsedMem);
+            EXPECT_EQ(a.metaNumaInfos[j].isLocalNuma, b.metaNumaInfos[j].isLocalNuma);
+            EXPECT_EQ(a.metaNumaInfos[j].socketId, b.metaNumaInfos[j].socketId);
+        }
+    }
 }
 
 } // namespace rmrs::serialization

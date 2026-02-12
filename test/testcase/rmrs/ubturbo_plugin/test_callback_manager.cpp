@@ -62,7 +62,7 @@ protected:
 TEST_F(TestCallBackManager, InitSucceed)
 {
     auto res = CallbackManager::Init();
-    ASSERT_EQ(res, 1);
+    ASSERT_EQ(res, 0);
 }
 
 TEST_F(TestCallBackManager, InitFailed1)

@@ -16,6 +16,11 @@
 using namespace std;
 
 class AccessIoctlTest : public ::testing::Test {
+public:
+    static constexpr int BITMAP_BUF_LEN = 10;
+    static constexpr int BITMAP_BUF_LEN_PART1 = 4;
+    static constexpr int BITMAP_BUF_LEN_PART2 = 6;
+
 protected:
     void SetUp() override
     {
@@ -77,14 +82,57 @@ TEST_F(AccessIoctlTest, TestAccessIoctlWalkPagemap)
 }
 
 extern "C" ssize_t read(int fd, void *buf, size_t count);
-TEST_F(AccessIoctlTest, TestAccessRead)
+TEST_F(AccessIoctlTest, TestAccessReadAllInOneTime)
 {
     int ret;
-    size_t len = 1;
-    char buf[BUFFER_SIZE];
-    MOCKER(open).stubs().will(returnValue(1));
-    MOCKER(read).stubs().will(returnValue(0));
-    MOCKER(close).stubs().will(ignoreReturnValue());
+    size_t len = BITMAP_BUF_LEN;
+    char buf[BITMAP_BUF_LEN];
+
+    MOCKER(read).stubs().will(returnValue(static_cast<ssize_t>(len)));
+    ret = AccessRead(len, buf);
+    EXPECT_EQ(0, ret);
+}
+
+TEST_F(AccessIoctlTest, TestAccessReadPartial)
+{
+    int ret;
+    size_t len = BITMAP_BUF_LEN;
+    char buf[BITMAP_BUF_LEN];
+
+    MOCKER(read)
+        .stubs()
+        .will(returnValue(static_cast<ssize_t>(len - 1)))
+        .then(returnValue(static_cast<ssize_t>(0)));
+    ret = AccessRead(len, buf);
+    EXPECT_EQ(-EIO, ret);
+}
+
+TEST_F(AccessIoctlTest, TestAccessReadAllInTwoTimes)
+{
+    int ret;
+    size_t len = BITMAP_BUF_LEN_PART1 + BITMAP_BUF_LEN_PART2;
+    char buf[BITMAP_BUF_LEN_PART1 + BITMAP_BUF_LEN_PART2];
+    constexpr int CALL_NUMS = 2;
+
+    MOCKER(read)
+        .expects(exactly(CALL_NUMS))
+        .will(returnValue(static_cast<ssize_t>(BITMAP_BUF_LEN_PART1)))
+        .then(returnValue(static_cast<ssize_t>(BITMAP_BUF_LEN_PART2)));
+    ret = AccessRead(len, buf);
+    EXPECT_EQ(0, ret);
+}
+
+TEST_F(AccessIoctlTest, TestAccessReadFailedInSecondTime)
+{
+    int ret;
+    size_t len = BITMAP_BUF_LEN_PART1 + BITMAP_BUF_LEN_PART2;
+    char buf[BITMAP_BUF_LEN_PART1 + BITMAP_BUF_LEN_PART2];
+    constexpr int CALL_NUMS = 2;
+
+    MOCKER(read)
+        .expects(exactly(CALL_NUMS))
+        .will(returnValue(static_cast<ssize_t>(BITMAP_BUF_LEN_PART1)))
+        .then(returnValue(static_cast<ssize_t>(-EAGAIN)));
     ret = AccessRead(len, buf);
     EXPECT_EQ(-EIO, ret);
 }

@@ -135,7 +135,7 @@ static inline void set_ap_whole_state(struct access_pid_struct *aps,
 				      unsigned long state)
 {
 	spin_lock(&aps->state_lock);
-	aps->state_flag |= state;
+	aps->state_flag = state;
 	spin_unlock(&aps->state_lock);
 }
 

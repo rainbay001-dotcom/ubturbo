@@ -577,6 +577,8 @@ static void IoctlMigrateE2ETestMock(struct migrate_msg *msg, unsigned int pageSi
         .with(any(), any(), any(), any(), any(), any(),
              outBoundP(static_cast<unsigned int*>(&mockSuccessMig4KPageNrEachMigList), sizeof(unsigned int*)))
         .will(returnValue(0));
+    MOCKER(copy_to_user).stubs()
+        .will(returnValue(0UL));
     MOCKER(free_migrate_list_addr).stubs().will(ignoreReturnValue());
     MOCKER(free_migrate_list).stubs().will(ignoreReturnValue());
 }
@@ -587,7 +589,7 @@ TEST_F(MigInitTest, __IoctlMigrateE2ETest)
     struct mig_list *migList;
     int ret;
     int cnt = 2;
-    void *argp;
+    struct migrate_msg argp;
     struct migrate_msg msg;
     EXPECT_NE(nullptr, migList);
     migList = (struct mig_list*)vzalloc(cnt * sizeof(struct mig_list));
@@ -612,7 +614,7 @@ TEST_F(MigInitTest, __IoctlMigrateE2ETest)
 
     // 10 huge page can migrate, 5120 page migrate success
     IoctlMigrateE2ETestMock(&msg, HUGE_PAGE, 5120, 10);
-    ret = __ioctl_migrate(argp);
+    ret = __ioctl_migrate(&argp);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(5110, migList[0].failed_pre_migrated_nr);
     EXPECT_EQ(0, migList[0].failed_mig_nr);
@@ -622,10 +624,15 @@ TEST_F(MigInitTest, __IoctlMigrateE2ETest)
     GlobalMockObject::verify();
     // 10 huge page can migrate, 0 page migrate success
     IoctlMigrateE2ETestMock(&msg, HUGE_PAGE, 0, 10);
-    ret = __ioctl_migrate(argp);
+    ret = __ioctl_migrate(&argp);
     EXPECT_EQ(20, ret);
     EXPECT_EQ(5110, migList[0].failed_pre_migrated_nr);
     EXPECT_EQ(10, migList[0].failed_mig_nr);
     EXPECT_EQ(10230, migList[1].failed_pre_migrated_nr);
     EXPECT_EQ(10, migList[1].failed_mig_nr);
+
+    for (int i = 0; i < cnt; ++i) {
+        vfree(msg.mig_list[i].addr);
+    }
+    vfree(msg.mig_list);
 }

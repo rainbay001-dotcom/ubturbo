@@ -29,6 +29,9 @@ static struct class *access_class;
 static struct cdev access_cdev;
 static struct device *access_device;
 
+static char *smap_bitmap_buf = NULL;
+static size_t smap_buf_len = 0;
+
 static int check_msg_validity(struct access_add_pid_msg *msg)
 {
 	if (!msg) {
@@ -310,6 +313,9 @@ static long ioctl_walk_pagemap(void __user *argp)
 		return -EFAULT;
 	} else {
 		set_ap_whole_state(&ap_data, AP_STATE_WALK | AP_STATE_READ);
+		vfree(smap_bitmap_buf);
+		smap_bitmap_buf = NULL;
+		smap_buf_len = 0;
 	}
 	return 0;
 }
@@ -438,35 +444,63 @@ static void write_bitmap_buffer(char **buffer)
 	up_read(&ap_data.lock);
 }
 
-static size_t read_bitmap(char __user *buf, size_t cnt, loff_t *loff)
+static ssize_t read_bitmap(char __user *buf, size_t cnt, loff_t *loff)
 {
-	size_t buf_len;
-	char *bitmap_buf, *tmp_buf;
+	char *tmp_buf;
+	ssize_t len;
 
-	pr_debug("reading bitmap\n");
-	buf_len = calc_bitmap_len();
-	if (buf_len == 0 || buf_len != cnt)
+	pr_debug("reading bitmap, smap_buf_len %zu, loff %lld, cnt %zu\n",
+		 smap_buf_len, *loff, cnt);
+	if (cnt == 0)
 		return 0;
-	bitmap_buf = vmalloc(buf_len);
-	if (!bitmap_buf)
+	if (*loff > 0)
+		goto copy_data;
+
+	smap_buf_len = calc_bitmap_len();
+	if (smap_buf_len == 0)
 		return 0;
 
-	tmp_buf = bitmap_buf;
-	write_bitmap_buffer(&bitmap_buf);
-	bitmap_buf = tmp_buf;
+	vfree(smap_bitmap_buf);
+	smap_bitmap_buf = vmalloc(smap_buf_len);
+	if (!smap_bitmap_buf) {
+		pr_err("failed to alloc memory in read_bitmap\n");
+		return -ENOMEM;
+	}
 
+	tmp_buf = smap_bitmap_buf;
+	write_bitmap_buffer(&smap_bitmap_buf);
+	smap_bitmap_buf = tmp_buf;
+
+copy_data:
 	/* ram_changed indicate user space hasn't fetch the newest iomem range */
 	if (ram_changed()) {
-		vfree(bitmap_buf);
-		return 0;
+		len = -EAGAIN;
+		goto free_buf;
 	}
 
-	if (copy_to_user(buf, bitmap_buf, buf_len)) {
-		vfree(bitmap_buf);
-		return 0;
+	if (unlikely(*loff >= smap_buf_len)) {
+		len = 0;
+		goto free_buf;
 	}
-	vfree(bitmap_buf);
-	return buf_len;
+	if (*loff + cnt > smap_buf_len)
+		len = smap_buf_len - *loff;
+	else
+		len = cnt;
+	if (copy_to_user(buf, smap_bitmap_buf + (*loff), len)) {
+		len = -EFAULT;
+		goto free_buf;
+	}
+	if (*loff + len == smap_buf_len)
+		goto free_buf;
+	*loff += len;
+	return len;
+
+free_buf:
+	vfree(smap_bitmap_buf);
+	smap_bitmap_buf = NULL;
+	smap_buf_len = 0;
+	*loff = 0;
+	return len;
 }
 
 static int smap_access_open(struct inode *inode, struct file *file)
@@ -578,19 +612,20 @@ static long smap_access_ioctl(struct file *file, unsigned int cmd,
 static ssize_t smap_access_read(struct file *file, char __user *buf, size_t cnt,
 				loff_t *loff)
 {
-	size_t ret;
+	ssize_t ret;
 
 	if (!check_and_clear_ap_state(&ap_data, AP_STATE_READ)) {
 		pr_err("read bitmap of access pid is not allowed\n");
-		return 0;
+		return -EPERM;
 	}
 
 	ret = read_bitmap(buf, cnt, loff);
-	if (ret == 0)
+	if (ret < 0)
 		set_ap_whole_state(&ap_data, AP_STATE_WALK);
+	else if (ret == cnt || ret == 0)
+		set_ap_whole_state(&ap_data, AP_STATE_WALK | AP_STATE_FREQ);
 	else
-		set_ap_whole_state(&ap_data, AP_STATE_WALK | AP_STATE_READ |
-						     AP_STATE_FREQ);
+		set_ap_whole_state(&ap_data, AP_STATE_WALK | AP_STATE_READ);
 	return ret;
 }
 

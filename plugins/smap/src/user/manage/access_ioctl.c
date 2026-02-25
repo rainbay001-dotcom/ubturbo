@@ -122,10 +122,23 @@ int AccessIoctlReadPidFreq(struct AccessPidFreq *apf)
 int AccessRead(size_t len, char *buf)
 {
     struct ProcessManager *manager = GetProcessManager();
+    ssize_t bytesRead;
+    size_t totalRead = 0;
 
-    ssize_t bytesRead = read(manager->fds.access, buf, len);
-    if (bytesRead != len) {
-        SMAP_LOGGER_ERROR("access ioctl read error: %zd != %zu.", bytesRead, len);
+    while (totalRead < len) {
+        bytesRead = read(manager->fds.access, buf + totalRead, len - totalRead);
+        if (bytesRead < 0) {
+            SMAP_LOGGER_ERROR("access ioctl read error: %zd.", bytesRead);
+            return -EIO;
+        }
+        SMAP_LOGGER_DEBUG("bytesRead: %zd, total len: %zu.", bytesRead, len);
+        totalRead += bytesRead;
+        if (bytesRead == 0) {
+            break;
+        }
+    }
+    if (totalRead != len) {
+        SMAP_LOGGER_ERROR("access ioctl read expect %zu, actual %zd.", len, totalRead);
         return -EIO;
     }
     return 0;

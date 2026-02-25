@@ -739,6 +739,11 @@ extern "C" void ResetActcDataForPid(ProcessAttr *attr);
 TEST_F(ManageTest, TestResetActcDataForPid)
 {
     ProcessAttr *attr = (ProcessAttr *)malloc(sizeof(ProcessAttr));
+    ASSERT_NE(nullptr, attr);
+    for (int i = 0; i < MAX_NODES; i++) {
+        attr->scanAttr.actcData[i] = (ActcData *)malloc(sizeof(ActcData));
+        ASSERT_NE(nullptr, attr->scanAttr.actcData[i]);
+    }
     ResetActcDataForPid(attr);
     EXPECT_EQ(attr->scanAttr.actcData[0], nullptr);
     free(attr);

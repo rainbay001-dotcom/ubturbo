@@ -6,13 +6,22 @@
 
 #include <linux/mm.h>
 
+static void volatile_memcpy(volatile char *to, const volatile char *from, unsigned long n)
+{
+	unsigned long tmp = n;
+	while (tmp--)
+		*(to++) = *(from++);
+}
+
 unsigned long copy_from_user(void *to, const void *from, unsigned long n)
 {
+	volatile_memcpy(to, from, n);
 	return 0;
 }
 
 unsigned long copy_to_user(void *to, const void *from, unsigned long n)
 {
+	volatile_memcpy(to, from, n);
 	return 0;
 }
 

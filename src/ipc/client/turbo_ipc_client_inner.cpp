@@ -65,7 +65,7 @@ static const int HEADER_LENGTH = 8;
 static const int HEADER_OFFSET_LENGTH = 0;
 static const int HEADER_OFFSET_STATUS = 4;
 static const int MIN_MESSAGE_LENGTH = 8;
-static const int MAX_MESSAGE_LENGTH = 1024 * 1024;
+static const int MAX_MESSAGE_LENGTH = 1024 * 1024 * 32;
 static const int MAX_FUNCTION_NAME_LENGTH = 128;
 
 uint32_t IpcClientInner::SendMessage(int fd, const std::string &function, const TurboByteBuffer &params)

@@ -47,7 +47,7 @@
 LIST_HEAD(ham_pid_list);
 LIST_HEAD(statistic_pid_list);
 spinlock_t ham_lock;
-spinlock_t statistic_lock;
+struct rw_semaphore statistic_lock;
 static u64 freq_info_num;
 
 struct smap_vma_struct {
@@ -544,7 +544,7 @@ static int calc_tracking_index(unsigned long vaddr, pid_t pid,
 {
 	bool found = false;
 	struct statistics_tracking_info *tmp;
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(tmp, &statistic_pid_list, node) {
 		if (tmp->pid == pid) {
 			found = find_tracking_index(tmp, vaddr, index);
@@ -553,7 +553,7 @@ static int calc_tracking_index(unsigned long vaddr, pid_t pid,
 			}
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 	if (!found)
 		return -ERANGE;
 	return 0;
@@ -563,7 +563,7 @@ static void clear_statistic_tracking_info(pid_t pid)
 {
 	u32 wins_index;
 	struct statistics_tracking_info *tmp;
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(tmp, &statistic_pid_list, node) {
 		if (tmp->pid == pid) {
 			wins_index = tmp->scan_num;
@@ -575,14 +575,14 @@ static void clear_statistic_tracking_info(pid_t pid)
 			}
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 }
 
 static void update_tracking_info(pid_t pid, unsigned int index)
 {
 	u32 wins_index;
 	struct statistics_tracking_info *tmp;
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(tmp, &statistic_pid_list, node) {
 		if (tmp->pid == pid) {
 			wins_index = tmp->scan_num;
@@ -590,7 +590,7 @@ static void update_tracking_info(pid_t pid, unsigned int index)
 			break;
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 }
 
 static int fill_statistics_tracking(unsigned long hva, pid_t pid)
@@ -1144,7 +1144,7 @@ static void release_resources(struct file *filp, struct task_struct *task,
 static void update_statistic_scan_num(pid_t pid)
 {
 	struct statistics_tracking_info *tmp;
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(tmp, &statistic_pid_list, node) {
 		if (tmp->pid == pid) {
 			tmp->scan_num++;
@@ -1152,7 +1152,7 @@ static void update_statistic_scan_num(pid_t pid)
 			break;
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 }
 
 static int scan_forward_2M(pid_t pid, int page_size, scan_type type)
@@ -1202,19 +1202,6 @@ static inline void smap_flush_tlb_mm(struct mm_struct *mm)
 	dsb(ish);
 }
 
-static void update_statistic_num_mm(pid_t pid, unsigned long addr)
-{
-	int ret;
-	unsigned int index;
-	ret = calc_tracking_index(addr, pid, &index);
-	if (ret) {
-		pr_debug("out of range while finding index of mm addr\n");
-		return;
-	}
-
-	update_tracking_info(pid, index);
-}
-
 static int check_pte_young(pte_t *pte, unsigned long addr, unsigned long next,
 			   struct mm_walk *walk)
 {
@@ -1230,7 +1217,7 @@ static int check_pte_young(pte_t *pte, unsigned long addr, unsigned long next,
 			return 0;
 		}
 		if (pte_walk->type == STATISTIC_SCAN)
-			update_statistic_num_mm(pte_walk->pid, addr);
+			pte_walk->statistic_vaddr[pte_walk->statistic_cnt++] = addr;
 		actc_data_add(paddr, PAGE_SIZE_4K);
 		pte_walk->flag = true;
 		__ptep_test_and_clear_young(NULL, 0, pte);
@@ -1326,6 +1313,90 @@ static int take_vma_snapshot(struct mm_struct *mm,
 	return 0;
 }
 
+static void update_statistic_scan_freq_mm(u64 *vaddr, u64 page_cnt, int pid)
+{
+	int i;
+	int j;
+	u32 wins_index;
+	struct statistics_tracking_info *tmp;
+	down_read(&statistic_lock);
+	list_for_each_entry(tmp, &statistic_pid_list, node) {
+		if (tmp->pid == pid) {
+			i = 0;
+			j = 0;
+			while (i < page_cnt && j < tmp->page_num[L1]) {
+				if (vaddr[i] == tmp->vaddr[L1][j]) {
+					wins_index = tmp->scan_num;
+					tmp->sliding_windows[wins_index][j] = TRUE_REF;
+					i += 1;
+					j += 1;
+				} else if (vaddr[i] < tmp->vaddr[L1][j]) {
+					i += 1;
+				} else {
+					j += 1;
+				}
+			}
+
+			i = 0;
+			j = 0;
+			while (i < page_cnt && j < tmp->page_num[L2]) {
+				if (vaddr[i] == tmp->vaddr[L2][j]) {
+					wins_index = tmp->scan_num;
+					tmp->sliding_windows[wins_index][j + tmp->page_num[L1]] = TRUE_REF;
+					i += 1;
+					j += 1;
+				} else if (vaddr[i] < tmp->vaddr[L2][j]) {
+					i += 1;
+				} else {
+					j += 1;
+				}
+			}
+		}
+	}
+	up_read(&statistic_lock);
+}
+
+static int setup_statistic_scan(struct pte_walk *pte_walk, int pid,
+								struct smap_vma_struct * vma_array,
+								int vma_count)
+{
+	int ret;
+	u64 total_page_nr;
+
+	if (pte_walk->type != STATISTIC_SCAN)
+		return 0;
+
+	ret = get_total_page_nr(vma_array, vma_count, &total_page_nr);
+	if (ret) {
+		pr_err("failed to get %d page number, ret: %d\n", pid, ret);
+		return -EINVAL;
+	}
+	pte_walk->statistic_vaddr = vzalloc(total_page_nr * sizeof(u64));
+	if (!pte_walk->statistic_vaddr) {
+		pr_err("failed to malloc statistic vaddr array, ret: %d\n", pid);
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void update_and_cleanup_statistic(int pid, struct pte_walk *pte_walk,
+										 struct mm_struct *mm, struct smap_vma_struct *vma_array)
+{
+	clear_statistic_tracking_info(pid);
+	update_statistic_scan_freq_mm(pte_walk->statistic_vaddr, pte_walk->statistic_cnt, pid);
+	update_statistic_scan_num(pid);
+
+	if (pte_walk->flag) {
+		smap_flush_tlb_mm(mm);
+	}
+
+	kfree(vma_array);
+
+	if (pte_walk->type == STATISTIC_SCAN) {
+		vfree(pte_walk->statistic_vaddr);
+	}
+}
+
 static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 {
 	int ret;
@@ -1348,7 +1419,14 @@ static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 		mmput(mm);
 		return -EINVAL;
 	}
-	clear_statistic_tracking_info(pid);
+
+	ret = setup_statistic_scan(&pte_walk, pid, vma_array, vma_count);
+	if (ret) {
+		pr_err("failed to setup statistic scan, ret: %d\n", ret);
+		mmput(mm);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < vma_count; i++) {
 		if (vma_array[i].end_vaddr - vma_array[i].start_vaddr <
 		    MMAPLOCK_BATCH_SIZE) {
@@ -1370,12 +1448,10 @@ static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 			}
 		}
 	}
-	update_statistic_scan_num(pid);
-	if (pte_walk.flag) {
-		smap_flush_tlb_mm(mm);
-	}
+
+	update_and_cleanup_statistic(pid, &pte_walk, mm, vma_array);
 	mmput(mm);
-	kfree(vma_array);
+
 	return 0;
 }
 

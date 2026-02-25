@@ -283,12 +283,12 @@ void print_access_statistic_pid_list(void)
 	struct statistics_tracking_info *ap;
 
 	pr_debug("statistic access pid list:\n");
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(ap, &statistic_pid_list, node) {
 		pr_debug("pid %d, l1_node %d, l2_node %d\n", ap->pid,
 			 ap->l1_node, ap->l2_node);
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 	pr_debug("---------------------\n");
 }
 
@@ -503,7 +503,7 @@ static int init_access_statistic_pid_2m(struct access_add_pid_payload *payload)
 		return -EINVAL;
 	}
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	list_for_each_entry_safe(ap, tmp, &statistic_pid_list, node) {
 		if (ap->pid == payload->pid) {
 			pr_info("statistic access pid: %d already exists, update info\n",
@@ -513,7 +513,7 @@ static int init_access_statistic_pid_2m(struct access_add_pid_payload *payload)
 			break;
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 
 	tmp = kzalloc(sizeof(struct statistics_tracking_info), GFP_KERNEL);
 	if (!tmp) {
@@ -543,9 +543,9 @@ static int init_access_statistic_pid_2m(struct access_add_pid_payload *payload)
 		return ret;
 	}
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	list_add_tail(&tmp->node, &statistic_pid_list);
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 
 	pr_info("init statistic access tracking, pid: %d, local page number: %llu, remote page number: %llu\n",
 		tmp->pid, tmp->page_num[L1], tmp->page_num[L2]);
@@ -570,7 +570,7 @@ static int init_access_statistic_pid_4k(struct access_add_pid_payload *payload)
 		return -EINVAL;
 	}
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	list_for_each_entry_safe(ap, tmp, &statistic_pid_list, node) {
 		if (ap->pid == payload->pid) {
 			pr_info("statistic access pid: %d already exists, update info\n",
@@ -580,7 +580,7 @@ static int init_access_statistic_pid_4k(struct access_add_pid_payload *payload)
 			break;
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 
 	tmp = kzalloc(sizeof(struct statistics_tracking_info), GFP_KERNEL);
 	if (!tmp) {
@@ -610,9 +610,9 @@ static int init_access_statistic_pid_4k(struct access_add_pid_payload *payload)
 		return ret;
 	}
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	list_add_tail(&tmp->node, &statistic_pid_list);
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 
 	pr_info("init statistic access tracking, pid: %d, local page number: %llu, remote page number: %llu\n",
 		tmp->pid, tmp->page_num[L1], tmp->page_num[L2]);
@@ -780,7 +780,7 @@ void access_remove_statistic_pid(int len,
 	int i;
 	struct statistics_tracking_info *ap, *tmp;
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	for (i = 0; i < len; i++) {
 		list_for_each_entry_safe(ap, tmp, &statistic_pid_list, node) {
 			if (ap->pid == payload[i].pid) {
@@ -790,7 +790,7 @@ void access_remove_statistic_pid(int len,
 			}
 		}
 	}
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 }
 
 void access_remove_pid(int len, struct access_remove_pid_payload *payload)
@@ -841,13 +841,13 @@ void access_remove_all_pid(void)
 	}
 	spin_unlock(&ham_lock);
 
-	spin_lock(&statistic_lock);
+	down_write(&statistic_lock);
 	list_for_each_entry_safe(ap_statistic, tmp_statistic,
 				 &statistic_pid_list, node) {
 		list_del(&ap_statistic->node);
 		destroy_access_statistic_pid(ap_statistic);
 	}
-	spin_unlock(&statistic_lock);
+	up_write(&statistic_lock);
 }
 
 static inline void free_ap_bm(struct access_pid *ap)

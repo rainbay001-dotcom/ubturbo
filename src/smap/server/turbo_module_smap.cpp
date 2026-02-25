@@ -318,14 +318,20 @@ RetCode SmapQueryFreqHandler(const TurboByteBuffer &inputBuffer, TurboByteBuffer
                         "[Smap] SmapQueryFreqHandler DecodeRequest error " << ret;
         return TURBO_ERROR;
     }
-    uint16_t data[lengthIn];
+    uint16_t *data = (uint16_t *)malloc(sizeof(uint16_t) * lengthIn);
+    if (!data) {
+        UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] SmapQueryFreqHandler malloc date error ";
+        return TURBO_ERROR;
+    }
     uint32_t lengthOut = lengthIn;
     int result = g_smapQueryVmFreq(pid, data, lengthIn, &lengthOut, dataSource);
     ret = codec.EncodeResponse(outputBuffer, data, lengthOut, result);
     if (ret) {
         UBTURBO_LOG_ERROR(MODULE_NAME, MODULE_CODE) << "[Smap] SmapQueryFreqHandler EncodeResponse error " << ret;
+        free(data);
         return TURBO_ERROR;
     }
+    free(data);
     return TURBO_OK;
 }
 

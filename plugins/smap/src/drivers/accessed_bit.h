@@ -59,6 +59,8 @@ struct pte_walk {
 	u64 index;
 	int page_size;
 	u64 nr_page[NR_LEVEL];
+	u64 statistic_cnt;
+	u64 *statistic_vaddr;
 };
 
 struct freq_info {

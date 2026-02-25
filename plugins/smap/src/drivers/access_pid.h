@@ -95,7 +95,7 @@ struct pagemapread {
 extern struct list_head ham_pid_list;
 extern struct list_head statistic_pid_list;
 extern spinlock_t ham_lock;
-extern spinlock_t statistic_lock;
+extern struct rw_semaphore statistic_lock;
 
 void print_access_ham_pid_list(void);
 void print_access_statistic_pid_list(void);

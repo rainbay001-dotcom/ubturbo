@@ -492,7 +492,7 @@ static int __init access_tracking_init(void)
 		return ret;
 	}
 	spin_lock_init(&ham_lock);
-	spin_lock_init(&statistic_lock);
+	init_rwsem(&statistic_lock);
 	ret = remote_ram_init();
 	if (ret) {
 		goto err_remote_ram;

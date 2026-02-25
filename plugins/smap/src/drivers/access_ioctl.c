@@ -521,12 +521,12 @@ static long ioctl_get_tracking(void __user *argp)
 		return -ENOMEM;
 	}
 
-	spin_lock(&statistic_lock);
+	down_read(&statistic_lock);
 	list_for_each_entry(tmp, &statistic_pid_list, node) {
 		if (tmp->pid == msg.pid)
 			update_tracking_data(tracking_data, tmp, &msg);
 	}
-	spin_unlock(&statistic_lock);
+	up_read(&statistic_lock);
 	if (copy_to_user(argp, &msg, sizeof(msg))) {
 		pr_err("failed to copy message to user space\n");
 		ret = -EFAULT;

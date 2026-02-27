@@ -118,11 +118,9 @@ static int smap_add_page_for_migration(struct page *page, struct folio **folios,
 		pr_debug("invalid page map count or null migrate all flag\n");
 		return err;
 	}
-	if (!PageHuge(page)) {
-		if (!folio_try_get(page_folio(page))) {
-			pr_debug("failed to add folio reference\n");
-			return -EINVAL;
-		}
+	if (!folio_try_get(page_folio(page))) {
+		pr_debug("failed to add folio reference\n");
+		return -EINVAL;
 	}
 	if (PageHuge(page)) {
 		err = smap_check_huge_page_for_migration(page, pid);
@@ -273,7 +271,7 @@ int migrate_multi_threaded(unsigned int nr_threads, struct folio **folios,
 	return 0;
 }
 
-int isolate_and_migrate_folios(struct folio **folios, unsigned int nr_folios,
+static int smap_isolate_and_migrate_folios(struct folio **folios, unsigned int nr_folios,
     new_folio_t get_new_folio, free_folio_t put_new_folio,
     unsigned long private, enum migrate_mode mode, unsigned int *nr_succeeded)
 {
@@ -339,7 +337,7 @@ unsigned int smap_migrate(struct folio **folios, unsigned int nr_folios,
 			pr_err("failed to migrate, ret: %d\n", err);
 		}
 	} else if (MIGRATE_TYPE_REMOTE == type) {
-		err = isolate_and_migrate_folios(folios, nr_folios,
+		err = smap_isolate_and_migrate_folios(folios, nr_folios,
 						 smap_alloc_new_node_page, NULL,
 						 to_node, MIGRATE_PAGES_DMA_OFFLOADING,
 						 &nr_succeeded);

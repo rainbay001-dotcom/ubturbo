@@ -290,6 +290,14 @@ int ubturbo_smap_process_migrate_enable(pid_t *pidArr, int len, int enable, int 
 int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg);
 
 /* *
+ * @brief   迁移远端内存到同远端内存
+ *
+ * @param msg [IN] 远端内存信息，包含源NUMA、目标NUMA、物理地址段
+ * @return int  0：操作成功；非0：操作失败
+ */
+int ubturbo_smap_same_remote_numa_migrate(struct MigrateNumaMsg *msg);
+
+/* *
  * @brief   迁移指定进程远端内存到远端内存
  *
  * @param pidArr   [IN] 进程数组起始地址

@@ -363,7 +363,6 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 			} else {
 				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);
 			}
-
 			for (int j = mig_cnt; j < pm.mig_info.mig_cnt; j++) {
 				folio_put(pm.mig_info.folios[j]);
 			}

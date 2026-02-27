@@ -1637,6 +1637,57 @@ int ubturbo_smap_remote_numa_migrate(struct MigrateNumaMsg *msg)
     return ret;
 }
 
+static int CheckSameMigrateNumaMsg(struct MigrateNumaMsg *msg)
+{
+    struct ProcessManager *manager = GetProcessManager();
+
+    if (!msg) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_remote_numa_migrate msg is null.");
+        return -EINVAL;
+    }
+    if (msg->srcNid != msg->destNid) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_remote_numa_migrate srcNid = destNid.");
+        return -EINVAL;
+    }
+    if (!IsRemoteNidValid(msg->srcNid)) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_remote_numa_migrate invalid srcNid %d.", msg->srcNid);
+        return -EINVAL;
+    }
+    if (msg->count <= 0 || msg->count > MAX_NR_MIGNUMA) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_remote_numa_migrate invalid count %d.", msg->count);
+        return -EINVAL;
+    }
+    // 检查Nid上的pid是否都已停止迁移
+    if (IsRemoteNumaMoveAllowed(msg->srcNid) <= 0) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_remote_numa_migrate srcNid %d not allowed to move.", msg->srcNid);
+        return -EINVAL;
+    }
+    return 0;
+}
+
+int ubturbo_smap_same_remote_numa_migrate(struct MigrateNumaMsg *msg)
+{
+    struct ProcessManager *manager = GetProcessManager();
+    SMAP_LOGGER_INFO("Receive ubturbo_smap_same_remote_numa_migrate msg.");
+    if (EnvAtomicRead(&g_status) != RUNNING) {
+        SMAP_LOGGER_ERROR("smap isn't running, migrate remote numa failed.");
+        return -EPERM;
+    }
+    if (CheckSameMigrateNumaMsg(msg)) {
+        return -EINVAL;
+    }
+    SMAP_LOGGER_DEBUG("ubturbo_smap_same_remote_numa_migrate parameters are all valid.");
+
+    int ret = MigrateRemoteNuma(manager, (struct MigrateNumaIoctlMsg *)msg);
+    if (ret) {
+        SMAP_LOGGER_ERROR("ubturbo_smap_same_remote_numa_migrate migrate remote numa failed: %d.", ret);
+        return ret;
+    }
+    ret = ChangePidRemoteByNuma(msg->srcNid, msg->destNid);
+    SMAP_LOGGER_INFO("ubturbo_smap_same_remote_numa_migrate change pid remote ret: %d.", ret);
+    return ret;
+}
+
 static int CheckMigOutSyncMsg(int pidType, uint64_t maxWaitTime)
 {
     SMAP_LOGGER_INFO("received ubturbo_smap_migrate_out_sync msg, maxWaitTime:%llu.", maxWaitTime);

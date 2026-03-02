@@ -185,11 +185,10 @@ static int init_obmm_dev(void)
 	return 0;
 }
 
-static void update_obmm_dev(u64 memid, u64 pa, u64 size)
+static void update_obmm_dev(u64 memid)
 {
 	struct memid_range *mr, *tmp;
 	u64 std_seq;
-	bool found = false;
 
 	if (unlikely(list_empty(&obmm_dev.list))) {
 		pr_err("obmm_dev list should not be empty\n");
@@ -201,20 +200,12 @@ static void update_obmm_dev(u64 memid, u64 pa, u64 size)
 
 	list_for_each_entry(mr, &obmm_dev.list, node) {
 		if (mr->memid == memid) {
-			pr_debug("update memid: %llu, pa: %#llx, size: %#llx\n",
-				 memid, pa, size);
-			found = true;
-			mr->memid = memid;
-			mr->start = pa;
-			mr->end = pa + size - 1;
+			mr->start = 0;
+			mr->end = 0;
 			mr->seq = std_seq;
-			break;
+			return;
 		}
 	}
-	if (found) {
-		return;
-	}
-	pr_debug("add memid: %llu, pa: %#llx, size: %#llx\n", memid, pa, size);
 
 	tmp = kmalloc(sizeof(*tmp), GFP_KERNEL);
 	if (!tmp) {
@@ -223,55 +214,10 @@ static void update_obmm_dev(u64 memid, u64 pa, u64 size)
 	}
 
 	tmp->memid = memid;
-	tmp->start = pa;
-	tmp->end = pa + size - 1;
+	tmp->start = 0;
+	tmp->end = 0;
 	tmp->seq = std_seq;
 	list_add(&tmp->node, &obmm_dev.list);
-}
-
-static void clean_obmm_dev(void)
-{
-	struct memid_range *mr, *tmp;
-	u64 std_seq;
-
-	if (list_empty(&obmm_dev.list)) {
-		return;
-	}
-
-	mr = list_first_entry(&obmm_dev.list, struct memid_range, node);
-	std_seq = mr->seq;
-	list_for_each_entry_safe(mr, tmp, &obmm_dev.list, node) {
-		if (mr->seq != std_seq) {
-			pr_info("delete memid: %llu\n", mr->memid);
-			list_del(&mr->node);
-			kfree(mr);
-		}
-	}
-}
-
-static bool is_import_shmdev(const char *name)
-{
-	struct path path;
-	char filepath[OBMM_FILE_SIZE] = { 0 };
-	int ret;
-
-	if (strncmp(name, OBMM_SHM_DIR, strlen(OBMM_SHM_DIR)) != 0) {
-		pr_debug("%s is not an obmm share mem directory\n", name);
-		return false;
-	}
-
-	ret = scnprintf(filepath, sizeof(filepath), "%s/%s/import_info",
-			OBMM_SYS_DIR, name);
-	if (ret <= 0)
-		return false;
-
-	ret = kern_path(filepath, LOOKUP_DIRECTORY, &path);
-	if (ret == 0) {
-		path_put(&path);
-		return true;
-	}
-	pr_debug("%s is not an import obmm share mem directory\n", name);
-	return false;
 }
 
 static int extract_hex_content(const char *file_path, u64 *content)
@@ -308,6 +254,67 @@ error:
 	return ret;
 }
 
+static void update_obmm_dev_pa(void)
+{
+	int ret;
+	u64 pa, size;
+	char path[OBMM_FILE_SIZE] = { 0 };
+	struct memid_range *mr;
+
+	list_for_each_entry(mr, &obmm_dev.list, node) {
+		ret = scnprintf(path, sizeof(path), "%s/%s%llu/import_info/pa",
+			OBMM_SYS_DIR, OBMM_SHM_DIR, mr->memid);
+ 	 	if (ret <= 0)
+			continue;
+
+ 	 	ret = extract_hex_content(path, &pa);
+ 	 	if (ret != 0)
+			continue;
+ 	 
+ 	 	ret = scnprintf(path, sizeof(path), "%s/%s%llu/size",
+			OBMM_SYS_DIR, OBMM_SHM_DIR, mr->memid);
+		if (ret <= 0)
+			continue;
+ 	 
+ 	 	ret = extract_hex_content(path, &size);
+		if (ret != 0)
+			continue;
+			
+		mr->start = pa;
+		mr->end = mr->start + size - 1;
+		pr_debug("update memid: %llu, pa: %#llx, size: %#llx\n", mr->memid, pa, size);
+	}
+}
+
+static void clean_obmm_dev(void)
+{
+	struct memid_range *mr, *tmp;
+	u64 std_seq;
+
+	if (list_empty(&obmm_dev.list)) {
+		return;
+	}
+
+	mr = list_first_entry(&obmm_dev.list, struct memid_range, node);
+	std_seq = mr->seq;
+	list_for_each_entry_safe(mr, tmp, &obmm_dev.list, node) {
+		if (mr->seq != std_seq) {
+			pr_info("delete memid: %llu\n", mr->memid);
+			list_del(&mr->node);
+			kfree(mr);
+		}
+	}
+}
+
+static inline bool is_import_shmdev(const char *name)
+{
+	if (strncmp(name, OBMM_SHM_DIR, strlen(OBMM_SHM_DIR)) != 0) {
+		pr_debug("%s is not an obmm share mem directory\n", name);
+		return false;
+	}
+	return true;
+}
+
 struct read_obmm_callback {
 	struct dir_context ctx;
 	int ret;
@@ -317,8 +324,7 @@ static bool fill_obmmdev(struct dir_context *ctx, const char *name, int namelen,
 			 loff_t offset, u64 ino, unsigned int d_type)
 {
 	int ret;
-	char path[OBMM_FILE_SIZE] = { 0 };
-	u64 memid, pa, size;
+	u64 memid;
 	struct read_obmm_callback *callback =
 		container_of(ctx, struct read_obmm_callback, ctx);
 
@@ -328,35 +334,13 @@ static bool fill_obmmdev(struct dir_context *ctx, const char *name, int namelen,
 		return true;
 	}
 
-	ret = scnprintf(path, sizeof(path), "%s/%s/import_info/pa",
-			OBMM_SYS_DIR, name);
-	if (ret <= 0)
-		goto err;
-
-	ret = extract_hex_content(path, &pa);
-	if (ret != 0) {
-		goto err;
-	}
-
-	ret = scnprintf(path, sizeof(path), "%s/%s/size", OBMM_SYS_DIR, name);
-	if (ret <= 0)
-		goto err;
-
-	ret = extract_hex_content(path, &size);
-	if (ret != 0) {
-		goto err;
-	}
-
 	ret = sscanf(name, "obmm_shmdev%llu", &memid);
 	if (ret != 1) {
 		ret = -ENOMEM;
 		goto err;
 	}
 
-	pr_debug("memid: %llu, pa: %#llx, size: %#llx\n", memid, pa, size);
-
-	update_obmm_dev(memid, pa, size);
-
+	update_obmm_dev(memid);
 	callback->ret = 0;
 	return true;
 
@@ -415,6 +399,7 @@ int iterate_obmm_dev(void)
 	}
 
 	clean_obmm_dev();
+	update_obmm_dev_pa();
 
 out:
 	mutex_unlock(&obmm_dev.lock);
@@ -482,7 +467,7 @@ int find_range_by_memid(u64 memid, u64 *start, u64 *end)
 	do {
 		mutex_lock(&obmm_dev.lock);
 		list_for_each_entry(mr, &obmm_dev.list, node) {
-			if (mr->memid == memid) {
+			if (mr->memid == memid && mr->start < mr->end) {
 				found = true;
 				*start = mr->start;
 				*end = mr->end;

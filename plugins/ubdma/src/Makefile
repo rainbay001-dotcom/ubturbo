@@ -1,7 +1,7 @@
 MODULE_NAME = ub_dma
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD		  := $(shell pwd)
-ccflags-y +=  -I/usr/src/kernels/6.6.0-140.0.0.123.oe2403sp3.aarch64/include/ub/urma
+ccflags-y +=  -I/usr/src/kernels/$(KERNELRELEASE)/include/ub/urma
 ccflags-y += -fstack-protector-strong
 
 obj-m := $(MODULE_NAME).o

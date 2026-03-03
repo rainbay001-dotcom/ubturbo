@@ -16,9 +16,9 @@ fi
 REPO_URL=$ARG2
 
 # 拉取制品仓（构建仓）
-rm -rf ubturbo_build
-git clone -b smap_pipline https://gitcode.com/wsheng999/ubturbo_build.git
-cd ubturbo_build
+rm -rf ubturbo
+git clone -b openEuler-24.03-LTS-SP3 https://gitcode.com/SMAP_Build/ubturbo.git
+cd ubturbo
 
 # 在制品仓中进行操作
 git clone -b "$BRANCH" "$REPO_URL"
@@ -33,7 +33,7 @@ rm -rf ubturbo/
 
 git add ubturbo-1.0.0.tar.gz
 git commit -m "update: $REPO_URL:$BRANCH"
-git push origin smap_pipline
+git push origin openEuler-24.03-LTS-SP3
 
 cd ..
-rm -rf ubturbo_build
+rm -rf ubturbo

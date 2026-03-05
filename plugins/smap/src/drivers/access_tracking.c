@@ -484,21 +484,11 @@ static void release_adev(void)
 	}
 }
 
-static inline int init_page_size(void)
-{
-	g_pagesize_huge = PAGE_SIZE_2M;
-	return 0;
-}
-
 static int __init access_tracking_init(void)
 {
 	int ret = 0;
 
-	ret = init_page_size();
-	if (ret) {
-		pr_err("unbale to init page size\n");
-		return ret;
-	}
+	g_pagesize_huge = PAGE_SIZE_2M;
 	ret = init_acpi_mem();
 	if (ret) {
 		pr_err("unable to init local memory info by ACPI table, ret: %d\n",

@@ -38,8 +38,8 @@ static struct ProcessManager g_processManager;
 static char g_mmapTypeName[][MMAP_TYPE_STRING_LEN] = { "mmap_private", "mmap_shared" };
 static char *g_nodePattern[LOCAL_NUMA_NUM] = { " N0=", " N1=", " N2=", " N3=" };
 
-uint32_t g_pagesize_normal;
-uint32_t g_pagesize_huge;
+uint32_t g_pageSizeNormal;
+uint32_t g_pageSizeHuge;
 
 EnvAtomic g_forbiddenNodes[MAX_NODES];
 RunMode g_runMode;
@@ -56,17 +56,17 @@ void SetRunMode(RunMode runMode)
 
 PidType GetPidType(struct ProcessManager *manager)
 {
-    return manager->tracking.pageSize == g_pagesize_normal ? PROCESS_TYPE : VM_TYPE;
+    return manager->tracking.pageSize == g_pageSizeNormal ? PROCESS_TYPE : VM_TYPE;
 }
 
 uint32_t GetNormalPageSize(void)
 {
-    return g_pagesize_normal;
+    return g_pageSizeNormal;
 }
 
 uint32_t GetHugePageSize(void)
 {
-    return g_pagesize_huge;
+    return g_pageSizeHuge;
 }
 
 uint32_t GetPageSize(void)
@@ -110,16 +110,13 @@ int ProcessManagerInit(uint32_t pageType)
     }
 
     int size = sysconf(_SC_PAGESIZE);
-    if (size == PAGESIZE_4K) {
-        g_pagesize_normal = PAGESIZE_4K;
-    } else if (size = PAGESIZE_64K) {
-        g_pagesize_normal = PAGESIZE_64K;
-    } else {
+    if (size != PAGESIZE_4K && size != PAGESIZE_64K) {
         SMAP_LOGGER_ERROR("Get pagesize failed.");
         return -EINVAL;
     }
-    g_pagesize_huge = PAGESIZE_2M;
-    g_processManager.tracking.pageSize = (pageType == PAGETYPE_NORMAL) ? g_pagesize_normal : g_pagesize_huge;
+    g_pageSizeNormal = size;
+    g_pageSizeHuge = PAGESIZE_2M;
+    g_processManager.tracking.pageSize = (pageType == PAGETYPE_NORMAL) ? g_pageSizeNormal : g_pageSizeHuge;
 
     for (i = 0; i < MAX_NODES; i++) {
         g_processManager.fds.nodes[i] = DEFAULT_FD;
@@ -324,17 +321,17 @@ static unsigned long ProcessSmapsFile(pid_t pid, const char *targetLinePrefix, s
 
 static unsigned long GetNormalPageCount(pid_t pid)
 {
-    return ProcessSmapsFile(pid, RSS_LINE_PREFIX, RSS_LINE_PREFIX_LENGTH, g_pagesize_normal);
+    return ProcessSmapsFile(pid, RSS_LINE_PREFIX, RSS_LINE_PREFIX_LENGTH, g_pageSizeNormal);
 }
 
 static unsigned long GetHugePageCount(pid_t pid)
 {
-    return ProcessSmapsFile(pid, HUGETLB_LINE_PREFIX, HUGETLB_LINE_PREFIX_LENGTH, g_pagesize_huge);
+    return ProcessSmapsFile(pid, HUGETLB_LINE_PREFIX, HUGETLB_LINE_PREFIX_LENGTH, g_pageSizeHuge);
 }
 
 unsigned long GetPidNrPages(pid_t pid)
 {
-    return (g_processManager.tracking.pageSize == GetHugePageSize()) ? GetHugePageCount(pid) : GetNormalPageCount(pid);
+    return (g_processManager.tracking.pageSize == g_pageSizeHuge) ? GetHugePageCount(pid) : GetNormalPageCount(pid);
 }
 
 static int GetNodeFromCpu(int cpu)
@@ -383,12 +380,12 @@ int GetNumaNodesForPid(pid_t pid, int *node)
 
 bool IsHugeMode(void)
 {
-    return g_processManager.tracking.pageSize == GetHugePageSize();
+    return g_processManager.tracking.pageSize == g_pageSizeHuge;
 }
 
 bool IsHugeAligned(uint64_t addr)
 {
-    return (addr & (g_pagesize_huge - 1)) == 0;
+    return (addr & (g_pageSizeHuge - 1)) == 0;
 }
 
 int IsHugePageRange(const char *line)

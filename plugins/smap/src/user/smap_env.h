@@ -51,7 +51,6 @@
 #define PAGESIZE_4K (4 * KIB)
 #define PAGESIZE_64K (64 * KIB)
 #define PAGESIZE_2M (2 * MIB)
-#define PAGESIZE_512M (512 * MIB)
 
 #define MAX_NR_MIGOUT 40
 

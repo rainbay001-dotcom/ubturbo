@@ -17,7 +17,6 @@
 #define PAGE_SIZE_4K (1UL << 12)
 #define PAGE_SIZE_64K (1UL << 16)
 #define PAGE_SIZE_2M (1UL << 21)
-#define PAGE_SIZE_512M (1UL << 29)
 
 
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))

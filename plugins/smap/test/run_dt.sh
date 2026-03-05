@@ -203,9 +203,6 @@ replace_string "${code_dir}/src/drivers/hist_ops.c" "remote_ram_list" "drivers_r
 replace_string "${code_dir}/src/drivers/hist_ops.c" "nr_local_numa" "drivers_nr_local_numa"
 replace_string "${code_dir}/src/drivers/hist_ops.c" "ram_changed" "drivers_ram_changed"
 
-# manage.c
-replace_string "${code_dir}/src/user/manage/manage.c" "uint32_t g_pagesize_huge" "extern uint32_t g_pagesize_huge"
-
 # migration.c
 replace_string "${code_dir}/src/user/strategy/migration.c" "InitMigList" "strategy_InitMigList"
 

@@ -520,6 +520,7 @@ TEST_F(InterfaceTest, TestIsDestNidVaild)
     EXPECT_EQ(true, ret);
 }
 
+extern uint32_t g_pageSizeHuge;
 extern "C" int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, int *pidCount);
 TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidPidTypeAndMsgCount)
 {
@@ -527,6 +528,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidPidTypeAndMsgCount)
     int pidType = PAGETYPE_NORMAL;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
+    g_pageSizeHuge = PAGESIZE_2M;
     // null input case
     int ret = CheckMigrateOutMsg(nullptr, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);

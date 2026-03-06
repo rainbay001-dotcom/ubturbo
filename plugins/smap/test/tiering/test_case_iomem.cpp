@@ -316,13 +316,13 @@ TEST_F(IomemTest, update_obmm_dev_dt)
     list_add(&tmp->node, &obmm_dev.list);
 
     update_obmm_dev(OBMM_DEV1_MEMID);
-    tmp = container_of(obmm_dev.list.next, struct memid_range, node);
+    tmp = container_of(obmm_dev.list.prev, struct memid_range, node);
     EXPECT_EQ(OBMM_DEV1_MEMID, tmp->memid);
     EXPECT_EQ(0, tmp->start);
     EXPECT_EQ(0, tmp->end);
 
     update_obmm_dev(OBMM_DEV2_MEMID);
-    tmp = container_of(obmm_dev.list.next, struct memid_range, node);
+    tmp = container_of(obmm_dev.list.prev, struct memid_range, node);
     EXPECT_EQ(OBMM_DEV2_MEMID, tmp->memid);
     EXPECT_EQ(0, tmp->start);
     EXPECT_EQ(0, tmp->end);

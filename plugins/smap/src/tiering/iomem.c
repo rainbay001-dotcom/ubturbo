@@ -177,6 +177,10 @@ static inline void inc_obmm_dev_seq(void)
 
 static int init_obmm_dev(void)
 {
+	/*
+	 * The memid_range whose ID is 0 is appointed as the head of
+	 * the list and should never be moved.
+	 */
 	struct memid_range *mr = kzalloc(sizeof(*mr), GFP_KERNEL);
 	if (!mr) {
 		return -ENOMEM;
@@ -217,7 +221,12 @@ static void update_obmm_dev(u64 memid)
 	tmp->start = 0;
 	tmp->end = 0;
 	tmp->seq = std_seq;
-	list_add(&tmp->node, &obmm_dev.list);
+
+	/*
+	 * New nodes are added to the list tail to ensure that the
+	 * node whose ID is 0 always remains at the head.
+	 */
+	list_add_tail(&tmp->node, &obmm_dev.list);
 }
 
 static int extract_hex_content(const char *file_path, u64 *content)
@@ -258,25 +267,41 @@ static void update_obmm_dev_pa(void)
 {
 	int ret;
 	u64 pa, size;
-	char path[OBMM_FILE_SIZE] = { 0 };
+	struct path path;
+	char filepath[OBMM_FILE_SIZE] = { 0 };
 	struct memid_range *mr;
 
 	list_for_each_entry(mr, &obmm_dev.list, node) {
-		ret = scnprintf(path, sizeof(path), "%s/%s%llu/import_info/pa",
+		/* Skip list head whose ID is 0 */
+		if (mr->memid == 0)
+			continue;
+
+		ret = scnprintf(filepath, sizeof(filepath), "%s/%s%llu/import_info",
+			OBMM_SYS_DIR, OBMM_SHM_DIR, mr->memid);
+		if (ret <= 0)
+			continue;
+
+		/* Skip the obmm_shmdev of memory exporter */
+		ret = kern_path(filepath, LOOKUP_DIRECTORY, &path);
+		if (ret)
+			continue;
+		path_put(&path);
+
+		ret = scnprintf(filepath, sizeof(filepath), "%s/%s%llu/import_info/pa",
 			OBMM_SYS_DIR, OBMM_SHM_DIR, mr->memid);
  	 	if (ret <= 0)
 			continue;
 
- 	 	ret = extract_hex_content(path, &pa);
+ 	 	ret = extract_hex_content(filepath, &pa);
  	 	if (ret != 0)
 			continue;
  	 
- 	 	ret = scnprintf(path, sizeof(path), "%s/%s%llu/size",
+ 	 	ret = scnprintf(filepath, sizeof(filepath), "%s/%s%llu/size",
 			OBMM_SYS_DIR, OBMM_SHM_DIR, mr->memid);
 		if (ret <= 0)
 			continue;
  	 
- 	 	ret = extract_hex_content(path, &size);
+ 	 	ret = extract_hex_content(filepath, &size);
 		if (ret != 0)
 			continue;
 			

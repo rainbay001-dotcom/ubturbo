@@ -45,10 +45,11 @@
 #define GIB (1ULL << 30)
 #define TIB (1ULL << 40)
 
-#define PAGETYPE_4K 0
-#define PAGETYPE_2M 1
+#define PAGETYPE_NORMAL 0
+#define PAGETYPE_HUGE 1
 
-#define PAGESIZE_4K (4096)
+#define PAGESIZE_4K (4 * KIB)
+#define PAGESIZE_64K (64 * KIB)
 #define PAGESIZE_2M (2 * MIB)
 
 #define MAX_NR_MIGOUT 40

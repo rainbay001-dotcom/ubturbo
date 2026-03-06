@@ -117,7 +117,7 @@ TEST_F(InterfaceTest, TestCheckPidtypeOne)
     ret = CheckPidtype(pageType);
     EXPECT_EQ(-EINVAL, ret);
 
-    pageType = PAGETYPE_4K;
+    pageType = PAGETYPE_NORMAL;
     MOCKER((int (*)(char *, unsigned long, unsigned long, char const *, void *))snprintf_s)
         .stubs()
         .will(returnValue(-1));
@@ -131,7 +131,7 @@ TEST_F(InterfaceTest, TestCheckPidtypeTwo)
     int ret;
     uint32_t pageType;
 
-    pageType = PAGETYPE_4K;
+    pageType = PAGETYPE_NORMAL;
     MOCKER((int (*)(char *, unsigned long, unsigned long, char const *, void *))snprintf_s)
         .stubs()
         .will(returnValue(0));
@@ -145,7 +145,7 @@ TEST_F(InterfaceTest, TestCheckPidtypeThree)
     int ret;
     uint32_t pageType;
 
-    pageType = PAGETYPE_4K;
+    pageType = PAGETYPE_NORMAL;
     MOCKER((int (*)(char *, unsigned long, unsigned long, char const *, void *))snprintf_s)
         .stubs()
         .will(returnValue(0));
@@ -161,7 +161,7 @@ TEST_F(InterfaceTest, TestCheckPidtypeFour)
     int ret;
     uint32_t pageType;
 
-    pageType = PAGETYPE_4K;
+    pageType = PAGETYPE_NORMAL;
     MOCKER((int (*)(char *, unsigned long, unsigned long, char const *, void *))snprintf_s)
         .stubs()
         .will(returnValue(0));
@@ -176,11 +176,12 @@ extern "C" bool IsPidTypeValid(int pidType);
 TEST_F(InterfaceTest, TestIsPidTypeValid)
 {
     bool ret;
-    int pidType = PAGETYPE_4K;
+    int pidType = PAGETYPE_NORMAL;
     struct ProcessManager manager;
 
     manager.tracking.pageSize = PAGESIZE_4K;
     MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
+    MOCKER(GetNormalPageSize).stubs().will(returnValue((unsigned int)PAGESIZE_4K));
     ret = IsPidTypeValid(pidType);
     EXPECT_EQ(true, ret);
 }
@@ -188,10 +189,10 @@ TEST_F(InterfaceTest, TestIsPidTypeValid)
 TEST_F(InterfaceTest, TestIsPidTypeInValidOne)
 {
     bool ret;
-    int pidType = PAGETYPE_4K;
+    int pidType = PAGETYPE_NORMAL;
     struct ProcessManager manager;
 
-    manager.tracking.pageSize = PAGETYPE_2M;
+    manager.tracking.pageSize = PAGETYPE_HUGE;
     MOCKER(GetProcessManager).stubs().will(returnValue(&manager));
     ret = IsPidTypeValid(pidType);
     EXPECT_EQ(false, ret);
@@ -200,7 +201,7 @@ TEST_F(InterfaceTest, TestIsPidTypeInValidOne)
 TEST_F(InterfaceTest, TestIsPidTypeInValidTwo)
 {
     bool ret;
-    int pidType = PAGETYPE_4K;
+    int pidType = PAGETYPE_NORMAL;
 
     MOCKER(GetProcessManager).stubs().will(returnValue((struct ProcessManager *)nullptr));
     ret = IsPidTypeValid(pidType);
@@ -519,13 +520,15 @@ TEST_F(InterfaceTest, TestIsDestNidVaild)
     EXPECT_EQ(true, ret);
 }
 
+extern uint32_t g_pageSizeHuge;
 extern "C" int CheckMigrateOutMsg(struct MigrateOutMsg *msg, int pidType, int *pidCount);
 TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidPidTypeAndMsgCount)
 {
     struct MigrateOutMsg msg;
-    int pidType = PAGETYPE_4K;
+    int pidType = PAGETYPE_NORMAL;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
+    g_pageSizeHuge = PAGESIZE_2M;
     // null input case
     int ret = CheckMigrateOutMsg(nullptr, pidType, &pidCount);
     EXPECT_EQ(-EINVAL, ret);
@@ -548,7 +551,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgMigOutCount)
 {
     struct MigrateOutMsg msg = {.count = 1};
     msg.payload[0].pid = 1234;
-    int pidType = PAGETYPE_2M;
+    int pidType = PAGETYPE_HUGE;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
 
@@ -569,7 +572,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgMigOutCount)
 TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidDestNid)
 {
     struct MigrateOutMsg msg = {.count = 1};
-    int pidType = PAGETYPE_2M;
+    int pidType = PAGETYPE_HUGE;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.processes = nullptr;
@@ -598,7 +601,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
     msg.payload[0].pid = 1234;
     msg.payload[0].count = 1;
     msg.payload[0].inner[0].destNid = 4;
-    int pidType = PAGETYPE_2M;
+    int pidType = PAGETYPE_HUGE;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.nr[VM_TYPE] = 1;
@@ -623,7 +626,7 @@ TEST_F(InterfaceTest, TestCheckMigrateOutMsgInvalidMigrateMode)
 TEST_F(InterfaceTest, TestCheckMigrateOutMsgCheckMigrateMode)
 {
     struct MigrateOutMsg msg = {.count = 1};
-    int pidType = PAGETYPE_2M;
+    int pidType = PAGETYPE_HUGE;
     int pidCount = 0;
     g_processManager.tracking.pageSize = PAGESIZE_2M;
     g_processManager.nr[VM_TYPE] = 1;
@@ -727,7 +730,7 @@ TEST_F(InterfaceTest, TestSmapMigrateOutFour)
     MOCKER(IsMigParaValid).stubs().will(returnValue(true));
     MOCKER(IsPidTypeValid).stubs().will(returnValue(true));
     MOCKER(AddProcessNumaBitMap).stubs().will(returnValue(0));
-    ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_2M + 1);
+    ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_HUGE + 1);
     EXPECT_EQ(-EBADF, ret);
     EnvAtomicSet(&g_status, 0);
     EXPECT_TRUE(EnvMutexIsRelease(&g_processManager.lock));
@@ -743,7 +746,7 @@ TEST_F(InterfaceTest, TestSmapMigrateOutFive)
     MOCKER(AccessIoctlAddPid).stubs().will(returnValue(0));
     MOCKER(IsMigParaValid).stubs().will(returnValue(true));
     MOCKER(AddProcessesToGlobalManager).stubs().will(returnValue(-EINVAL));
-    ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_2M + 1);
+    ret = ubturbo_smap_migrate_out(&msgc, PAGETYPE_HUGE + 1);
     EXPECT_EQ(-EINVAL, ret);
     EnvAtomicSet(&g_status, 0);
     EXPECT_TRUE(EnvMutexIsRelease(&g_processManager.lock));
@@ -1047,7 +1050,7 @@ TEST_F(InterfaceTest, TestRecover)
 TEST_F(InterfaceTest, TestSmapInitWithSmapIsNotRunning)
 {
     EnvAtomicSet(&g_status, RUNNING);
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EPERM, ret);
 }
 
@@ -1055,7 +1058,7 @@ TEST_F(InterfaceTest, TestSmapInitWithInitLogFailed)
 {
     EnvAtomicSet(&g_status, 0);
     MOCKER(InitLog).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1065,7 +1068,7 @@ TEST_F(InterfaceTest, TestSmapInitWithCheckPidTypeFailed)
     EnvAtomicSet(&g_status, 0);
     MOCKER(InitLog).stubs().will(returnValue(0));
     MOCKER(CheckPidtype).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1075,7 +1078,7 @@ TEST_F(InterfaceTest, TestSmapInitWithProcessManagerInitFailed)
     MOCKER(InitLog).stubs().will(returnValue(0));
     MOCKER(CheckPidtype).stubs().will(returnValue(0));
     MOCKER(ProcessManagerInit).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1087,7 +1090,7 @@ TEST_F(InterfaceTest, TestSmapInitWithInitTrackingDevFailed)
     MOCKER(ProcessManagerInit).stubs().will(returnValue(0));
     MOCKER(DestroyProcessManager).stubs().will(ignoreReturnValue());
     MOCKER(InitTrackingDev).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1100,7 +1103,7 @@ TEST_F(InterfaceTest, TestSmapInitWithAccessIoctlRemoveAllPidFailed)
     MOCKER(DestroyProcessManager).stubs().will(ignoreReturnValue());
     MOCKER(InitTrackingDev).stubs().will(returnValue(0));
     MOCKER(AccessIoctlRemoveAllPid).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1115,7 +1118,7 @@ TEST_F(InterfaceTest, TestSmapInitWithInitVirAPIFailed)
     MOCKER(AccessIoctlRemoveAllPid).stubs().will(returnValue(0));
     MOCKER(IsHugeMode).stubs().will(returnValue(true));
     MOCKER(InitVirAPI).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1130,7 +1133,7 @@ TEST_F(InterfaceTest, TestSmapInitWithRecoverFailed)
     MOCKER(AccessIoctlRemoveAllPid).stubs().will(returnValue(0));
     MOCKER(IsHugeMode).stubs().will(returnValue(false));
     MOCKER(Recover).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EBADF, ret);
 }
 
@@ -1146,7 +1149,7 @@ TEST_F(InterfaceTest, TestSmapInitWithInitAllThreadsFailed)
     MOCKER(IsHugeMode).stubs().will(returnValue(false));
     MOCKER(Recover).stubs().will(returnValue(0));
     MOCKER(InitAllThreads).stubs().will(returnValue(-EINVAL));
-    int ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    int ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -1165,7 +1168,7 @@ TEST_F(InterfaceTest, TestSmapInit)
     MOCKER(IsHugeMode).stubs().will(returnValue(false));
     MOCKER(Recover).stubs().will(returnValue(0));
     MOCKER(InitAllThreads).stubs().will(returnValue(0));
-    ret = ubturbo_smap_start(PAGETYPE_4K, nullptr);
+    ret = ubturbo_smap_start(PAGETYPE_NORMAL, nullptr);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(1, EnvAtomicRead(&g_status));
 }
@@ -1257,13 +1260,13 @@ TEST_F(InterfaceTest, TestNullptrError)
     int ret;
     EnvAtomicSet(&g_status, 1);
 
-    ret = ubturbo_smap_migrate_out(nullptr, PAGETYPE_4K);
+    ret = ubturbo_smap_migrate_out(nullptr, PAGETYPE_NORMAL);
     EXPECT_EQ(-EINVAL, ret);
 
     ret = ubturbo_smap_migrate_back(nullptr);
     EXPECT_EQ(-EINVAL, ret);
 
-    ret = ubturbo_smap_remove(nullptr, PAGETYPE_4K);
+    ret = ubturbo_smap_remove(nullptr, PAGETYPE_NORMAL);
     EXPECT_EQ(-EINVAL, ret);
 
     ret = ubturbo_smap_node_enable(nullptr);

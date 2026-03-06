@@ -47,7 +47,7 @@ TEST_F(ManageTest, TestProcessManagerInit)
 {
     uint32_t period;
     int ret = 0;
-    uint32_t pageType = PAGETYPE_4K;
+    uint32_t pageType = PAGETYPE_NORMAL;
     MOCKER(memset_s).stubs().will(returnValue(1));
     ret = ProcessManagerInit(pageType);
     EXPECT_EQ(-1, ret);
@@ -61,7 +61,7 @@ TEST_F(ManageTest, TestProcessManagerInitTwo)
 {
     uint32_t period;
     int ret = 0;
-    uint32_t pageType = PAGETYPE_2M;
+    uint32_t pageType = PAGETYPE_HUGE;
     MOCKER(EnvMutexInit).stubs().will(returnValue(0));
     g_processManager.threadCtx[0] = (void*)&period;
     g_processManager.processes = (ProcessAttr*)&period;
@@ -1304,7 +1304,7 @@ TEST_F(ManageTest, TestSetRemoteNumaInfo)
     g_processManager.tracking.pageSize = PAGESIZE_4K;
     ret = SetRemoteNumaInfo(0, 5, 100);
     EXPECT_EQ(0, ret);
-    EXPECT_EQ(100 << SHIFT_MB_TO_4K, borrowMem->usedInfo[1].size);
+    EXPECT_EQ(100 << 8, borrowMem->usedInfo[1].size);
     borrowMem->usedInfo[1].size = 0;
 }
 
@@ -1350,7 +1350,7 @@ TEST_F(ManageTest, TestSetRemoteNumaInfoShared)
     ret = SetRemoteNumaInfo(NUMA_NO_NODE, 5, 100);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(100, borrowMem->sharedSize[1]);
-    EXPECT_EQ(100 << SHIFT_MB_TO_4K, borrowMem->usedInfo[1].size);
+    EXPECT_EQ(100 << 8, borrowMem->usedInfo[1].size);
     borrowMem->sharedSize[1] = 0;
     borrowMem->usedInfo[1].size = 0;
 }

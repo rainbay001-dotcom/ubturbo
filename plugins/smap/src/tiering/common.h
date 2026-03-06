@@ -15,7 +15,6 @@
 
 #define HUNDRED 100
 #define HALF_HUNDRED (HUNDRED / 2)
-#define MILLION 1000000
 #define UNIT_OF_TIME 1000
 #define CYCLE_MAX_RECORD 1000
 #define TWO_MEGA_SHIFT 21
@@ -28,12 +27,10 @@
 #define MAX_2M_MIGMSG_CNT (MAX_2M_PROCESSES_CNT * MAX_PER_PID_MIG_LIST_COUNT)
 #define MAX_4K_MIGMSG_CNT (MAX_4K_PROCESSES_CNT * MAX_PER_PID_MIG_LIST_COUNT)
 
-#define MB_SHIFT 20
-#define _4K_TO_2M 9
-
 #define SMAP_MAX_LOCAL_NUMNODES 4
 #define SMAP_MAX_NUMNODES 22
-#define HUGE_PAGE_SIZE 2097152
+
+extern u32 g_pagesize_huge;
 
 /* last physical address before hole */
 #define ADDR_BH 0x7FFFFFFF
@@ -111,14 +108,14 @@ typedef enum {
 	MAX_MIGRATE_TYPE,
 } migrate_type;
 
-static inline u64 calc_2m_count(u64 range)
+static inline u64 calc_huge_count(u64 range)
 {
 	return (range & ~TWO_MEGA_MASK) == 0 ?
 		       (u64)(range >> TWO_MEGA_SHIFT) :
 		       (u64)((range >> TWO_MEGA_SHIFT) + 1);
 }
 
-static inline u64 calc_4k_count(u64 range)
+static inline u64 calc_normal_count(u64 range)
 {
 	return (range & ~PAGE_MASK) == 0 ? (u64)(range >> PAGE_SHIFT) :
 					   (u64)((range >> PAGE_SHIFT) + 1);

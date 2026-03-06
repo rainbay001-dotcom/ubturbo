@@ -206,6 +206,8 @@ replace_string "${code_dir}/src/drivers/hist_ops.c" "ram_changed" "drivers_ram_c
 # migration.c
 replace_string "${code_dir}/src/user/strategy/migration.c" "InitMigList" "strategy_InitMigList"
 
+replace_string "${code_dir}/src/tiering/smap_migrate_wrapper.h" "private" "private_data"
+replace_string "${code_dir}/src/tiering/smap_migrate_wrapper.c" "private" "private_data"
 replace_string "${code_dir}/src/tiering/coherence_maintain.c" "walk->private" "walk->private_data" "true"
 replace_string "${code_dir}/src/tiering/ham_migration.c" "walk->private" "walk->private_data" "true"
 

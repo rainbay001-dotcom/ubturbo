@@ -24,8 +24,6 @@
 #include "smap_migrate_pages.h"
 
 #define PHYSICAL_ADDR 80
-#define PAGE_SIZE_2M 0x200000
-#define PAGE_SIZE_4K 0x1000
 #define MAX_PROMOTE_NUM 51200
 #define MAX_ISOLATE_RANGE_RETRY_TIME 5
 #define MAX_MIGRATE_NUMA_RETRY_TIME 10
@@ -59,6 +57,8 @@ struct num_node {
 };
 
 #define THREAD_PREFIX "smap_migrate_"
+
+extern u32 g_pagesize_huge;
 
 struct multi_migrate_struct {
 	ktime_t start_time;
@@ -157,7 +157,7 @@ static int thread_fn(void *data)
 		pr_err("failed to migrate pages, ret: %d\n", ret);
 	}
 	if (smap_pgsize == HUGE_PAGE) {
-		nr_succeeded >>= _4K_TO_2M;
+		nr_succeeded >>= (__builtin_ctz(g_pagesize_huge) - PAGE_SHIFT);
 	}
 	ms->end_time = ktime_get();
 	mig_time = ktime_to_us(ktime_sub(ms->end_time, ms->start_time));
@@ -347,7 +347,7 @@ unsigned int smap_migrate(struct folio **folios, unsigned int nr_folios,
 			pr_err("failed to migrate folios, err: %d\n", err);
 	}
 	if (smap_pgsize == HUGE_PAGE) {
-		nr_succeeded >>= _4K_TO_2M;
+		nr_succeeded >>= (__builtin_ctz(g_pagesize_huge) - PAGE_SHIFT);
 	}
 	mig_time = calc_time_us(start_time);
 	pr_debug(
@@ -483,8 +483,8 @@ static bool check_addr_range_valid(struct migrate_back_subtask *task)
 	unsigned long tmp_pfn;
 	struct page *tmp_page;
 
-	for (pa = task->pa_start; pa < task->pa_end; pa += PAGE_SIZE_2M) {
-		tmp_pfn = pageblock_align(PHYS_PFN(pa));
+	for (pa = task->pa_start; pa < task->pa_end; pa += g_pagesize_huge) {
+		tmp_pfn = PHYS_PFN(pa);
 		if (!pfn_valid(tmp_pfn)) {
 			return false;
 		}
@@ -505,8 +505,8 @@ void smap_handle_migrate_back_subtask(struct migrate_back_subtask *task)
 	__u64 pa;
 	unsigned long pfn;
 	struct page *page;
-	unsigned int page_size = is_smap_pg_huge() ? PAGE_SIZE_2M :
-						     PAGE_SIZE_4K;
+	unsigned int page_size = is_smap_pg_huge() ? g_pagesize_huge :
+						     PAGE_SIZE;
 #ifdef DEBUG
 	ktime_t start_time, end_time;
 	s64 delta_time_ms;
@@ -604,7 +604,7 @@ static void process_pages_for_migration(struct migrate_back_subtask *task,
 	struct page *page;
 	*nr_pre_migrate_fail = *nr_pre_migrate = 0;
 
-	for (pa = task->pa_start; pa < task->pa_end; pa += PAGE_SIZE_4K) {
+	for (pa = task->pa_start; pa < task->pa_end; pa += PAGE_SIZE) {
 		pfn = PHYS_PFN(pa);
 		if (!pfn_valid(pfn)) {
 			continue;
@@ -641,7 +641,7 @@ void smap_handle_migrate_back_subtask_4k(struct migrate_back_subtask *task)
 	struct folio **migrate_folios[SMAP_MAX_LOCAL_NUMNODES] = { NULL };
 	unsigned long nr_pre_migrate_fail;
 	unsigned long max_nr_folios =
-		(task->pa_end - task->pa_start) / PAGE_SIZE_4K;
+		(task->pa_end - task->pa_start) / PAGE_SIZE;
 	unsigned long nr_pre_migrate = 0;
 #ifdef DEBUG
 	ktime_t start_time, end_time;
@@ -723,7 +723,7 @@ static unsigned int smu_migrate(struct folio **folios, unsigned int nr_folios,
 
 int is_filter_4k(struct page *page, int page_size)
 {
-	if (page_size == PAGE_SIZE_4K) {
+	if (page_size == PAGE_SIZE) {
 		if (PageTransHuge(page)) {
 			return PAGE_TYPE_TRANSHUGE;
 		}

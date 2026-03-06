@@ -143,10 +143,10 @@ u64 get_node_actc_len(int node_id, int page_size)
 	list_for_each_entry(mem, &acpi_mem.mem, segment) {
 		if (mem->node != node_id)
 			continue;
-		if (page_size == PAGE_SIZE_2M)
-			page_cnt += calc_2m_count(mem->end - mem->start + 1);
-		else if (page_size == PAGE_SIZE_4K)
-			page_cnt += calc_4k_count(mem->end - mem->start + 1);
+		if (page_size == g_pagesize_huge)
+			page_cnt += calc_huge_count(mem->end - mem->start + 1);
+		else if (page_size == PAGE_SIZE)
+			page_cnt += calc_normal_count(mem->end - mem->start + 1);
 	}
 	return page_cnt;
 }

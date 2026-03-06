@@ -8,24 +8,16 @@
 #define DRIVERS_CHECK_H
 
 #include <linux/mm.h>
-
-#define ADDR_BH 0x7FFFFFFF
-#define ADDR_AH 0x2080000000
 #define TWO_MEGA_SHIFT 21
 #define TWO_MEGA_SIZE (1UL << TWO_MEGA_SHIFT)
 #define TWO_MEGA_MASK (~(TWO_MEGA_SIZE - 1))
-#define FETCH_STEP 512
-#define MAX_COUNTER 10000
-#define MAX_ACTC_LEN 200000
-#define MATCH_BIT 2
-#define BIT_LENGTH 8
-#define MILLION 1000000
 #define GB_TO_4K_SHIFT (18)
-#define HUGE_TO_4K_SHIFT (9)
-#define PAGE_SIZE_2M 0x200000
-#define PAGE_SIZE_4K 0x1000
-#define PAGE_2M_SHIFT 21
-#define PAGE_4K_SHIFT 12
+#define HUGE_TO_4K_SHIFT (__builtin_ctz(g_pagesize_huge) - PAGE_SHIFT)
+
+#define PAGE_SIZE_4K (1UL << 12)
+#define PAGE_SIZE_64K (1UL << 16)
+#define PAGE_SIZE_2M (1UL << 21)
+
 
 #define MAX(a, b) ((a) >= (b) ? (a) : (b))
 #define MIN(a, b) ((a) <= (b) ? (a) : (b))
@@ -39,14 +31,16 @@
 
 enum node_level { L1, L2, NR_LEVEL };
 
-static inline u64 calc_2m_count(u64 range)
+extern u32 g_pagesize_huge;
+
+static inline u64 calc_huge_count(u64 range)
 {
 	return (range & ~TWO_MEGA_MASK) == 0 ?
 		       (u64)(range >> TWO_MEGA_SHIFT) :
 		       (u64)((range >> TWO_MEGA_SHIFT) + 1);
 }
 
-static inline u64 calc_4k_count(u64 range)
+static inline u64 calc_normal_count(u64 range)
 {
 	return (range & ~PAGE_MASK) == 0 ? (u64)(range >> PAGE_SHIFT) :
 					   (u64)((range >> PAGE_SHIFT) + 1);

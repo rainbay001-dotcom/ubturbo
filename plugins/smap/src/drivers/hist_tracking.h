@@ -19,6 +19,8 @@ extern rwlock_t rem_ram_list_lock;
 extern bool ram_changed(void);
 extern u64 get_node_page_cnt_iomem(int nid, int page_size);
 
+extern u32 g_pagesize_huge;
+
 struct access_tracking_dev {
 	struct list_head list;
 	struct device ldev;

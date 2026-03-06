@@ -18,6 +18,7 @@
 #include "hist_tracking.h"
 
 extern unsigned int smap_scene;
+extern u32 g_pagesize_huge;
 
 enum access_page_mode {
 	PAGE_MODE_4K = 0,
@@ -68,8 +69,8 @@ static inline struct access_tracking_dev *get_first_access_dev(void)
 
 static inline int get_page_size(struct access_tracking_dev *adev)
 {
-	return adev->page_size_mode == PAGE_MODE_2M ? PAGE_SIZE_2M :
-						      PAGE_SIZE_4K;
+	return adev->page_size_mode == PAGE_MODE_2M ? g_pagesize_huge :
+						      PAGE_SIZE;
 }
 
 void cancel_ap_scan_work(struct access_pid *ap);

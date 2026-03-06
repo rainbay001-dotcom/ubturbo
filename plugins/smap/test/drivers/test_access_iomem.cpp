@@ -272,8 +272,8 @@ TEST_F(AccessIomemTest, get_node_page_cnt_iomem)
     list_add_tail(&seg1.node, &drivers_remote_ram_list);
     list_add_tail(&seg2.node, &drivers_remote_ram_list);
     list_add_tail(&seg3.node, &drivers_remote_ram_list);
-    len += calc_2m_count(seg2.end - seg2.start + 1);
-    len += calc_2m_count(seg3.end - seg3.start + 1);
+    len += calc_huge_count(seg2.end - seg2.start + 1);
+    len += calc_huge_count(seg3.end - seg3.start + 1);
     ret = get_node_page_cnt_iomem(drivers_nr_local_numa, PAGE_SIZE_2M);
     EXPECT_EQ(len, ret);
     list_del(&seg1.node);

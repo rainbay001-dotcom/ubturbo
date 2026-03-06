@@ -64,7 +64,7 @@ static inline pagemap_entry_t make_pme(u64 frame, u64 flags)
 
 static int calc_paddr_acidx(u64 paddr, int *nid, u64 *index)
 {
-	int page_size = is_access_hugepage() ? PAGE_SIZE_2M : PAGE_SIZE_4K;
+	int page_size = is_access_hugepage() ? g_pagesize_huge : PAGE_SIZE;
 	if (is_paddr_local(paddr))
 		return calc_paddr_acidx_acpi(paddr, nid, index, page_size);
 	return calc_paddr_acidx_iomem(paddr, nid, index, page_size);
@@ -124,6 +124,7 @@ static int calc_vaddr_acidx(u64 vaddr, struct vm_mapping_info *info, u64 *acidx)
 {
 	int i;
 	*acidx = 0;
+	int shift = __builtin_ctz(g_pagesize_huge);
 	for (i = 0; i < info->nr_segs; i++) {
 		bool flag = vaddr < info->segs[i].start ||
 			    vaddr >= info->segs[i].end;
@@ -131,7 +132,7 @@ static int calc_vaddr_acidx(u64 vaddr, struct vm_mapping_info *info, u64 *acidx)
 			*acidx += info->segs[i].hugepages;
 			continue;
 		}
-		*acidx += (vaddr - info->segs[i].start) >> TWO_MEGA_SHIFT;
+		*acidx += (vaddr - info->segs[i].start) >> shift;
 		return 0;
 	}
 	return -ERANGE;
@@ -149,12 +150,13 @@ static void set_pa_prior(struct access_pid *ap, u64 vaddr, u64 pa_idx, int nid)
 	int prior_bits;
 	u32 map = 0;
 	u64 va_idx;
+	int shift = __builtin_ctz(g_pagesize_huge);
 	int ret = calc_vaddr_acidx(vaddr, &ap->info, &va_idx);
 	if (ret != 0 || va_idx >= ap->info.vm_size) {
 		pr_debug("set pa prior out of range\n");
 		return;
 	}
-	if (va_idx & (1 << (TWO_MEGA_SHIFT - 1))) {
+	if (va_idx & (1 << (shift - 1))) {
 		pr_debug("va_idx is not aligned\n");
 		return;
 	}
@@ -406,13 +408,6 @@ static void pos_to_addr(struct mm_struct *mm, unsigned long pos,
 		count += nr_pages;
 	}
 	*vaddr = last_vaddr;
-}
-
-static inline u32 to_hugepage_count(u32 nr)
-{
-	u32 shift = TWO_MEGA_SHIFT - PAGE_SHIFT;
-	u32 mask = (1UL << shift) - 1;
-	return (nr & mask) == 0 ? nr >> shift : (nr >> shift) + 1;
 }
 
 struct mm_struct *get_mm_by_pid(pid_t pid)

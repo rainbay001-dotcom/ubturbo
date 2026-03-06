@@ -1115,7 +1115,7 @@ static void CalculateMigInfo(ProcessAttr *process, RemoteMigInfo remoteMigInfo[R
         for (int i = 0; i < process->remoteNumaCnt; i++) {
             int nid = process->migrateParam[i].nid;
             int index = nid - nrLocalNuma;
-            uint64_t targetL2Page = KBTo2M(process->migrateParam[i].memSize);
+            uint64_t targetL2Page = KBToHugePage(process->migrateParam[i].memSize);
             if (targetL2Page > process->scanAttr.actcLen[nid]) {
                 remoteMigInfo[index].dir = DEMOTE;
                 remoteMigInfo[index].nrMig = targetL2Page - process->scanAttr.actcLen[nid];

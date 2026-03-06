@@ -305,7 +305,7 @@ static int SetMigrateThreadNum(struct MigrateMsg *mMsg, uint64_t migratePages, b
     if (!mMsg) {
         return -EINVAL;
     }
-    if (mMsg->mulMig.pageSize == PAGESIZE_2M && migratePages > LESS_MIG_OUT_2M_PAGE_THRE) {
+    if (mMsg->mulMig.pageSize == GetHugePageSize() && migratePages > LESS_MIG_OUT_2M_PAGE_THRE) {
         mMsg->mulMig.isMulThread = true;
         if (migratePages <= MORE_MIG_OUT_2M_PAGE_THRE) {
             mMsg->mulMig.nrThread = LESS_THREAD_MIG_OUT;
@@ -338,16 +338,15 @@ static void PrintMigSpeed(struct ProcessManager *manager, uint64_t nr, struct ti
     double timeUsed, migSpeed;
     double amount;
     long temp;
+    uint32_t size;
 
     if (nr == 0) {
         return;
     }
 
-    if (GetPidType(manager) == VM_TYPE) {
-        amount = (double)nr * PAGESIZE_2M / GIB;
-    } else {
-        amount = (double)nr * PAGESIZE_4K / GIB;
-    }
+    size = GetPageSize();
+    amount = (double)nr * size / GIB;
+
     temp = CalcDurationUs(start, end);
     if (temp == 0) {
         return;
@@ -455,8 +454,8 @@ static void NumaSwapMemPool(ProcessAttr *current)
     for (int i = 0; i < LOCAL_NUMA_NUM; i++) {
         for (int j = 0; j < REMOTE_NUMA_NUM; j++) {
             int l2Node = GetNrLocalNuma() + j;
-            int32_t tmpNum = IsHugeMode() ? KBTo2M(current->strategyAttr.memSize[i][j]) :
-                                            KBTo4K(current->strategyAttr.memSize[i][j]);
+            int32_t tmpNum = IsHugeMode() ? KBToHugePage(current->strategyAttr.memSize[i][j]) :
+                                            KBToNormalPage(current->strategyAttr.memSize[i][j]);
             int32_t migNum = current->strategyAttr.allocRemoteNrPages[i][j] - tmpNum;
             if (migNum > 0) {
                 migNum = MIN(migNum, current->scanAttr.actcLen[l2Node]);

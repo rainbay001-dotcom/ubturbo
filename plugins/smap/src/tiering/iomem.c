@@ -441,7 +441,7 @@ int calc_acidx_paddr_iomem(u64 index, int nid, u64 *paddr)
 {
 	struct ram_segment *seg;
 	u64 range;
-	int shift = is_smap_pg_huge() ? TWO_MEGA_SHIFT : PAGE_SHIFT;
+	int shift = is_smap_pg_huge() ? __builtin_ctz(g_pagesize_huge) : PAGE_SHIFT;
 	u64 tmp_index = index << shift;
 
 	list_for_each_entry(seg, &remote_ram_list, node) {

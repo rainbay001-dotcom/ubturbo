@@ -13,6 +13,8 @@
 extern "C" {
 #endif
 
+#define NUMA_PAGE_MIGRATE 1
+
 struct folio *alloc_migration_target(struct folio *src, unsigned long private_);
 typedef struct folio *new_folio_t(struct folio *folio, unsigned long private_);
 typedef void free_folio_t(struct folio *folio, unsigned long private_);

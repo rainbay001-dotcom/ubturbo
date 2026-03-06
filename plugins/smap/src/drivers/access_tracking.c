@@ -55,6 +55,9 @@ MODULE_PARM_DESC(enable_hist, "smap hist disable: 0, smap hist enable: 1");
 LIST_HEAD(access_dev);
 u8 access_page_size = PAGE_MODE_2M;
 
+u32 g_pagesize_huge;
+EXPORT_SYMBOL(g_pagesize_huge);
+
 ktime_t calc_time_us(ktime_t start_time)
 {
 	ktime_t cur_time, time_us;
@@ -420,7 +423,7 @@ static void work_func(struct work_struct *work)
 	ap = delay_work_to_ap(scan_work);
 	adev_buffer_down_read();
 	page_size = get_page_size(adev);
-	if (page_size == PAGE_SIZE_2M) {
+	if (page_size == g_pagesize_huge) {
 		ret = scan_accessed_bit_forward_vm(ap->pid, page_size,
 						   ap->type);
 	} else {
@@ -485,6 +488,7 @@ static int __init access_tracking_init(void)
 {
 	int ret = 0;
 
+	g_pagesize_huge = PAGE_SIZE_2M;
 	ret = init_acpi_mem();
 	if (ret) {
 		pr_err("unable to init local memory info by ACPI table, ret: %d\n",

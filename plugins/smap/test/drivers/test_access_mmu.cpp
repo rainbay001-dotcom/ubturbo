@@ -22,6 +22,8 @@ extern "C" bool is_access_hugepage(void);
 
 using namespace std;
 
+#define TWO_MEGA_SIZE (1ULL << 21)
+
 inline bool operator==(const pte_t& a, const pte_t& b)
 {
     return a.pte == b.pte;
@@ -404,15 +406,6 @@ TEST_F(AccessMMUTest, PagemapHugetlbRange)
     MOCKER(add_to_bm).stubs().will(returnValue(0));
     int ret = pagemap_hugetlb_range(nullptr, 0, 0, 0, &walk);
     EXPECT_EQ(0, ret);
-}
-
-extern "C" u32 to_hugepage_count(u32 nr);
-TEST_F(AccessMMUTest, ToHugepageCount)
-{
-    int nr = 1;
-    u32 count = to_hugepage_count(nr);
-
-    EXPECT_EQ(1, count);
 }
 
 extern "C" struct mm_struct *mock_get_mm_by_pid(pid_t pid);

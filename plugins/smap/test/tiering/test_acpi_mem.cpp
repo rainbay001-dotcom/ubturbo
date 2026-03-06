@@ -533,6 +533,7 @@ TEST_F(AcpiMemTest, CalcPaddrAcidxNoCache)
     }
 
     // migrate page is 2M
+    g_pagesize_huge = (1 << 21);
     MOCKER(is_smap_pg_huge).stubs().will(returnValue(true));
 
     addr = 0x0;

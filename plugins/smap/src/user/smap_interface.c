@@ -71,7 +71,7 @@ static inline bool IsRatioValid(int ratio)
 static bool IsMigOutCountValid(pid_t *pidArr, int len, int pidType)
 {
     int newNum = 0;
-    int oldNum = (pidType == PAGETYPE_4K ? LoadMangerNrProcessNum() : LoadMangerNrVmNum());
+    int oldNum = (pidType == PAGETYPE_NORMAL ? LoadMangerNrProcessNum() : LoadMangerNrVmNum());
     for (int i = 0; i < len; i++) {
         ProcessAttr *attr = GetProcessAttrLocked(pidArr[i]);
         if (!attr) {
@@ -92,7 +92,7 @@ static int CheckPidtype(uint32_t pageType)
     int ret = 0;
     char path[PATH_MAX];
     SMAP_LOGGER_INFO("pageType %d.", pageType);
-    if (pageType != PAGETYPE_2M && pageType != PAGETYPE_4K) {
+    if (pageType != PAGETYPE_HUGE && pageType != PAGETYPE_NORMAL) {
         SMAP_LOGGER_ERROR("Pagetype is invalid, please input 0 or 1.");
         return -EINVAL;
     }
@@ -122,7 +122,8 @@ static bool IsPidTypeValid(int pidType)
         SMAP_LOGGER_ERROR("process manager is null.");
         return false;
     }
-    int type = pm->tracking.pageSize == PAGESIZE_4K ? PAGETYPE_4K : PAGETYPE_2M;
+    int size = GetNormalPageSize();
+    int type = pm->tracking.pageSize == size ? PAGETYPE_NORMAL : PAGETYPE_HUGE;
     return pidType == type;
 }
 
@@ -1321,10 +1322,9 @@ int ubturbo_smap_run_mode_set(int runMode)
         return -EINVAL;
     }
 
-    struct ProcessManager *manager = GetProcessManager();
-    int pidType = manager->tracking.pageSize;
-    if (runMode == MEM_POOL_MODE && pidType != PAGESIZE_2M) {
-        SMAP_LOGGER_ERROR("Not 2M mode, set run mode failed.");
+    int pageSize = GetPageSize();
+    if (runMode == MEM_POOL_MODE && pageSize != GetHugePageSize()) {
+        SMAP_LOGGER_ERROR("Not Huge Page mode, set run mode failed.");
         return -EINVAL;
     }
 
@@ -1356,7 +1356,7 @@ static int CheckAddProcessTrackingMsg(pid_t *pidArr, uint32_t *scanTime, uint32_
         SMAP_LOGGER_ERROR("Smap check add process tracking pidArr len is invalid.");
         return -EINVAL;
     }
-    int pidType = IsHugeMode() ? PAGETYPE_2M : PAGETYPE_4K;
+    int pidType = IsHugeMode() ? PAGETYPE_HUGE : PAGETYPE_NORMAL;
     if (!IsMigOutCountValid(pidArr, len, pidType)) {
         SMAP_LOGGER_ERROR("Smap add process tracking len %d is invalid.", len);
         return -EINVAL;
@@ -1450,8 +1450,8 @@ int ubturbo_smap_process_tracking_add(pid_t *pidArr, uint32_t *scanTime, uint32_
         SMAP_LOGGER_ERROR("Smap isn't running, add process tracking failed.");
         return -EPERM;
     }
-    if (!IsPidTypeValid(PAGETYPE_2M) && scanType != STATISTIC_SCAN) {
-        SMAP_LOGGER_ERROR("Smap Add Process Tracking pid type invalid, expected %d.", PAGETYPE_2M);
+    if (!IsPidTypeValid(PAGETYPE_HUGE) && scanType != STATISTIC_SCAN) {
+        SMAP_LOGGER_ERROR("Smap Add Process Tracking pid type invalid, expected %d.", PAGETYPE_HUGE);
         return -EINVAL;
     }
     EnvMutexLock(&manager->lock);
@@ -1715,7 +1715,7 @@ static int CheckMigOutSyncMsg(int pidType, uint64_t maxWaitTime)
         return -EINVAL;
     }
 
-    if (pidType != PAGETYPE_2M) {
+    if (pidType != PAGETYPE_HUGE) {
         SMAP_LOGGER_ERROR("pidType is not 2M, ubturbo_smap_migrate_out_sync failed.");
         return -EINVAL;
     }

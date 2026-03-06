@@ -84,9 +84,9 @@ static void actc_buffer_deinit(struct access_tracking_dev *hdev)
 static inline int hist_get_page_size(struct access_tracking_dev *hdev)
 {
 	if (hdev->page_size_mode == PAGE_MODE_2M) {
-		return PAGE_SIZE_2M;
+		return g_pagesize_huge;
 	}
-	return PAGE_SIZE_4K;
+	return PAGE_SIZE;
 }
 
 static u64 calc_access_len(struct access_tracking_dev *hdev)
@@ -196,8 +196,11 @@ static int actc_buffer_init(struct access_tracking_dev *hdev)
 static void scan_hist(struct access_tracking_dev *hdev)
 {
 	u32 pgcount = 0, addr_pg = 0;
+	u64 dev_page_count = hdev->page_count;
 	struct ram_segment *rseg, *tmp;
 	struct addr_seg addr_seg;
+	if (PAGE_SIZE == PAGE_SIZE_64K)
+		dev_page_count *= PAGE_SIZE_64K_DIV_4K;
 	read_lock(&rem_ram_list_lock);
 	list_for_each_entry_safe(rseg, tmp, &remote_ram_list, node) {
 		if (rseg->numa_node != hdev->node) {
@@ -209,9 +212,9 @@ static void scan_hist(struct access_tracking_dev *hdev)
 			  (hdev->page_size_mode == PAGE_MODE_2M ?
 				   HIST_ADDR_SHIFT_2M :
 				   HIST_ADDR_SHIFT_4K);
-		if (pgcount + addr_pg > hdev->page_count) {
+		if (pgcount + addr_pg > dev_page_count) {
 			pr_warn("page index: %u exceeds upper bound of page count: %llu\n",
-				pgcount + addr_pg, hdev->page_count);
+				pgcount + addr_pg, dev_page_count);
 			break;
 		}
 		fetch_hist_actc_buf(hdev->access_bit_actc_data + pgcount, &addr_seg);

@@ -38,6 +38,9 @@ static struct ProcessManager g_processManager;
 static char g_mmapTypeName[][MMAP_TYPE_STRING_LEN] = { "mmap_private", "mmap_shared" };
 static char *g_nodePattern[LOCAL_NUMA_NUM] = { " N0=", " N1=", " N2=", " N3=" };
 
+uint32_t g_pageSizeNormal;
+uint32_t g_pageSizeHuge;
+
 EnvAtomic g_forbiddenNodes[MAX_NODES];
 RunMode g_runMode;
 
@@ -53,7 +56,22 @@ void SetRunMode(RunMode runMode)
 
 PidType GetPidType(struct ProcessManager *manager)
 {
-    return manager->tracking.pageSize == PAGESIZE_4K ? PROCESS_TYPE : VM_TYPE;
+    return manager->tracking.pageSize == g_pageSizeNormal ? PROCESS_TYPE : VM_TYPE;
+}
+
+uint32_t GetNormalPageSize(void)
+{
+    return g_pageSizeNormal;
+}
+
+uint32_t GetHugePageSize(void)
+{
+    return g_pageSizeHuge;
+}
+
+uint32_t GetPageSize(void)
+{
+    return g_processManager.tracking.pageSize;
 }
 
 static int RemoteNumaInfoInit(void)
@@ -90,7 +108,15 @@ int ProcessManagerInit(uint32_t pageType)
     if (ret != 0) {
         SMAP_LOGGER_ERROR("Generat period config file failed, ret is %d.", ret);
     }
-    g_processManager.tracking.pageSize = (pageType == PAGETYPE_4K) ? PAGESIZE_4K : PAGESIZE_2M;
+
+    int size = sysconf(_SC_PAGESIZE);
+    if (size != PAGESIZE_4K && size != PAGESIZE_64K) {
+        SMAP_LOGGER_ERROR("Get pagesize failed.");
+        return -EINVAL;
+    }
+    g_pageSizeNormal = size;
+    g_pageSizeHuge = PAGESIZE_2M;
+    g_processManager.tracking.pageSize = (pageType == PAGETYPE_NORMAL) ? g_pageSizeNormal : g_pageSizeHuge;
 
     for (i = 0; i < MAX_NODES; i++) {
         g_processManager.fds.nodes[i] = DEFAULT_FD;
@@ -282,7 +308,7 @@ static unsigned long ProcessSmapsFile(pid_t pid, const char *targetLinePrefix, s
             if (sscanf_s(line + prefixLength, "%lu", &value) != 1) {
                 continue;
             }
-            totalPages += value * KB / divisor; // KB to pages
+            totalPages += value * KIB / divisor; // KB to pages
         }
     }
 
@@ -295,17 +321,17 @@ static unsigned long ProcessSmapsFile(pid_t pid, const char *targetLinePrefix, s
 
 static unsigned long GetNormalPageCount(pid_t pid)
 {
-    return ProcessSmapsFile(pid, RSS_LINE_PREFIX, RSS_LINE_PREFIX_LENGTH, PAGE_SIZE);
+    return ProcessSmapsFile(pid, RSS_LINE_PREFIX, RSS_LINE_PREFIX_LENGTH, g_pageSizeNormal);
 }
 
 static unsigned long GetHugePageCount(pid_t pid)
 {
-    return ProcessSmapsFile(pid, HUGETLB_LINE_PREFIX, HUGETLB_LINE_PREFIX_LENGTH, TWO_MEGA_SIZE);
+    return ProcessSmapsFile(pid, HUGETLB_LINE_PREFIX, HUGETLB_LINE_PREFIX_LENGTH, g_pageSizeHuge);
 }
 
 unsigned long GetPidNrPages(pid_t pid)
 {
-    return (g_processManager.tracking.pageSize == PAGESIZE_2M) ? GetHugePageCount(pid) : GetNormalPageCount(pid);
+    return (g_processManager.tracking.pageSize == g_pageSizeHuge) ? GetHugePageCount(pid) : GetNormalPageCount(pid);
 }
 
 static int GetNodeFromCpu(int cpu)
@@ -354,12 +380,12 @@ int GetNumaNodesForPid(pid_t pid, int *node)
 
 bool IsHugeMode(void)
 {
-    return g_processManager.tracking.pageSize == PAGESIZE_2M;
+    return g_processManager.tracking.pageSize == g_pageSizeHuge;
 }
 
 bool IsHugeAligned(uint64_t addr)
 {
-    return (addr & (TWO_MEGA_SIZE - 1)) == 0;
+    return (addr & (g_pageSizeHuge - 1)) == 0;
 }
 
 int IsHugePageRange(const char *line)
@@ -1277,12 +1303,7 @@ static int ParseBitmap(size_t bufLen, char *buf, size_t *offset, struct ProcessM
 uint64_t CalcRemoteBorrowPages(uint64_t size)
 {
     uint64_t result = size;
-    PidType type = GetPidType(&g_processManager);
-    if (type == PROCESS_TYPE) {
-        result = result << SHIFT_MB_TO_4K;
-    } else {
-        result = result >> SHIFT_MB_TO_2M;
-    }
+    result = result * MIB / GetPageSize();
     return result;
 }
 
@@ -2185,7 +2206,7 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
         *isMultiNumaPid = true;
         for (int i = 0; i < attr->remoteNumaCnt; i++) {
             int l2node = attr->migrateParam[i].nid;
-            remoteNum = KBTo2M(attr->migrateParam[i].memSize);
+            remoteNum = KBToHugePage(attr->migrateParam[i].memSize);
             SMAP_LOGGER_INFO("Pid: %d, l2node: %d, remoteNum: %lu, actcLen: %lu.", pid, l2node, remoteNum,
                              attr->scanAttr.actcLen[l2node]);
             if (attr->scanAttr.actcLen[l2node] != remoteNum) {
@@ -2201,7 +2222,7 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
             SMAP_LOGGER_ERROR("Invalid l1Node %d l2Node %d of pid %d.", l1Node, l2Node, pid);
             return false;
         }
-        remoteNum = KBTo2M(attr->strategyAttr.memSize[l1Node][l2Node]);
+        remoteNum = KBToHugePage(attr->strategyAttr.memSize[l1Node][l2Node]);
         if (remoteNum > attr->walkPage.nrPage) {
             SMAP_LOGGER_WARNING("Pid %d mig memSize is larger than nrPage.", attr->pid);
         }

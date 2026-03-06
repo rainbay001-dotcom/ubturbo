@@ -236,9 +236,9 @@ int get_node_actc_len(int len, u64 *node_actc_len)
 			continue;
 		addr_range = mem->end - mem->start + 1;
 		if (is_smap_pg_huge())
-			page_cnt = calc_2m_count(addr_range);
+			page_cnt = calc_huge_count(addr_range);
 		else
-			page_cnt = calc_4k_count(addr_range);
+			page_cnt = calc_normal_count(addr_range);
 		node_actc_len[mem->node] += page_cnt;
 	}
 
@@ -252,7 +252,7 @@ int calc_paddr_acidx(u64 paddr, int *nid, u64 *index)
 	u64 offset = 0;
 	u64 acidx;
 	int last_nid = -1;
-	int shift = is_smap_pg_huge() ? TWO_MEGA_SHIFT : PAGE_SHIFT;
+	int shift = is_smap_pg_huge() ? __builtin_ctz(g_pagesize_huge) : PAGE_SHIFT;
 
 	list_for_each_entry(mem, &acpi_mem.mem, segment) {
 		if (last_nid != mem->node) {

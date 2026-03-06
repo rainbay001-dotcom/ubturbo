@@ -24,8 +24,9 @@
 #include "err.h"
 #include "iomem.h"
 
-
 using namespace std;
+
+#define TWO_MEGA_SIZE (1ULL << 21)
 
 class MigInitTest : public ::testing::Test {
 protected:

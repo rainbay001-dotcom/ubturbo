@@ -391,7 +391,7 @@ static int hva_to_hpa_hugetlb(struct kvm *kvm, u64 host_va)
 	h = hstate_vma(find_vma(kvm->mm, host_va));
 	hmask = huge_page_mask(h);
 	sz = huge_page_size(h);
-	if (sz != PAGE_SIZE_2M)
+	if (sz != g_pagesize_huge)
 		return -EINVAL;
 
 	ptep = huge_pte_offset(kvm->mm, host_va & hmask, sz);
@@ -406,7 +406,7 @@ static int hva_to_hpa_hugetlb(struct kvm *kvm, u64 host_va)
 	}
 
 	paddr = PFN_PHYS(pte_pfn(pte));
-	actc_data_add(paddr, PAGE_SIZE_2M);
+	actc_data_add(paddr, g_pagesize_huge);
 
 	return 0;
 }
@@ -458,7 +458,7 @@ static int hva_to_hpa_ham(struct kvm *kvm, u64 host_va, pid_t pid)
 	h = hstate_vma(find_vma(kvm->mm, host_va));
 	hmask = huge_page_mask(h);
 	sz = huge_page_size(h);
-	if (sz != PAGE_SIZE_2M) {
+	if (sz != g_pagesize_huge) {
 		return -EINVAL;
 	}
 
@@ -474,7 +474,7 @@ static int hva_to_hpa_ham(struct kvm *kvm, u64 host_va, pid_t pid)
 	}
 
 	paddr = PFN_PHYS(pte_pfn(pte));
-	ham_actc_data_add(pid, paddr, PAGE_SIZE_2M);
+	ham_actc_data_add(pid, paddr, g_pagesize_huge);
 	return 0;
 }
 
@@ -710,7 +710,7 @@ static int get_total_huge_page_nr(struct kvm *kvm, u64 *total_huge_page_nr)
 		unsigned long hva;
 		for (gpa = memslot->base_gfn << PAGE_SHIFT;
 		     gpa < (memslot->base_gfn + memslot->npages) << PAGE_SHIFT;
-		     gpa += PAGE_SIZE_2M) {
+		     gpa += g_pagesize_huge) {
 			hva = gfn_to_hva_memslot(memslot, gpa_to_gfn(gpa));
 			if (get_vma_if_huge_page(kvm, hva))
 				++huge_page_nr;
@@ -759,7 +759,7 @@ static int get_vma_numa_node(struct kvm *kvm, struct vm_area_struct *vma,
 	h = hstate_vma(vma);
 	hmask = huge_page_mask(h);
 	sz = huge_page_size(h);
-	if (sz != PAGE_SIZE_2M) {
+	if (sz != g_pagesize_huge) {
 		return NUMA_NO_NODE;
 	}
 
@@ -775,7 +775,7 @@ static int get_vma_numa_node(struct kvm *kvm, struct vm_area_struct *vma,
 	}
 
 	paddr = PFN_PHYS(pte_pfn(pte));
-	page_size = PAGE_SIZE_2M;
+	page_size = g_pagesize_huge;
 	if (calc_paddr_acidx_iomem(paddr, &node_calc, &index, page_size) == 0) {
 		return node_calc;
 	} else if (calc_paddr_acidx_acpi(paddr, &node_calc, &index,
@@ -802,7 +802,7 @@ static int fill_vaddrs_info(struct kvm *kvm, struct hva_info *hva_vec, u64 len,
 		unsigned long hva;
 		for (gpa = memslot->base_gfn << PAGE_SHIFT;
 		     gpa < (memslot->base_gfn + memslot->npages) << PAGE_SHIFT;
-		     gpa += PAGE_SIZE_2M) {
+		     gpa += g_pagesize_huge) {
 			struct vm_area_struct *vma;
 			if (idx >= len) {
 				pr_err("exceeds upper bound: %llu when looking up GPA in memslots\n",
@@ -1087,7 +1087,7 @@ int scan_hva_info_4k(pid_t pid, u64 *l1_page_num, u64 *l2_page_num,
 	}
 
 	pte_walk.hva_info = hva_vec;
-	pte_walk.page_size = PAGE_SIZE_4K;
+	pte_walk.page_size = PAGE_SIZE;
 	for (i = 0; i < vma_count; i++) {
 		if (vma_array[i].end_vaddr - vma_array[i].start_vaddr <
 		    MMAPLOCK_BATCH_SIZE) {
@@ -1218,7 +1218,7 @@ static int check_pte_young(pte_t *pte, unsigned long addr, unsigned long next,
 		}
 		if (pte_walk->type == STATISTIC_SCAN)
 			pte_walk->statistic_vaddr[pte_walk->statistic_cnt++] = addr;
-		actc_data_add(paddr, PAGE_SIZE_4K);
+		actc_data_add(paddr, PAGE_SIZE);
 		pte_walk->flag = true;
 		__ptep_test_and_clear_young(NULL, 0, pte);
 	}
@@ -1457,7 +1457,7 @@ static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 
 int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type)
 {
-	if (page_size == PAGE_SIZE_2M) {
+	if (page_size == g_pagesize_huge) {
 		return scan_forward_2M(pid, page_size, type);
 	} else {
 		return -EINVAL;
@@ -1466,7 +1466,7 @@ int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type)
 
 int scan_accessed_bit_forward_mm(pid_t pid, int page_size, scan_type type)
 {
-	if (page_size == PAGE_SIZE_4K) {
+	if (page_size == PAGE_SIZE) {
 		return scan_forward_4k_mm(pid, page_size, type);
 	}
 	return -EINVAL;

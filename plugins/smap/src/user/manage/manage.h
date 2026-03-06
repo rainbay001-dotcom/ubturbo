@@ -19,8 +19,6 @@
 
 #define LOCAL_NUMA_NUM 4
 #define REMOTE_NUMA_NUM 18
-#define SHIFT_MB_TO_4K 8
-#define SHIFT_MB_TO_2M 1
 #define RESERVED_RATIO 0.05
 #define RESERVED_MEMORY 200
 #define MAX_4K_PROCESSES_CNT 300
@@ -29,17 +27,13 @@
 #define MAX_RES_LEN 4
 #define PAGE_SHIFT 12
 #define PAGE_SIZE (1UL << PAGE_SHIFT)
-#define PAGE_MASK (~(PAGE_SIZE - 1))
-#define TWO_MEGA_SHIFT 21
-#define TWO_MEGA_SIZE (1UL << TWO_MEGA_SHIFT)
-#define TWO_MEGA_MASK (~(TWO_MEGA_SIZE - 1))
 #define DEFAULT_FD (-1)
 
 #define RSS_LINE_PREFIX "Rss:"
 #define RSS_LINE_PREFIX_LENGTH 4
 #define HUGETLB_LINE_PREFIX "Private_Hugetlb:"
 #define HUGETLB_LINE_PREFIX_LENGTH 16
-#define KB 1024
+
 #define PRESENT (1ULL << 63)
 #define PRN_SHIFT ((1ULL << 55) - 1)
 #define MAPS_LIN_LEN 2
@@ -52,12 +46,9 @@
 #define DEFAULT_L2_NODE (-1)
 #define DEFAULT_DEST_NODE (-1)
 
-#define KB_TO_2M 11
-#define KB_TO_4K 2
 #define BIT_TO_BYTE 8
-#define BYTES_PER_LONG 8
 #define CPU_NUMA_PATH "/sys/devices/system/cpu/cpu%d/node%d"
-#define NUMAMAP_HUGE_SUBSTR "kernelpagesize_kB=2048"
+#define NUMAMAP_HUGE_2M_SUBSTR "kernelpagesize_kB=2048"
 
 #define MMAP_TYPE_STRING_LEN 20
 #define MMAP_TYPE_SHARED_SEG1 "memAccess='shared'"
@@ -384,6 +375,12 @@ int IsQemuTask(pid_t pid);
 
 PidType GetPidType(struct ProcessManager *manager);
 
+uint32_t GetNormalPageSize(void);
+
+uint32_t GetHugePageSize(void);
+
+uint32_t GetPageSize(void);
+
 ProcessAttr *GetProcessAttr(pid_t pid);
 
 int VMPreprocess(pid_t pid, ProcessAttr *attr);
@@ -482,14 +479,16 @@ ProcessAttr *GetProcessAttrLocked(pid_t pid);
 bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid);
 FILE *OpenNumaMaps(pid_t pid);
 
-static inline uint64_t KBTo2M(uint64_t memSize)
+static inline uint64_t KBToHugePage(uint64_t memSize)
 {
-    return memSize >> KB_TO_2M;
+    int size = GetHugePageSize();
+    return memSize / (size / KIB);
 }
 
-static inline uint64_t KBTo4K(uint64_t memSize)
+static inline uint64_t KBToNormalPage(uint64_t memSize)
 {
-    return memSize >> KB_TO_4K;
+    int size = GetNormalPageSize();
+    return memSize / (size / KIB);
 }
 
 static inline int GetCurrentMaxNrPid(void)
@@ -619,7 +618,7 @@ static inline ActcData *GetL2ActcData(ProcessAttr *attr)
 
 static inline bool IsNumaMapLineHuge(char *line)
 {
-    char *substr = strstr(line, NUMAMAP_HUGE_SUBSTR);
+    char *substr = strstr(line, NUMAMAP_HUGE_2M_SUBSTR);
     return substr != NULL;
 }
 

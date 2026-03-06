@@ -205,10 +205,10 @@ u64 get_node_page_cnt_iomem(int nid, int page_size)
 		if (seg->numa_node != nid)
 			continue;
 
-		if (page_size == PAGE_SIZE_2M)
-			len += calc_2m_count(seg->end - seg->start + 1);
-		else if (page_size == PAGE_SIZE_4K)
-			len += calc_4k_count(seg->end - seg->start + 1);
+		if (page_size == g_pagesize_huge)
+			len += calc_huge_count(seg->end - seg->start + 1);
+		else if (page_size == PAGE_SIZE)
+			len += calc_normal_count(seg->end - seg->start + 1);
 	}
 	read_unlock(&rem_ram_list_lock);
 

@@ -100,12 +100,13 @@ static void add_kvm_seg(struct vm_mapping_info *info,
 			u64 gfn_end)
 {
 	int i = info->nr_segs;
+	int shift = __builtin_ctz(g_pagesize_huge);
 	info->segs[i].base_gfn = memslot->base_gfn + gfn_start;
 	info->segs[i].start =
 		memslot->userspace_addr + (gfn_start << PAGE_SHIFT);
 	info->segs[i].end = memslot->userspace_addr + (gfn_end << PAGE_SHIFT);
 	info->segs[i].hugepages = (info->segs[i].end - info->segs[i].start) >>
-				  TWO_MEGA_SHIFT;
+				  shift;
 	info->nr_segs++;
 }
 
@@ -622,9 +623,9 @@ static int init_access_statistic_pid_4k(struct access_add_pid_payload *payload)
 static int init_access_statistic_pid(struct access_add_pid_payload *payload,
 				     int page_size)
 {
-	if (page_size == PAGE_SIZE_2M)
+	if (page_size == g_pagesize_huge)
 		return init_access_statistic_pid_2m(payload);
-	else if (page_size == PAGE_SIZE_4K)
+	else if (page_size == PAGE_SIZE)
 		return init_access_statistic_pid_4k(payload);
 	else
 		return -EINVAL;
@@ -1145,7 +1146,7 @@ int convert_pos_to_paddr_sorted(pid_t pid, int nid, u64 len, u64 *addr)
 					.pos = INVALID_PADDR,
 					.last_index = INITIAL_POS_INDEX,
 					.index = INITIAL_POS_INDEX };
-	int page_size = is_access_hugepage() ? TWO_MEGA_SIZE : PAGE_SIZE;
+	int page_size = is_access_hugepage() ? g_pagesize_huge : PAGE_SIZE;
 	ret = check_parameters_and_state(len, addr);
 	if (ret) {
 		return ret;

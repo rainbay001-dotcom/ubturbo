@@ -195,7 +195,7 @@ static bool is_migrate_msg_valid(struct migrate_msg *msg)
 {
 	int max_cnt = smap_pgsize == HUGE_PAGE ? MAX_2M_MIGMSG_CNT :
 						 MAX_4K_MIGMSG_CNT;
-	int page_size = smap_pgsize == HUGE_PAGE ? TWO_MEGA_SIZE : PAGE_SIZE;
+	int page_size = smap_pgsize == HUGE_PAGE ? g_pagesize_huge : PAGE_SIZE;
 
 	if (msg->cnt <= 0 || msg->cnt > max_cnt) {
 		pr_err("invalid migrate message cnt: %d passed to check\n",
@@ -324,7 +324,7 @@ static int check_mig_msg(struct mig_payload *payloads, int len)
 
 static void init_pm_info(struct pagemapread *pm, struct mig_payload *payload)
 {
-	int page_size = smap_pgsize == HUGE_PAGE ? PAGE_SIZE_2M : PAGE_SIZE_4K;
+	int page_size = smap_pgsize == HUGE_PAGE ? g_pagesize_huge : PAGE_SIZE;
 	pm->mig_type = REMOTE_MIGRATE;
 	pm->mig_info.pid = payload->pid;
 	pm->mig_info.folios_len = get_node_page_cnt_iomem(payload->src_nid, page_size);

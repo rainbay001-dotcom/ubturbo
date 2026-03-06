@@ -472,15 +472,26 @@ static int hist_scan_sliding(struct segs_info *info, u32 scan_time_total,
 	return 0;
 }
 
-static inline void add_to_actc_data(u16 *dst, u16 *src, int len)
+static void add_to_actc_data(u16 *dst, u16 *src, int len)
 {
 	int i, sum;
-	for (i = 0; i < len; i++) {
-		sum = dst[i] + src[i];
-		if (likely(sum < U16_MAX)) {
-			dst[i] = sum;
-		} else {
-			dst[i] = U16_MAX;
+	int j;
+	int group_count;
+	u32 freq;
+	struct smap_hist_dev *dev = &g_smap_hist_dev;
+	if (PAGE_SIZE == PAGE_SIZE_64K && dev->pgsize == SIZE_4K) {
+		group_count = len / PAGE_SIZE_64K_DIV_4K;
+		for (i = 0; i < group_count; i++) {
+			for (j = 0; j < PAGE_SIZE_64K_DIV_4K; j++) {
+				freq += src[(PAGE_SIZE_64K_DIV_4K * i) + j];
+			}
+			sum = dst[i] + freq;
+			dst[i] = (sum < U16_MAX) ? (u16)sum : U16_MAX;
+		}
+	} else {
+		for (i = 0; i < len; i++) {
+			sum = dst[i] + src[i];
+			dst[i] = (sum < U16_MAX) ? (u16)sum : U16_MAX;
 		}
 	}
 }

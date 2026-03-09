@@ -70,6 +70,8 @@ struct access_pid {
 	unsigned long *white_list_bm[SMAP_MAX_NUMNODES];
 	struct list_head node;
 	struct vm_mapping_info info;
+	ktime_t last_scan_end;
+	unsigned long last_scan_delay_ms;
 };
 
 typedef struct {

@@ -630,8 +630,6 @@ TEST_F(AccessedBitTest, getHvaInfoByScanKvmMemslots)
     for (int i = 1; i < len; ++i) {
         if (hva_vec[i].nid == hva_vec[i - 1].nid) {
             EXPECT_LE(hva_vec[i - 1].va, hva_vec[i].va);
-        } else {
-            EXPECT_LE(hva_vec[i - 1].nid, hva_vec[i].nid);
         }
     }
     free(hva_vec);

@@ -17,6 +17,7 @@
 #include "smap_user_log.h"
 #include "thread.h"
 #include "manage.h"
+#include "device.h"
 #include "access_ioctl.h"
 
 int AccessIoctlAddPid(int len, struct AccessAddPidPayload *payload)
@@ -45,7 +46,11 @@ int AccessIoctlAddPid(int len, struct AccessAddPidPayload *payload)
         }
         accessMsg.payload[i].scanTime = payload[i].scanTime;
         accessMsg.payload[i].duration = payload[i].duration;
-        accessMsg.payload[i].nTimes = migrationPeriod / payload[i].scanTime;
+        if (payload[i].type == STATISTIC_SCAN) {
+            accessMsg.payload[i].nTimes = payload[i].duration * MS_PER_SEC / payload[i].scanTime;
+        } else {
+            accessMsg.payload[i].nTimes = migrationPeriod / payload[i].scanTime;
+        }
         accessMsg.payload[i].type = payload[i].type;
     }
     int ret = ioctl(manager->fds.access, SMAP_ACCESS_ADD_PID, &accessMsg);

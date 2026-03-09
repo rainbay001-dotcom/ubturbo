@@ -680,19 +680,19 @@ static inline void post_scan_kvm_memslots(struct kvm *kvm, int idx)
 static int hva_cmp(const void *a, const void *b)
 {
 	const struct hva_info *x = a, *y = b;
-	if (x->nid < y->nid) {
+	if (x->nid < nr_local_numa && y->nid >= nr_local_numa) {
 		return -1;
-	} else if (x->nid > y->nid) {
-		return 1;
-	} else {
-		if (x->va < y->va) {
-			return -1;
-		} else if (x->va > y->va) {
-			return 1;
-		} else {
-			return 0;
-		}
 	}
+	if (x->nid >= nr_local_numa && y->nid < nr_local_numa) {
+		return 1;
+	}
+	if (x->va < y->va) {
+		return -1;
+	}
+	if (x->va > y->va) {
+		return 1;
+	}
+	return 0;
 }
 
 static int get_total_huge_page_nr(struct kvm *kvm, u64 *total_huge_page_nr)

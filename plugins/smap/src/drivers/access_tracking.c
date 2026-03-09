@@ -34,6 +34,8 @@
 
 #define DEFAULT_PERIOD_MS 50
 #define MAX_SCAN_TIME 100000 /* 100s */
+#define MS_TO_US 1000
+#define DELAY_BUFFER_MS 8
 
 static void work_func(struct work_struct *work);
 int calc_access_len(struct access_tracking_dev *adev);
@@ -408,6 +410,27 @@ static void adev_buffer_up_read(void)
 	}
 }
 
+static void handle_statistic_scan(struct access_pid *ap, ktime_t start_time,
+    s64 scan_time, unsigned long *scan_delay_ms)
+{
+	unsigned long delay_buffer_ms;
+	if (ap->cur_times == 1) {
+		delay_buffer_ms = DELAY_BUFFER_MS;
+	} else {
+		delay_buffer_ms = ktime_to_ms(ktime_sub(start_time, ap->last_scan_end)) - ap->last_scan_delay_ms;
+	}
+
+	if (*scan_delay_ms < ((scan_time / MS_TO_US) + delay_buffer_ms)) {
+		pr_err("pid[%d] scan cost %lums exceeded expected scan time:%lums\n", ap->pid,
+			   (unsigned long)((scan_time / MS_TO_US) + delay_buffer_ms), *scan_delay_ms);
+		*scan_delay_ms = 0;
+	} else {
+		*scan_delay_ms -= (scan_time / MS_TO_US + delay_buffer_ms);
+	}
+	pr_debug("pid[%d] statistic scan delay_buffer_ms :%ldms, scan_delay_ms: %ldms \n",
+          ap->pid, delay_buffer_ms, *scan_delay_ms);
+}
+
 static void work_func(struct work_struct *work)
 {
 	int ret = 0;
@@ -418,6 +441,7 @@ static void work_func(struct work_struct *work)
 	ktime_t start_time, end_time;
 	s64 scan_time;
 
+	unsigned long scan_delay_ms;
 	start_time = ktime_get();
 	scan_work = to_delay_work(work);
 	ap = delay_work_to_ap(scan_work);
@@ -438,11 +462,16 @@ static void work_func(struct work_struct *work)
 		       adev->page_count, page_size, adev->node);
 	}
 	ap->cur_times++;
-	pr_debug("pid[%d] scan took %lldus for %dth time\n", ap->pid, scan_time,
-		 ap->cur_times);
+	pr_debug("pid[%d] scan took %lldus for %dth time\n", ap->pid, scan_time, ap->cur_times);
+
+	scan_delay_ms = ap->scan_time;
+	if (ap->type == STATISTIC_SCAN) {
+		handle_statistic_scan(ap, start_time, scan_time, &scan_delay_ms);
+	}
+	ap->last_scan_delay_ms = scan_delay_ms;
 	if (ap->cur_times < ap->ntimes) {
-		queue_delayed_work(adev->scanq, &ap->scan_work,
-				   msecs_to_jiffies(ap->scan_time));
+		queue_delayed_work(adev->scanq, &ap->scan_work, msecs_to_jiffies(scan_delay_ms));
+		ap->last_scan_end = ktime_get();
 	} else {
 		pr_debug("pid[%d] start to walk pagemap\n", ap->pid);
 		if (ap->type != STATISTIC_SCAN) {

@@ -408,12 +408,17 @@ RmrsResult RmrsSmapHelper::MigrateColdDataToRemoteNumaSync(std::vector<uint16_t>
         return RMRS_ERROR;
     }
     MigrateOutMsg migrateOutMsg{};
-    if (!GetMigrateOutMsgByMemSize(migrateOutMsg, pidsIn, remoteNumaIdList, memSizeList)) {
+    bool retMsg = false;
+    if (waitTime == 0) {
+        retMsg = GetMigrateOutMsgByMemSizeBigVm(migrateOutMsg, pidsIn, remoteNumaIdList, memSizeList);
+    } else {
+        retMsg = GetMigrateOutMsgByMemSize(migrateOutMsg, pidsIn, remoteNumaIdList, memSizeList);
+    }
+    if (!retMsg) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] GetMigrateOutMsgByMemSize failed.";
         return RMRS_ERROR;
     }
 
-    UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE) << "[RmrsSmapHelper] MigrateSync cold data.";
     int ret = smapMigrateOutSyncFunc(&migrateOutMsg, PID_TYPE_2MB, waitTime);
     if (ret < 0) {
         UBTURBO_LOG_ERROR(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
@@ -469,6 +474,55 @@ bool RmrsSmapHelper::GetMigrateOutMsgByMemSize(MigrateOutMsg &migrateOutMsg, std
         UBTURBO_LOG_DEBUG(RMRS_MODULE_NAME, RMRS_MODULE_CODE)
             << "[RmrsSmapHelper] MemSize[" << migrateOutMsg.payload[i].inner[indexOfPayloadInner].memSize << "].";
     }
+    return true;
+}
+
+bool RmrsSmapHelper::GetMigrateOutMsgByMemSizeBigVm(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> pidList,
+                                                    std::vector<uint16_t> remoteNumaIdList,
+                                                    std::vector<uint64_t> memSizeList)
+{
+    if (pidList.empty() || memSizeList.empty() || remoteNumaIdList.empty() || pidList.size() != memSizeList.size() ||
+        pidList.size() != remoteNumaIdList.size()) {
+        LOG_ERROR << "[RmrsSmapHelper] Input lists are empty or sizes are not equal.";
+        return false;
+    }
+
+    std::unordered_map<pid_t, std::vector<NumaMemInfo>> aggPidInfoMap;
+
+    size_t n = pidList.size();
+    aggPidInfoMap.reserve(n);
+
+    for (size_t i = 0; i < n; ++i) {
+        aggPidInfoMap[pidList[i]].push_back(NumaMemInfo{remoteNumaIdList[i], memSizeList[i]});
+    }
+    migrateOutMsg.count = 0;
+    for (const auto& [pid, items] : aggPidInfoMap) {
+        if (migrateOutMsg.count >= MAX_NR_MIGOUT_RMRS) {
+            LOG_ERROR << "[RmrsSmapHelper] Parameter payload limit exceeded.";
+            return false;
+        }
+        auto& payload = migrateOutMsg.payload[migrateOutMsg.count];
+        payload.pid = pid;
+        payload.srcNid = -1;
+        payload.count = 0;
+
+        for (const auto& item: items) {
+            if (payload.count >= REMOTE_NUMA_NUM_RMRS) {
+                LOG_ERROR << "[RmrsSmapHelper] Parameter inner limit exceeded.";
+                return false;
+            }
+            auto &inner = payload.inner[payload.count];
+            inner.destNid = static_cast<int>(item.destNid);
+            inner.memSize = item.memSize;
+            inner.ratio = 0;
+            inner.migrateMode = MIG_MEMSIZE_MODE;
+
+            payload.count++;
+        }
+
+        migrateOutMsg.count++;
+    }
+
     return true;
 }
 

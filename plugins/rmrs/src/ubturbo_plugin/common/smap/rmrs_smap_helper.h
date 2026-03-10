@@ -36,6 +36,11 @@ enum class RmrsLogLevel : uint32_t {
     CRIT = 4
 };
 
+struct NumaMemInfo {
+    uint16_t destNid;
+    uint64_t memSize;
+};
+
 class RmrsSmapHelper {
 public:
     static mutex gMutex;
@@ -46,7 +51,9 @@ public:
 
     static bool GetMigrateOutMsgByMemSize(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> pidList,
                                           std::vector<uint16_t> remoteNumaIdList, std::vector<uint64_t> memSizeList);
-
+    static bool GetMigrateOutMsgByMemSizeBigVm(MigrateOutMsg &migrateOutMsg, std::vector<pid_t> pidList,
+                                               std::vector<uint16_t> remoteNumaIdList,
+                                               std::vector<uint64_t> memSizeList);
     static RmrsResult GetOriginalHugePages(const std::string &filePath, uint64_t &originalHugePages);
 
     static RmrsResult RewriteHugePages(const std::string &realPath, uint64_t originalHugePages, uint64_t borrowSize);

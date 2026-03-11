@@ -77,7 +77,7 @@ uint32_t IpcHandler::UBTurboUnRegIpcService(const std::string &name)
     return TURBO_OK;
 }
 
-static const uint32_t SOCKET_MODE = 0640;
+static const uint32_t SOCKET_MODE = 0660;
 
 uint32_t IpcHandler::StartListen()
 {

@@ -305,6 +305,16 @@ static int SetMigrateThreadNum(struct MigrateMsg *mMsg, uint64_t migratePages, b
     if (!mMsg) {
         return -EINVAL;
     }
+    if (mMsg->mulMig.pageSize == GetHugePageSize() && isForcedSingleThread) {
+        if (migratePages) {
+            mMsg->mulMig.isMulThread = false;
+            mMsg->mulMig.nrThread = SIG_THREAD_MIG_OUT;
+            SMAP_LOGGER_INFO("Forced signle thread detected, set 1 migration thread.");
+            return 0;
+        }
+        SMAP_LOGGER_INFO("As for 0 pages, no migration.");
+        return 0;
+    }
     if (mMsg->mulMig.pageSize == GetHugePageSize() && migratePages > LESS_MIG_OUT_2M_PAGE_THRE) {
         mMsg->mulMig.isMulThread = true;
         if (migratePages <= MORE_MIG_OUT_2M_PAGE_THRE) {

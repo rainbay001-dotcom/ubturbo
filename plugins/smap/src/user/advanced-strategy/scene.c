@@ -378,7 +378,7 @@ static void DistributeInsufficientPages(int arr[], int len)
     }
     diff = AddList(arr, len) - sum; // 预期为非负数
     i = 0;
-    while (diff > 0) {
+    while (diff > 0 && i < len) {
         if (consumer[i] > 0) {
             int c = MIN(diff, consumer[i]);
             arr[i] -= c;

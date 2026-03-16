@@ -557,20 +557,6 @@ TEST_F(MigrationTest, TestCompareMigOut)
     free(b);
 }
 
-extern "C" void NumaSwapReduce(StrategyAttribute *strategyAttr, int32_t *numaMemSwap);
-TEST_F(MigrationTest, TestNumaSwapReduce)
-{
-    ProcessAttr attr = {};
-    int32_t* numaMemSwap = (int32_t*)calloc((LOCAL_NUMA_BITS + REMOTE_NUMA_BITS), sizeof(int32_t));
-    numaMemSwap[0] = 100;
-    numaMemSwap[1] = -200;
-
-    MOCKER(GetNrLocalNuma).stubs().will(returnValue(LOCAL_NUMA_BITS));
-    NumaSwapReduce(&attr.strategyAttr, numaMemSwap);
-    EXPECT_EQ(100, attr.strategyAttr.nrMigratePages[1][0]);
-    free(numaMemSwap);
-}
-
 extern "C" void NumaSwapMemPool(ProcessAttr *current);
 TEST_F(MigrationTest, TestNumaSwapMemPool)
 {

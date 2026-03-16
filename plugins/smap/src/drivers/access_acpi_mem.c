@@ -53,6 +53,7 @@ static int acpi_table_build_mem(struct acpi_subtable_header *header)
 	mem->pxm = p->proximity_domain;
 	node = pxm_to_node(mem->pxm);
 	if (node == NUMA_NO_NODE) {
+		kfree(mem);
 		pr_err("unable to trans PXM id to NUMA node, ret: %d\n", node);
 		return -EINVAL;
 	}

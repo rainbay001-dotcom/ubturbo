@@ -394,8 +394,6 @@ void CheckAndRemoveInvalidProcess(void);
 
 void RemoveManagedProcess(int nr, pid_t *pidArr);
 
-pid_t *QueryManagedProcess(PidType type);
-
 int MigrateMemoryBack(pid_t pid, int srcNid, int desNid, uint64_t paStart, uint64_t paEnd);
 
 int BuildAllPidData(void);

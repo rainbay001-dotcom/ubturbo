@@ -127,16 +127,20 @@ void SetMigratePeriodChanged(bool val)
 
 static int32_t ConfigReadValueToInt(char *pvalue, uint32_t *resultvalue)
 {
-    *resultvalue = 0;
+    uint64_t result = 0;
     while (*pvalue != '\0') {
         if (*pvalue >= '0' && *pvalue <= '9') {
             int digit = *pvalue - '0';
-            *resultvalue = RADIX_10 * (*resultvalue) + digit;
+            result = RADIX_10 * result + digit;
+            if (result > UINT32_MAX) {
+                return RETURN_ERROR;
+            }
             pvalue++;
         } else {
             return RETURN_ERROR;
         }
     }
+    *resultvalue = result;
     return RETURN_OK;
 }
 
@@ -286,22 +290,10 @@ static PeriodConfigReadElem g_periodConfigRead[] = {
 static void ConfigReadTrim(char *str)
 {
     size_t len = strlen(str);
-    bool flag = false;
 
-    while (len > 0) {
-        switch (str[len - 1]) {
-            case ' ':
-            case '\r':
-            case '\n':
-                str[len - 1] = '\0';
-                flag = true;
-                break;
-            default:
-                break;
-        }
-        if (flag) {
-            len--;
-        }
+    while (len > 0 && (str[len - 1] == ' ' || str[len - 1] == '\r' || str[len - 1] == '\n')) {
+        str[len - 1] = '\0';
+        len--;
     }
 }
 

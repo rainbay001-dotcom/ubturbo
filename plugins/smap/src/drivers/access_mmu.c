@@ -418,8 +418,10 @@ struct mm_struct *get_mm_by_pid(pid_t pid)
 
 	if (task) {
 		err = down_read_killable(&task->signal->exec_update_lock);
-		if (err)
+		if (err) {
+			put_task_struct(task);
 			return ERR_PTR(err);
+		}
 
 		mm = get_task_mm(task);
 		up_read(&task->signal->exec_update_lock);

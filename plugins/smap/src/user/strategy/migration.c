@@ -411,51 +411,6 @@ int CompareMigOut(const void *b, const void *a)
     return ((NumaMemReduce *)a)->amount - ((NumaMemReduce *)b)->amount;
 }
 
-static void NumaSwapReduce(StrategyAttribute *strategyAttr, int32_t *numaMemSwap)
-{
-    NumaMemReduce migInNum[MAX_MIG_REDUCE_NUMA];
-    NumaMemReduce migOutNum[MAX_MIG_REDUCE_NUMA];
-    int migInCount = 0;
-    int migOutCount = 0;
-    int transactionCount = 0;
-
-    for (int i = 0; i < (GetNrLocalNuma() + REMOTE_NUMA_NUM); i++) {
-        if (numaMemSwap[i] > 0) {
-            migInNum[migInCount].numaId = i;
-            migInNum[migInCount].amount = numaMemSwap[i];
-            migInCount++;
-        } else if (numaMemSwap[i] < 0) {
-            migOutNum[migOutCount].numaId = i;
-            migOutNum[migOutCount].amount = numaMemSwap[i];
-            migOutCount++;
-        }
-    }
-
-    qsort(migInNum, migInCount, sizeof(NumaMemReduce), CompareMigIn);
-    qsort(migOutNum, migOutCount, sizeof(NumaMemReduce), CompareMigOut);
-
-    int migInIdx = 0;
-    int migOutIdx = 0;
-    while (migInIdx < migInCount && migOutIdx < migOutCount) {
-        int migInAmt = migInNum[migInIdx].amount;
-        int migOutAmt = -migOutNum[migOutIdx].amount;
-
-        int transfer = (migInAmt < migOutAmt) ? migInAmt : migOutAmt;
-        if (transfer > 0) {
-            strategyAttr->nrMigratePages[migOutNum[migOutIdx].numaId][migInNum[migInIdx].numaId] = transfer;
-        }
-
-        migInNum[migInIdx].amount -= transfer;
-        migOutNum[migOutIdx].amount += transfer;
-        if (migInNum[migInIdx].amount == 0) {
-            migInIdx++;
-        }
-        if (migOutNum[migInIdx].amount == 0) {
-            migOutIdx++;
-        }
-    }
-}
-
 static void NumaSwapMemPool(ProcessAttr *current)
 {
     if (IsMultiNumaVm(current)) {

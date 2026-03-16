@@ -948,34 +948,6 @@ void RemoveAllManagedProcess(void)
     g_processManager.nr[VM_TYPE] = g_processManager.nr[PROCESS_TYPE] = 0;
 }
 
-pid_t *QueryManagedProcess(PidType type)
-{
-    EnvMutexLock(&g_processManager.lock);
-    int nrProcess = g_processManager.nr[type];
-    if (!nrProcess) {
-        SMAP_LOGGER_INFO("No %s-type process is managed.", type == VM_TYPE ? "vm" : "process");
-        EnvMutexUnlock(&g_processManager.lock);
-        return NULL;
-    }
-
-    ProcessAttr *current = g_processManager.processes;
-    pid_t *managedPid = malloc(sizeof(pid_t) * nrProcess);
-    if (!managedPid) {
-        SMAP_LOGGER_ERROR("Alloc mem for query-managed-process failed, stopped.");
-        EnvMutexUnlock(&g_processManager.lock);
-        return NULL;
-    }
-    int nrManaged = 0;
-    while (current) {
-        if (current->type = type) {
-            managedPid[nrManaged++] = current->pid;
-        }
-        current = current->next;
-    }
-    EnvMutexUnlock(&g_processManager.lock);
-    return managedPid; // 需由上层释放内存
-}
-
 int DestroyProcessManager(void)
 {
     EnvMutexDestroy(&g_processManager.lock);
@@ -1094,16 +1066,20 @@ static int BuildBitmapBuf(size_t *len, char **buf)
 static inline void FreePmbData(struct ProcessMemBitmap *pmb)
 {
     for (int nid = 0; nid < MAX_NODES; nid++) {
-        free(pmb->data[nid]);
-        pmb->data[nid] = NULL;
+        if (pmb->data[nid]) {
+            free(pmb->data[nid]);
+            pmb->data[nid] = NULL;
+        }
     }
 }
 
 static inline void FreeWhiteListBm(struct ProcessMemBitmap *pmb)
 {
     for (int nid = 0; nid < MAX_NODES; nid++) {
-        free(pmb->whiteListBm[nid]);
-        pmb->whiteListBm[nid] = NULL;
+        if (pmb->whiteListBm[nid]) {
+            free(pmb->whiteListBm[nid]);
+            pmb->whiteListBm[nid] = NULL;
+        }
     }
 }
 
@@ -1709,6 +1685,8 @@ int BuildAllPidData(void)
         if (ret < 0) {
             SMAP_LOGGER_ERROR("parse bitmap failed.");
             failedCount++;
+            FreePmbData(&pmb);
+            FreeWhiteListBm(&pmb);
             break;
         }
         ProcessAttr *current = GetProcessAttrLocked(pmb.pid);

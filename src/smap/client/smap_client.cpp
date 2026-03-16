@@ -576,6 +576,7 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
 
     uint32_t ipcRet = UBTurboFunctionCaller("ubturbo_smap_remote_numa_freq_query", send, recv);
     if (ipcRet != IPC_OK) {
+        delete[] send.data;
         IPC_CLIENT_LOGGER_ERROR("[Smap] Call ubturbo_smap_remote_numa_freq_query error %u.\n", ipcRet);
         return ipcRet;
     }

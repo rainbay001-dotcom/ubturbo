@@ -667,26 +667,6 @@ TEST_F(ManageTest, TestRemoveAllManagedProcess)
     EXPECT_EQ(g_processManager.nr[PROCESS_TYPE], 0);
 }
 
-extern "C" pid_t *QueryManagedProcess(PidType type);
-TEST_F(ManageTest, TestQueryManagedProcess)
-{
-    pid_t *ret;
-    g_processManager.nr[PROCESS_TYPE] = 0;
-    ret = QueryManagedProcess(PROCESS_TYPE);
-    EXPECT_EQ(ret, static_cast<pid_t *>(nullptr));
-
-    GlobalMockObject::verify();
-    ProcessAttr mockProcess;
-    mockProcess.next = nullptr;
-    mockProcess.pid = 123;
-    mockProcess.type = PROCESS_TYPE;
-    g_processManager.nr[PROCESS_TYPE] = 1;
-    g_processManager.processes = &mockProcess;
-    ret = QueryManagedProcess(PROCESS_TYPE);
-    EXPECT_NE(ret, static_cast<pid_t *>(nullptr));
-    free(ret);
-}
-
 extern "C" int DestroyProcessManager();
 TEST_F(ManageTest, TestDestroyProcessManager)
 {

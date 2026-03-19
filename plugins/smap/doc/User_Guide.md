@@ -1,6 +1,6 @@
 ## SMAP简介
 
-SMAP是一款Huawei计算产品线自研, 开源的内存迁移工具, 搭配OBMM使用, 可以将进程的热页留在本地, 冷页迁往远端, 达到扩容的目的。
+SMAP是在灵衢超节点架构中, 基于内存池化技术单节点能够使用其他节点内存资源，可以将进程的热页留在本地, 冷页迁往远端, 达到扩容的目的。
 
 例如, 在虚拟化场景中, 随着虚机内使用内存增加, NUMA内的内存使用率随之增加, 当达到一定水线时, 虚机的部分内存需要逃生到借用内存。
 此时SMAP提供能力, 将虚机冷数据按照可控比例迁出至借用内存。
@@ -35,7 +35,7 @@ SMAP是一款Huawei计算产品线自研, 开源的内存迁移工具, 搭配OBM
    
    <pre class="screen" id="screen8274308918"><p class="p" id="p1958548202716">cd /lib/modules/smap</p><p class="p" id="p295820488271">insmod smap_tracking_core.ko</p></pre>
    
-     
+   
    * 安装smap_histogram_tracking.ko。
      
      <pre class="screen" id="screen1810215131197"><p class="p" id="p995994814275">insmod smap_histogram_tracking.ko</p></pre>

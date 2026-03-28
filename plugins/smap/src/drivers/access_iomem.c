@@ -221,10 +221,15 @@ int calc_paddr_acidx_iomem(u64 pa, int *nid, u64 *index, int page_size)
 	struct ram_segment *seg;
 	int shift = __builtin_ctz(page_size);
 	int numa = NUMA_NO_NODE;
-	u64 idx[SMAP_MAX_REMOTE_NUMNODES] = { 0 };
+	u64 idx[SMAP_MAX_NUMNODES] = { 0 };
 
 	read_lock(&rem_ram_list_lock);
 	list_for_each_entry(seg, &remote_ram_list, node) {
+		if (seg->numa_node >=  SMAP_MAX_NUMNODES) {
+			pr_err("numa %d is invalid\n", seg->numa_node);
+			read_unlock(&rem_ram_list_lock);
+			return -ERANGE;
+		}
 		if (pa < seg->start)
 			break;
 		if (pa <= seg->end) {

@@ -249,11 +249,8 @@ static bool is_page_ready_for_migrate(struct page *page)
 		pr_debug("page mapcount invalid.\n");
 		return false;
 	}
-	if (!PageHuge(page)) {
-		if (!folio_try_get(page_folio(page))) {
-			return false;
-		}
-	}
+	if (!folio_try_get(page_folio(page)))
+		return false;
 	return true;
 }
 

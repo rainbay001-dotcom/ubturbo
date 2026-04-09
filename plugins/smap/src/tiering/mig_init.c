@@ -363,16 +363,15 @@ static void walkpage_and_migrate(struct mig_payload *payloads, int len, int *mig
 			} else {
 				mig_cnt = smap_pgsize == HUGE_PAGE ? (payloads[i].mem_size >> KB_TO_2M) : (payloads[i].mem_size >> KB_TO_4K);
 			}
-			if (smap_pgsize != HUGE_PAGE) {
-				for (int j = mig_cnt; j < pm.mig_info.mig_cnt; j++) {
-					folio_put(pm.mig_info.folios[j]);
-				}
+			for (int j = mig_cnt; j < pm.mig_info.mig_cnt; j++) {
+				folio_put(pm.mig_info.folios[j]);
 			}
+
 			mig_cnt = MIN(mig_cnt, pm.mig_info.mig_cnt);
 			pr_info("pid:%d migrate page count: %llu, from: %d to: %d\n",
 					payloads[i].pid, mig_cnt, payloads[i].src_nid, payloads[i].dest_nid);
 
-			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt, payloads[i].dest_nid, MIGRATE_TYPE_REMOTE);
+			failed_cnt = smap_migrate(pm.mig_info.folios, mig_cnt, payloads[i].dest_nid, MIGRATE_TYPE_HOTNESS);
 			payloads[i].success_cnt += (mig_cnt - failed_cnt);
 			vfree(pm.mig_info.folios);
 			if (failed_cnt == 0) {

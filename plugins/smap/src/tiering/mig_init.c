@@ -480,8 +480,18 @@ static int __ioctl_check_pagesize(void __user *argp)
  * of calling fp_migrate_pages(), calls fp_reclaim_pages() to force the
  * kernel to write pages to the configured swap device.
  *
+ * Key differences from do_migrate():
+ *   1. Batched reclaim: process SWAP_OUT_BATCH_SIZE pages at a time to
+ *      avoid holding too many isolated pages (which blocks the process)
+ *   2. Putback on failure: any pages not reclaimed are returned to LRU
+ *      via fp_putback_movable_pages() to prevent page leaks
+ *   3. Yield between batches: cond_resched() to avoid soft lockup
+ *
  * Requires: swapon on NVMe device + fp_reclaim_pages resolved via kprobe.
  */
+#define SWAP_OUT_INVALID_PADDR 0
+#define SWAP_OUT_BATCH_SIZE 256
+
 static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 {
 	int i;
@@ -489,7 +499,6 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 	unsigned int total_reclaimed = 0;
 	unsigned long pfn;
 	struct page *p_page;
-	LIST_HEAD(folio_list);
 
 	if (!fp_reclaim_pages) {
 		pr_err("reclaim_pages not available, swap-out disabled\n");
@@ -504,10 +513,14 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 		    mig_list[i].nr <= 0 || mig_list[i].nr > MAX_MIG_LIST_NR)
 			continue;
 
-		unsigned int nr_isolated = 0;
+		unsigned int nr_isolated_total = 0;
+		unsigned int nr_reclaimed_total = 0;
+		unsigned int batch_isolated = 0;
+		LIST_HEAD(folio_list);
+
 		for (j = 0; j < mig_list[i].nr; j++) {
 			p_addr = mig_list[i].addr[j];
-			if (p_addr == INVALID_PADDR)
+			if (p_addr == SWAP_OUT_INVALID_PADDR)
 				continue;
 
 			pfn = PHYS_PFN(p_addr);
@@ -523,22 +536,48 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 				continue;
 
 			if (fp_isolate_folio_to_list(folio, &folio_list)) {
-				nr_isolated++;
+				batch_isolated++;
+				nr_isolated_total++;
 			} else {
 				folio_put(folio);
 			}
+
+			/*
+			 * Batch reclaim: process SWAP_OUT_BATCH_SIZE pages at
+			 * a time. This prevents holding too many pages off-LRU
+			 * which can block the owning process and cause hangs.
+			 */
+			if (batch_isolated >= SWAP_OUT_BATCH_SIZE) {
+				unsigned long reclaimed = fp_reclaim_pages(&folio_list);
+				nr_reclaimed_total += reclaimed;
+
+				/* Put back any pages that weren't reclaimed */
+				if (!list_empty(&folio_list))
+					fp_putback_movable_pages(&folio_list);
+
+				INIT_LIST_HEAD(&folio_list);
+				batch_isolated = 0;
+				cond_resched();
+			}
 		}
 
-		if (nr_isolated > 0) {
+		/* Reclaim remaining batch */
+		if (batch_isolated > 0) {
 			unsigned long reclaimed = fp_reclaim_pages(&folio_list);
-			total_reclaimed += reclaimed;
-			pr_info("swap_out[%d]: pid %d node %d, isolated %u, reclaimed %lu\n",
-				i, mig_list[i].pid, mig_list[i].from,
-				nr_isolated, reclaimed);
+			nr_reclaimed_total += reclaimed;
+
+			/* Put back any pages that weren't reclaimed */
+			if (!list_empty(&folio_list))
+				fp_putback_movable_pages(&folio_list);
 		}
+
+		pr_info("swap_out[%d]: pid %d node %d, isolated %u, reclaimed %u\n",
+			i, mig_list[i].pid, mig_list[i].from,
+			nr_isolated_total, nr_reclaimed_total);
 
 		mig_list[i].success_to_user = true;
-		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_isolated;
+		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed_total;
+		total_reclaimed += nr_reclaimed_total;
 	}
 
 	return total_reclaimed;

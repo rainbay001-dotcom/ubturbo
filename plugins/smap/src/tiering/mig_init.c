@@ -536,6 +536,15 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 				continue;
 
 			if (fp_isolate_folio_to_list(folio, &folio_list)) {
+				/*
+				 * Drop the extra ref from folio_try_get().
+				 * isolate_folio_to_list() takes its own ref.
+				 * reclaim_pages() -> shrink_folio_list() expects
+				 * refcount == page_table_refs + 1 (isolation ref).
+				 * Our extra ref causes refcount check to fail,
+				 * making reclaim skip every page (reclaimed=0).
+				 */
+				folio_put(folio);
 				batch_isolated++;
 				nr_isolated_total++;
 			} else {

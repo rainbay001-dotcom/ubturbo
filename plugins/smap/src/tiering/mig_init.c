@@ -473,6 +473,26 @@ static int __ioctl_check_pagesize(void __user *argp)
 	return pageType == smap_pgsize ? 0 : -EINVAL;
 }
 
+static int __ioctl_swap_out(void __user *argp)
+{
+	return do_swap_out((struct swap_msg __user *)argp);
+}
+
+static int __ioctl_swap_in(void __user *argp)
+{
+	return do_swap_in((struct swap_in_msg __user *)argp);
+}
+
+static int __ioctl_swap_dev_set(void __user *argp)
+{
+	return smap_swap_set_device((struct swap_dev_config __user *)argp);
+}
+
+static int __ioctl_swap_stats(void __user *argp)
+{
+	return smap_swap_get_stats((struct swap_stats __user *)argp);
+}
+
 static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -495,6 +515,22 @@ static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 	}
 	case SMAP_MIG_PID_REMOTE_NUMA: {
 		rc = __ioctl_migrate_pid_remote_numa(argp);
+		break;
+	}
+	case SMAP_SWAP_OUT: {
+		rc = __ioctl_swap_out(argp);
+		break;
+	}
+	case SMAP_SWAP_IN: {
+		rc = __ioctl_swap_in(argp);
+		break;
+	}
+	case SMAP_SWAP_DEV_SET: {
+		rc = __ioctl_swap_dev_set(argp);
+		break;
+	}
+	case SMAP_SWAP_STATS: {
+		rc = __ioctl_swap_stats(argp);
 		break;
 	}
 	default:
@@ -581,12 +617,21 @@ int init_migrate(void)
 		pr_err("failed to init migrate device, ret: %d\n", ret);
 		return ret;
 	}
+
+	ret = smap_swap_module_init();
+	if (ret) {
+		pr_err("failed to init swap module, ret: %d\n", ret);
+		exit_mig_dev();
+		return ret;
+	}
+
 	pr_info("init SMAP migrate successfully\n");
 	return ret;
 }
 
 void exit_migrate(void)
 {
+	smap_swap_module_exit();
 	exit_mig_dev();
 	pr_info("exit SMAP migrate\n");
 }

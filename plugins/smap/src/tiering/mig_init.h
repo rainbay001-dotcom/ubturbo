@@ -12,6 +12,7 @@
 #include "dump_info.h"
 #include "smap_migrate_pages.h"
 #include "smap_migrate_wrapper.h"
+#include "smap_swap.h"
 
 #define KB_TO_2M 11
 #define KB_TO_4K 2
@@ -26,6 +27,11 @@
 #define SMAP_MIG_MIGRATE_NUMA _IOW(SMAP_MIG_MAGIC, 2, struct migrate_numa_msg)
 #define SMAP_MIG_PID_REMOTE_NUMA \
 	_IOW(SMAP_MIG_MAGIC, 3, struct migrate_pid_remote_numa_msg)
+
+#define SMAP_SWAP_OUT		_IOW(SMAP_MIG_MAGIC, 4, struct swap_msg)
+#define SMAP_SWAP_IN		_IOW(SMAP_MIG_MAGIC, 5, struct swap_in_msg)
+#define SMAP_SWAP_DEV_SET	_IOW(SMAP_MIG_MAGIC, 6, struct swap_dev_config)
+#define SMAP_SWAP_STATS		_IOR(SMAP_MIG_MAGIC, 7, struct swap_stats)
 
 typedef struct {
 	u64 pme;

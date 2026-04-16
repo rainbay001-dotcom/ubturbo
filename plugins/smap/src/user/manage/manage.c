@@ -133,6 +133,17 @@ int ProcessManagerInit(uint32_t pageType)
     EnvMutexInit(&g_processManager.threadLock);
     InitSceneInfo(&g_processManager.sceneInfo);
     g_runMode = WATERLINE_MODE;
+
+    /* Initialize swap policy defaults */
+    g_processManager.swapPolicy.cold_window_threshold = SWAP_DEFAULT_COLD_WINDOW_THRESHOLD;
+    g_processManager.swapPolicy.max_swap_per_cycle = SWAP_DEFAULT_MAX_PER_CYCLE;
+    g_processManager.swapPolicy.max_swap_per_process = 0; /* unlimited */
+    g_processManager.swapPolicy.l2_watermark_ratio = SWAP_DEFAULT_L2_WATERMARK;
+    g_processManager.swapPolicy.batch_size = SWAP_DEFAULT_BATCH_SIZE;
+    g_processManager.swapPolicy.swap_enabled = false;
+    g_processManager.swapPolicy.allow_vm_swap = false;
+    memset_s(&g_processManager.swapDevice, sizeof(SwapDeviceConfig), 0, sizeof(SwapDeviceConfig));
+
     return 0;
 }
 
@@ -223,6 +234,18 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     }
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
+    }
+    /* Cleanup swap resources */
+    for (int si = 0; si < REMOTE_NUMA_NUM; si++) {
+        if (attr->coldState.tracker[si].cold_windows) {
+            free(attr->coldState.tracker[si].cold_windows);
+            attr->coldState.tracker[si].cold_windows = NULL;
+        }
+        attr->coldState.tracker[si].page_count = 0;
+    }
+    if (attr->swap_pidfd >= 0) {
+        close(attr->swap_pidfd);
+        attr->swap_pidfd = -1;
     }
     free(attr);
 }

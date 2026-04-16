@@ -10,6 +10,24 @@
  * See the Mulan PSL v2 for more details.
  */
 
+/*
+ * Option B Swap-Out: process_madvise(MADV_PAGEOUT)
+ *
+ * Key insight: actcData[nid][i].addr is a bitmap INDEX (0,1,2,...), NOT a
+ * physical address. The kernel's access_pid driver maintains a bitmap where
+ * each set bit corresponds to a page belonging to the process on that NUMA
+ * node. The index tells us WHICH page in the bitmap, but not its VA.
+ *
+ * To use process_madvise (which requires virtual addresses), we scan
+ * /proc/pid/numa_maps to find VMA ranges on L2 NUMA nodes, then advise
+ * MADV_PAGEOUT on entire cold VMA ranges. We use actcData frequency
+ * statistics (freqZero count, cold_windows) to decide WHETHER to swap,
+ * but we let the kernel decide WHICH specific pages within the VMA to
+ * reclaim — the kernel already has the LRU information.
+ *
+ * This is coarser than per-page control but requires no kernel changes.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,154 +54,17 @@
 #define MADV_PAGEOUT 21
 #endif
 
-#define PA_TO_VA_MAP_SIZE 4096
-#define PAGEMAP_ENTRY_BYTES 8
+#define MAX_VMA_RANGES 256
+#define NUMA_MAPS_LINE_LEN 1024
 
 /*
- * PA-to-VA mapping entry, built by scanning /proc/pid/maps + /proc/pid/pagemap.
+ * VMA range on a specific NUMA node, parsed from /proc/pid/numa_maps.
  */
-struct pa_va_entry {
-    uint64_t pa;
-    uint64_t va;
+struct vma_range {
+    uint64_t start;
+    uint64_t end;
+    int nid;
 };
-
-struct pa_va_map {
-    struct pa_va_entry *entries;
-    uint64_t count;
-    uint64_t capacity;
-};
-
-static int PaVaMapInit(struct pa_va_map *map, uint64_t capacity)
-{
-    map->entries = (struct pa_va_entry *)calloc(capacity, sizeof(struct pa_va_entry));
-    if (!map->entries) {
-        return -ENOMEM;
-    }
-    map->count = 0;
-    map->capacity = capacity;
-    return 0;
-}
-
-static void PaVaMapDestroy(struct pa_va_map *map)
-{
-    if (map->entries) {
-        free(map->entries);
-        map->entries = NULL;
-    }
-    map->count = 0;
-    map->capacity = 0;
-}
-
-static void PaVaMapAdd(struct pa_va_map *map, uint64_t pa, uint64_t va)
-{
-    if (map->count >= map->capacity) {
-        uint64_t new_cap = map->capacity * 2;
-        struct pa_va_entry *new_entries = (struct pa_va_entry *)realloc(
-            map->entries, new_cap * sizeof(struct pa_va_entry));
-        if (!new_entries) {
-            return;
-        }
-        map->entries = new_entries;
-        map->capacity = new_cap;
-    }
-    map->entries[map->count].pa = pa;
-    map->entries[map->count].va = va;
-    map->count++;
-}
-
-static uint64_t PaVaMapLookup(struct pa_va_map *map, uint64_t pa)
-{
-    for (uint64_t i = 0; i < map->count; i++) {
-        if (map->entries[i].pa == pa) {
-            return map->entries[i].va;
-        }
-    }
-    return 0; /* Not found */
-}
-
-/*
- * Build PA→VA mapping by walking /proc/pid/maps and /proc/pid/pagemap.
- * Only maps pages whose PA is in the candidate set (phys_addrs).
- */
-static int BuildPaVaMap(pid_t pid, uint64_t *phys_addrs, uint64_t nr_pages, struct pa_va_map *map)
-{
-    char maps_path[BUFFER_SIZE];
-    char pagemap_path[BUFFER_SIZE];
-    int ret;
-
-    ret = snprintf_s(maps_path, sizeof(maps_path), sizeof(maps_path), "/proc/%d/maps", pid);
-    if (ret < 0) {
-        return -EINVAL;
-    }
-    ret = snprintf_s(pagemap_path, sizeof(pagemap_path), sizeof(pagemap_path), "/proc/%d/pagemap", pid);
-    if (ret < 0) {
-        return -EINVAL;
-    }
-
-    FILE *maps_file = fopen(maps_path, "r");
-    if (!maps_file) {
-        SMAP_LOGGER_ERROR("Failed to open %s", maps_path);
-        return -ENOENT;
-    }
-
-    int pagemap_fd = open(pagemap_path, O_RDONLY);
-    if (pagemap_fd < 0) {
-        fclose(maps_file);
-        SMAP_LOGGER_ERROR("Failed to open %s", pagemap_path);
-        return -ENOENT;
-    }
-
-    ret = PaVaMapInit(map, nr_pages);
-    if (ret) {
-        fclose(maps_file);
-        close(pagemap_fd);
-        return ret;
-    }
-
-    int page_size = IsHugeMode() ? (int)GetHugePageSize() : (int)GetNormalPageSize();
-    char line[MAPS_MAX_LEN];
-
-    while (fgets(line, sizeof(line), maps_file) && map->count < nr_pages) {
-        unsigned long start, end;
-        if (sscanf(line, "%lx-%lx", &start, &end) != MAPS_LIN_LEN) {
-            continue;
-        }
-        if (IsHugeMode() && !IsHugePageRange(line)) {
-            continue;
-        }
-
-        for (unsigned long vaddr = start; vaddr < end && map->count < nr_pages; vaddr += page_size) {
-            off_t offset = (vaddr / PAGE_SIZE) * PAGEMAP_ENTRY_BYTES;
-            if (lseek(pagemap_fd, offset, SEEK_SET) == (off_t)-1) {
-                continue;
-            }
-
-            uint64_t entry;
-            if (read(pagemap_fd, &entry, PAGEMAP_ENTRY_BYTES) != PAGEMAP_ENTRY_BYTES) {
-                continue;
-            }
-
-            if (!(entry & PRESENT)) {
-                continue;
-            }
-
-            uint64_t pfn = entry & PRN_SHIFT;
-            uint64_t pa = pfn * PAGE_SIZE;
-
-            /* Check if this PA is in our candidate set */
-            for (uint64_t j = 0; j < nr_pages; j++) {
-                if (phys_addrs[j] == pa) {
-                    PaVaMapAdd(map, pa, vaddr);
-                    break;
-                }
-            }
-        }
-    }
-
-    fclose(maps_file);
-    close(pagemap_fd);
-    return 0;
-}
 
 static int GetOrOpenPidfd(ProcessAttr *process)
 {
@@ -211,9 +92,110 @@ void ClosePidfd(ProcessAttr *process)
     }
 }
 
-int DoSwapOut(ProcessAttr *process, uint64_t *phys_addrs, uint64_t nr_pages, uint32_t batch_size)
+/*
+ * Collect VMA ranges residing on L2 NUMA nodes by parsing /proc/pid/numa_maps.
+ *
+ * numa_maps format: "<hex_addr> <policy> <details...> N<nid>=<pages> ..."
+ * We look for entries where most pages are on L2 nodes (nid >= LOCAL_NUMA_NUM).
+ */
+static int CollectL2VmaRanges(pid_t pid, struct vma_range *ranges, int max_ranges, int *out_count)
 {
-    if (!process || !phys_addrs || nr_pages == 0) {
+    char path[BUFFER_SIZE];
+    int ret = snprintf_s(path, sizeof(path), sizeof(path), "/proc/%d/numa_maps", pid);
+    if (ret < 0) {
+        return -EINVAL;
+    }
+
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        SMAP_LOGGER_ERROR("Failed to open %s", path);
+        return -ENOENT;
+    }
+
+    char line[NUMA_MAPS_LINE_LEN];
+    int count = 0;
+    int nrLocal = GetNrLocalNuma();
+
+    while (fgets(line, sizeof(line), f) && count < max_ranges) {
+        uint64_t vma_start = 0;
+        /* Parse VMA start address (first hex field) */
+        if (sscanf(line, "%lx", &vma_start) != 1) {
+            continue;
+        }
+
+        /* Find which NUMA node has the most pages in this VMA */
+        int best_nid = -1;
+        unsigned long best_pages = 0;
+        unsigned long total_pages = 0;
+
+        /* Scan for N<nid>=<pages> patterns */
+        char *pos = line;
+        while ((pos = strstr(pos, " N")) != NULL) {
+            pos += 2; /* skip " N" */
+            int nid = 0;
+            unsigned long pages = 0;
+            if (sscanf(pos, "%d=%lu", &nid, &pages) == 2) {
+                total_pages += pages;
+                if (pages > best_pages) {
+                    best_pages = pages;
+                    best_nid = nid;
+                }
+            }
+        }
+
+        /* Only include VMAs primarily on L2 nodes */
+        if (best_nid >= nrLocal && total_pages > 0) {
+            ranges[count].start = vma_start;
+            ranges[count].nid = best_nid;
+            /* We don't know end from numa_maps; use maps to find it */
+            ranges[count].end = 0;
+            count++;
+        }
+    }
+    fclose(f);
+
+    /* Fill in VMA end addresses from /proc/pid/maps */
+    if (count > 0) {
+        ret = snprintf_s(path, sizeof(path), sizeof(path), "/proc/%d/maps", pid);
+        if (ret < 0) {
+            *out_count = 0;
+            return -EINVAL;
+        }
+        f = fopen(path, "r");
+        if (f) {
+            while (fgets(line, sizeof(line), f)) {
+                unsigned long start, end;
+                if (sscanf(line, "%lx-%lx", &start, &end) == 2) {
+                    for (int i = 0; i < count; i++) {
+                        if (ranges[i].start == start) {
+                            ranges[i].end = end;
+                            break;
+                        }
+                    }
+                }
+            }
+            fclose(f);
+        }
+        /* Remove entries where we couldn't find the end */
+        int valid = 0;
+        for (int i = 0; i < count; i++) {
+            if (ranges[i].end > ranges[i].start) {
+                if (valid != i) {
+                    ranges[valid] = ranges[i];
+                }
+                valid++;
+            }
+        }
+        count = valid;
+    }
+
+    *out_count = count;
+    return 0;
+}
+
+int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, uint32_t batch_size)
+{
+    if (!process || nr_cold == 0) {
         return 0;
     }
 
@@ -223,70 +205,71 @@ int DoSwapOut(ProcessAttr *process, uint64_t *phys_addrs, uint64_t nr_pages, uin
         return 0;
     }
 
-    /* Build PA→VA mapping for the candidate pages */
-    struct pa_va_map map;
-    int ret = BuildPaVaMap(process->pid, phys_addrs, nr_pages, &map);
-    if (ret != 0 || map.count == 0) {
-        SMAP_LOGGER_DEBUG("pid %d: no VA mappings found for %lu swap candidates", process->pid, nr_pages);
-        if (ret == 0) {
-            PaVaMapDestroy(&map);
-        }
+    /*
+     * Collect VMA ranges on L2 NUMA nodes. We advise MADV_PAGEOUT on these
+     * ranges, letting the kernel reclaim the coldest pages within them.
+     * The cold_indices/nr_cold from the cold tracker tells us HOW MANY
+     * pages are cold (driving the decision to swap), but the kernel's
+     * MADV_PAGEOUT handler picks which pages to actually reclaim based
+     * on PTE access bits.
+     */
+    struct vma_range *ranges = (struct vma_range *)calloc(MAX_VMA_RANGES, sizeof(struct vma_range));
+    if (!ranges) {
         return 0;
     }
 
-    int page_size = IsHugeMode() ? (int)GetHugePageSize() : (int)GetNormalPageSize();
-    struct iovec *iov = (struct iovec *)calloc(batch_size, sizeof(struct iovec));
+    int range_count = 0;
+    int ret = CollectL2VmaRanges(process->pid, ranges, MAX_VMA_RANGES, &range_count);
+    if (ret != 0 || range_count == 0) {
+        SMAP_LOGGER_DEBUG("pid %d: no L2 VMA ranges found", process->pid);
+        free(ranges);
+        return 0;
+    }
+
+    /* Build iovec array from VMA ranges */
+    struct iovec *iov = (struct iovec *)calloc(range_count, sizeof(struct iovec));
     if (!iov) {
-        PaVaMapDestroy(&map);
+        free(ranges);
         return 0;
     }
 
-    uint64_t pages_done = 0;
-    uint64_t total_mapped = map.count;
+    int iov_count = 0;
+    for (int i = 0; i < range_count && iov_count < (int)batch_size; i++) {
+        iov[iov_count].iov_base = (void *)ranges[i].start;
+        iov[iov_count].iov_len = ranges[i].end - ranges[i].start;
+        iov_count++;
+    }
 
-    while (pages_done < total_mapped) {
-        uint32_t batch = 0;
+    if (iov_count == 0) {
+        free(iov);
+        free(ranges);
+        return 0;
+    }
 
-        /* Build iovec batch from PA→VA mapping */
-        for (uint64_t i = pages_done; i < total_mapped && batch < batch_size; i++) {
-            iov[batch].iov_base = (void *)map.entries[i].va;
-            iov[batch].iov_len = page_size;
-            batch++;
+    /* Issue process_madvise syscall */
+    ssize_t advised = syscall(SYS_process_madvise, pidfd, iov, (size_t)iov_count, MADV_PAGEOUT, 0);
+    int pages_done = 0;
+
+    if (advised < 0) {
+        if (errno == ESRCH) {
+            ClosePidfd(process);
+            SMAP_LOGGER_INFO("pid %d: process exited during swap-out", process->pid);
+        } else if (errno == EACCES || errno == EPERM) {
+            SMAP_LOGGER_ERROR("process_madvise pid %d: need CAP_SYS_NICE: %s",
+                              process->pid, strerror(errno));
+        } else {
+            SMAP_LOGGER_ERROR("process_madvise pid %d failed: %s",
+                              process->pid, strerror(errno));
         }
-
-        if (batch == 0) {
-            break;
-        }
-
-        /* Issue process_madvise syscall */
-        ssize_t advised = syscall(SYS_process_madvise, pidfd, iov, (size_t)batch, MADV_PAGEOUT, 0);
-        if (advised < 0) {
-            if (errno == EAGAIN) {
-                usleep(SWAP_YIELD_US);
-                continue;
-            }
-            if (errno == ESRCH) {
-                /* Process died */
-                ClosePidfd(process);
-                SMAP_LOGGER_INFO("pid %d: process exited during swap-out", process->pid);
-                break;
-            }
-            SMAP_LOGGER_ERROR("process_madvise pid %d failed: %s", process->pid, strerror(errno));
-            process->swapAccounting.swap_out_failures++;
-            break;
-        }
-
-        pages_done += batch;
-
-        /* Yield between batches */
-        if (pages_done < total_mapped) {
-            usleep(SWAP_YIELD_US);
-        }
+        process->swapAccounting.swap_out_failures++;
+    } else {
+        int page_size = IsHugeMode() ? (int)GetHugePageSize() : (int)GetNormalPageSize();
+        pages_done = (int)(advised / page_size);
+        SMAP_LOGGER_INFO("pid %d: MADV_PAGEOUT advised %zd bytes (%d pages) across %d L2 VMAs",
+                         process->pid, advised, pages_done, iov_count);
     }
 
     free(iov);
-    PaVaMapDestroy(&map);
-
-    SMAP_LOGGER_DEBUG("pid %d: swap-out completed %lu/%lu pages", process->pid, pages_done, total_mapped);
-    return (int)pages_done;
+    free(ranges);
+    return pages_done;
 }

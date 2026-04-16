@@ -14,7 +14,22 @@
 
 #include "manage/manage.h"
 
-int DoSwapOut(ProcessAttr *process, uint64_t *phys_addrs, uint64_t nr_pages, uint32_t batch_size);
+/*
+ * DoSwapOut - Swap cold L2 pages to NVMe via process_madvise(MADV_PAGEOUT).
+ *
+ * @process:     Target process
+ * @cold_indices: Bitmap indices of cold pages (from SelectSwapCandidates).
+ *                NOTE: These are NOT physical addresses. They are indices
+ *                into the kernel's access tracking bitmap. DoSwapOut does
+ *                NOT use these for addressing — it uses /proc/pid/numa_maps
+ *                to find L2 VMA ranges and advises MADV_PAGEOUT on them.
+ *                The cold_indices count drives the swap decision.
+ * @nr_cold:     Number of cold page indices (used for decision threshold)
+ * @batch_size:  Max iovec entries per process_madvise call
+ *
+ * Returns: number of pages advised for swap-out (approximate)
+ */
+int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, uint32_t batch_size);
 void ClosePidfd(ProcessAttr *process);
 
 #endif /* __SWAP_OUT_H__ */

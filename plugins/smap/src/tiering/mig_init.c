@@ -515,57 +515,109 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 
 		unsigned int nr_isolated_total = 0;
 		unsigned int nr_reclaimed_total = 0;
+		unsigned int nr_isolate_fail = 0;
+		unsigned int nr_skip_invalid = 0;
+		unsigned int nr_skip_pfn = 0;
+		unsigned int nr_skip_page = 0;
 		unsigned int batch_isolated = 0;
+		unsigned int batch_num = 0;
 		LIST_HEAD(folio_list);
+
+		pr_info("swap_out[%d]: starting pid %d node %d, nr %llu\n",
+			i, mig_list[i].pid, mig_list[i].from, mig_list[i].nr);
 
 		for (j = 0; j < mig_list[i].nr; j++) {
 			p_addr = mig_list[i].addr[j];
-			if (p_addr == SWAP_OUT_INVALID_PADDR)
+			if (p_addr == SWAP_OUT_INVALID_PADDR) {
+				nr_skip_invalid++;
 				continue;
+			}
 
 			pfn = PHYS_PFN(p_addr);
-			if (!pfn_valid(pfn))
+			if (!pfn_valid(pfn)) {
+				nr_skip_pfn++;
 				continue;
+			}
 
 			p_page = pfn_to_online_page(pfn);
-			if (!p_page)
+			if (!p_page) {
+				nr_skip_page++;
 				continue;
+			}
 
 			struct folio *folio = page_folio(p_page);
+
+			/* Diagnostic: print first page's state */
+			if (j == 0) {
+				pr_info("swap_out: first folio pfn=%lu refcount=%d "
+					"mapcount=%d flags=0x%lx "
+					"anon=%d swapcache=%d locked=%d "
+					"lru=%d active=%d unevictable=%d\n",
+					pfn, folio_ref_count(folio),
+					folio_mapcount(folio),
+					folio->flags,
+					folio_test_anon(folio),
+					folio_test_swapcache(folio),
+					folio_test_locked(folio),
+					folio_test_lru(folio),
+					folio_test_active(folio),
+					folio_test_unevictable(folio));
+			}
+
 			if (!folio_try_get(folio))
 				continue;
 
 			if (fp_isolate_folio_to_list(folio, &folio_list)) {
-				/*
-				 * Drop the extra ref from folio_try_get().
-				 * isolate_folio_to_list() takes its own ref.
-				 * reclaim_pages() -> shrink_folio_list() expects
-				 * refcount == page_table_refs + 1 (isolation ref).
-				 * Our extra ref causes refcount check to fail,
-				 * making reclaim skip every page (reclaimed=0).
-				 */
 				folio_put(folio);
 				batch_isolated++;
 				nr_isolated_total++;
 			} else {
 				folio_put(folio);
+				nr_isolate_fail++;
 			}
 
-			/*
-			 * Batch reclaim: process SWAP_OUT_BATCH_SIZE pages at
-			 * a time. This prevents holding too many pages off-LRU
-			 * which can block the owning process and cause hangs.
-			 */
 			if (batch_isolated >= SWAP_OUT_BATCH_SIZE) {
+				unsigned long before_count = 0;
+				struct folio *f;
+				list_for_each_entry(f, &folio_list, lru)
+					before_count++;
+
 				unsigned long reclaimed = fp_reclaim_pages(&folio_list);
 				nr_reclaimed_total += reclaimed;
 
-				/* Put back any pages that weren't reclaimed */
+				unsigned long after_count = 0;
+				list_for_each_entry(f, &folio_list, lru)
+					after_count++;
+
+				pr_info("swap_out: batch[%u] isolated=%u "
+					"list_before=%lu reclaimed=%lu "
+					"list_after=%lu\n",
+					batch_num, batch_isolated,
+					before_count, reclaimed, after_count);
+
+				/* Print first remaining folio's state */
+				if (after_count > 0) {
+					f = list_first_entry(&folio_list,
+							     struct folio, lru);
+					pr_info("swap_out: remaining folio "
+						"refcount=%d mapcount=%d "
+						"anon=%d dirty=%d writeback=%d "
+						"locked=%d mlock=%d\n",
+						folio_ref_count(f),
+						folio_mapcount(f),
+						folio_test_anon(f),
+						folio_test_dirty(f),
+						folio_test_writeback(f),
+						folio_test_locked(f),
+						folio_test_mlocked(f));
+				}
+
 				if (!list_empty(&folio_list))
 					fp_putback_movable_pages(&folio_list);
 
 				INIT_LIST_HEAD(&folio_list);
 				batch_isolated = 0;
+				batch_num++;
 				cond_resched();
 			}
 		}
@@ -574,15 +626,20 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 		if (batch_isolated > 0) {
 			unsigned long reclaimed = fp_reclaim_pages(&folio_list);
 			nr_reclaimed_total += reclaimed;
+			pr_info("swap_out: final_batch isolated=%u reclaimed=%lu\n",
+				batch_isolated, reclaimed);
 
-			/* Put back any pages that weren't reclaimed */
 			if (!list_empty(&folio_list))
 				fp_putback_movable_pages(&folio_list);
 		}
 
-		pr_info("swap_out[%d]: pid %d node %d, isolated %u, reclaimed %u\n",
+		pr_info("swap_out[%d]: pid %d node %d, total isolated=%u "
+			"reclaimed=%u isolate_fail=%u skip(invalid=%u "
+			"pfn=%u page=%u) batches=%u\n",
 			i, mig_list[i].pid, mig_list[i].from,
-			nr_isolated_total, nr_reclaimed_total);
+			nr_isolated_total, nr_reclaimed_total,
+			nr_isolate_fail, nr_skip_invalid,
+			nr_skip_pfn, nr_skip_page, batch_num);
 
 		mig_list[i].success_to_user = true;
 		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed_total;

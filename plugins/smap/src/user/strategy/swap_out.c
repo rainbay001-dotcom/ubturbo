@@ -79,24 +79,36 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
     mMsg.mulMig.nrThread = 1;
     mMsg.mulMig.isMulThread = false;
 
-    /* Allocate space for one mig_list entry per L2 NUMA node with cold pages */
-    int maxEntries = REMOTE_NUMA_NUM;
+    /*
+     * Allocate space for mig_list entries per NUMA node.
+     * Supports both L2→L3 (standard tiered) and L1→L3 (no CXL) scenarios.
+     */
+    int maxEntries = MAX_NODES;
     mMsg.migList = (struct MigList *)calloc(maxEntries, sizeof(struct MigList));
     if (!mMsg.migList) {
         SMAP_LOGGER_ERROR("DoSwapOut: migList alloc failed.");
         return 0;
     }
 
-    /* Group cold indices by their source L2 NUMA node */
+    /* Group cold indices by source NUMA node (L1 or L2) */
+    bool has_l2 = (process->remoteNumaCnt > 0);
     int nrLocal = GetNrLocalNuma();
-    for (int nid = nrLocal; nid < MAX_NODES; nid++) {
-        if (NotInAttrL2(process, nid)) {
-            continue;
-        }
 
-        int tracker_idx = nid - LOCAL_NUMA_NUM;
-        if (tracker_idx < 0 || tracker_idx >= REMOTE_NUMA_NUM) {
-            continue;
+    for (int nid = 0; nid < MAX_NODES; nid++) {
+        if (nid >= SWAP_MAX_NODES) {
+            break;
+        }
+        /* Determine if this node should be tracked for swap */
+        if (has_l2) {
+            /* Standard tiered: swap from L2 nodes only */
+            if (nid < nrLocal || NotInAttrL2(process, nid)) {
+                continue;
+            }
+        } else {
+            /* L1+L3 only: swap from L1 nodes */
+            if (nid >= nrLocal || NotInAttrL1(process, nid)) {
+                continue;
+            }
         }
 
         ActcData *data = process->scanAttr.actcData[nid];
@@ -107,7 +119,7 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
 
         /* Count cold pages on this node */
         uint64_t node_cold = 0;
-        ColdTracker *ct = &process->coldState.tracker[tracker_idx];
+        ColdTracker *ct = &process->coldState.tracker[nid];
         if (!ct->cold_windows) {
             continue;
         }

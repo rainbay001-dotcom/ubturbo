@@ -236,7 +236,7 @@ static void FreeProceccesAttr(ProcessAttr *attr)
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
     }
     /* Cleanup swap resources */
-    for (int si = 0; si < REMOTE_NUMA_NUM; si++) {
+    for (int si = 0; si < SWAP_MAX_NODES; si++) {
         if (attr->coldState.tracker[si].cold_windows) {
             free(attr->coldState.tracker[si].cold_windows);
             attr->coldState.tracker[si].cold_windows = NULL;

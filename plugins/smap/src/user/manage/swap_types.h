@@ -63,8 +63,10 @@ typedef struct {
 
 #define COLD_TRACKER_MAX_WINDOWS 255
 
+#define SWAP_MAX_NODES 22 /* LOCAL_NUMA_NUM + REMOTE_NUMA_NUM */
+
 typedef struct {
-    ColdTracker tracker[18]; /* REMOTE_NUMA_NUM */
+    ColdTracker tracker[SWAP_MAX_NODES]; /* Track all nodes: L1 (0-3) + L2 (4-21) */
 } ProcessColdState;
 
 #endif /* __SWAP_TYPES_H__ */

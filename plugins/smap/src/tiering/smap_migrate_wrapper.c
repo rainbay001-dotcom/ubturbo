@@ -18,6 +18,7 @@ int (*fp_migrate_pages)(struct list_head *from, new_folio_t get_new_folio,
 	enum migrate_mode mode, int reason, unsigned int *ret_succeeded) = NULL;
 void (*fp_putback_movable_pages)(struct list_head *l) = NULL;
 bool (*fp_isolate_folio_to_list)(struct folio *folio, struct list_head *list) = NULL;
+unsigned long (*fp_reclaim_pages)(struct list_head *folio_list) = NULL;
 
 static inline unsigned long *get_pageblock_bitmap(const struct page *p,
 						  unsigned long pfn)
@@ -57,7 +58,13 @@ int smap_process_symbols(void)
 		fp_kallsyms_lookup_name("isolate_folio_to_list");
 	if (!(fp_migrate_pages && fp_putback_movable_pages && fp_isolate_folio_to_list))
 		return -EFAULT;
-	
+
+	/* reclaim_pages: force page reclaim to swap (Linux 5.16+) */
+	fp_reclaim_pages = (unsigned long (*)(struct list_head *))
+		fp_kallsyms_lookup_name("reclaim_pages");
+	if (!fp_reclaim_pages)
+		pr_warn("smap: reclaim_pages not found, swap-out disabled\n");
+
 	return 0;
 }
 

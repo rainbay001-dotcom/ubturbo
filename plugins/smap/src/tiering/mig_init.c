@@ -473,6 +473,105 @@ static int __ioctl_check_pagesize(void __user *argp)
 	return pageType == smap_pgsize ? 0 : -EINVAL;
 }
 
+/*
+ * do_swap_out - Force reclaim of specific pages to swap (NVMe).
+ *
+ * Reuses the same folio collection pattern as do_migrate(), but instead
+ * of calling fp_migrate_pages(), calls fp_reclaim_pages() to force the
+ * kernel to write pages to the configured swap device.
+ *
+ * Requires: swapon on NVMe device + fp_reclaim_pages resolved via kprobe.
+ */
+static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
+{
+	int i;
+	u64 j, p_addr;
+	unsigned int total_reclaimed = 0;
+	unsigned long pfn;
+	struct page *p_page;
+	LIST_HEAD(folio_list);
+
+	if (!fp_reclaim_pages) {
+		pr_err("reclaim_pages not available, swap-out disabled\n");
+		return -ENOSYS;
+	}
+
+	if (msg->cnt == 0)
+		return 0;
+
+	for (i = 0; i < msg->cnt; i++) {
+		if (is_node_invalid(mig_list[i].from) ||
+		    mig_list[i].nr <= 0 || mig_list[i].nr > MAX_MIG_LIST_NR)
+			continue;
+
+		unsigned int nr_isolated = 0;
+		for (j = 0; j < mig_list[i].nr; j++) {
+			p_addr = mig_list[i].addr[j];
+			if (p_addr == INVALID_PADDR)
+				continue;
+
+			pfn = PHYS_PFN(p_addr);
+			if (!pfn_valid(pfn))
+				continue;
+
+			p_page = pfn_to_online_page(pfn);
+			if (!p_page)
+				continue;
+
+			struct folio *folio = page_folio(p_page);
+			if (!folio_try_get(folio))
+				continue;
+
+			if (fp_isolate_folio_to_list(folio, &folio_list)) {
+				nr_isolated++;
+			} else {
+				folio_put(folio);
+			}
+		}
+
+		if (nr_isolated > 0) {
+			unsigned long reclaimed = fp_reclaim_pages(&folio_list);
+			total_reclaimed += reclaimed;
+			pr_info("swap_out[%d]: pid %d node %d, isolated %u, reclaimed %lu\n",
+				i, mig_list[i].pid, mig_list[i].from,
+				nr_isolated, reclaimed);
+		}
+
+		mig_list[i].success_to_user = true;
+		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_isolated;
+	}
+
+	return total_reclaimed;
+}
+
+static int __ioctl_swap_out(void __user *argp)
+{
+	struct migrate_msg msg;
+	struct mig_list *mig_list;
+	int ret;
+
+	if (copy_from_user(&msg, argp, sizeof(msg)))
+		return -EFAULT;
+	if (!is_migrate_msg_valid(&msg))
+		return -EINVAL;
+
+	ret = build_migrate_list(&msg, &mig_list);
+	if (ret)
+		return ret;
+
+	ret = do_swap_out(&msg, mig_list);
+
+	if (copy_to_user(argp, &msg, sizeof(msg)))
+		pr_err("unable to copy swap message to user space\n");
+	if (copy_to_user(msg.mig_list, mig_list,
+			 msg.cnt * sizeof(struct mig_list)))
+		pr_err("unable to copy swap list to user space\n");
+
+	free_migrate_list_addr(msg.cnt, mig_list);
+	free_migrate_list(&mig_list);
+	return ret;
+}
+
 static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -495,6 +594,10 @@ static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 	}
 	case SMAP_MIG_PID_REMOTE_NUMA: {
 		rc = __ioctl_migrate_pid_remote_numa(argp);
+		break;
+	}
+	case SMAP_MIG_SWAP_OUT: {
+		rc = __ioctl_swap_out(argp);
 		break;
 	}
 	default:

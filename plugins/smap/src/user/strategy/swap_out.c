@@ -82,6 +82,13 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
     /*
      * Allocate space for mig_list entries per NUMA node.
      * Supports both L2→L3 (standard tiered) and L1→L3 (no CXL) scenarios.
+     *
+     * The kernel's init_migrate_list_addr() overwrites mig_list[i].addr
+     * with a kernel pointer (see mig_init.c:112-113), then
+     * __ioctl_swap_out() copies the whole mig_list back to user space
+     * (mig_init.c:671-672). So after the ioctl, mMsg.migList[i].addr
+     * contains a kernel address that free() would crash on.
+     * We keep a shadow array of our malloc'd pointers to free instead.
      */
     int maxEntries = MAX_NODES;
     mMsg.migList = (struct MigList *)calloc(maxEntries, sizeof(struct MigList));
@@ -89,6 +96,8 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
         SMAP_LOGGER_ERROR("DoSwapOut: migList alloc failed.");
         return 0;
     }
+    uint64_t *savedAddrs[MAX_NODES];
+    memset_s(savedAddrs, sizeof(savedAddrs), 0, sizeof(savedAddrs));
 
     /* Group cold indices by source NUMA node (L1 or L2) */
     bool has_l2 = (process->remoteNumaCnt > 0);
@@ -151,6 +160,7 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
         mMsg.migList[mMsg.cnt].to = nid; /* to is unused for swap-out */
         mMsg.migList[mMsg.cnt].nr = idx;
         mMsg.migList[mMsg.cnt].addr = addrs;
+        savedAddrs[mMsg.cnt] = addrs; /* shadow: kernel will clobber .addr */
         mMsg.cnt++;
 
         if (mMsg.cnt >= maxEntries) {
@@ -175,8 +185,11 @@ int DoSwapOut(ProcessAttr *process, uint64_t *cold_indices, uint64_t nr_cold, ui
                              process->pid, mMsg.migList[i].from,
                              success, mMsg.migList[i].nr);
         }
-        if (mMsg.migList[i].addr) {
-            free(mMsg.migList[i].addr);
+        /* Free our shadow pointer, NOT mMsg.migList[i].addr — the kernel
+         * overwrote that field with a (now-freed) kernel address during
+         * the ioctl. free()ing it would segfault in libc. */
+        if (savedAddrs[i]) {
+            free(savedAddrs[i]);
         }
     }
     free(mMsg.migList);

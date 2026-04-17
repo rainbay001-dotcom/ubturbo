@@ -474,20 +474,26 @@ static int __ioctl_check_pagesize(void __user *argp)
 }
 
 /*
- * do_swap_out - Force reclaim of specific pages to swap (NVMe).
+ * do_swap_out - Force reclaim of cold pages to the configured swap device.
  *
- * Reuses the same folio collection pattern as do_migrate(), but instead
- * of calling fp_migrate_pages(), calls fp_reclaim_pages() to force the
- * kernel to write pages to the configured swap device.
+ * Mirrors damon_pa_pageout() (mm/damon/paddr.c:228) — paddr-driven reclaim,
+ * which is the matching kernel pattern for SMAP (we already have physical
+ * addresses from cold-window tracking, no PTE walk needed).
  *
- * Key differences from do_migrate():
- *   1. Batched reclaim: process SWAP_OUT_BATCH_SIZE pages at a time to
- *      avoid holding too many isolated pages (which blocks the process)
- *   2. Putback on failure: any pages not reclaimed are returned to LRU
- *      via fp_putback_movable_pages() to prevent page leaks
- *   3. Yield between batches: cond_resched() to avoid soft lockup
+ * Per-page recipe (per damon + madvise_pageout):
+ *   1. pfn_to_online_page; reject head/tail/non-LRU/non-anon/shared
+ *   2. folio_try_get + race re-check (page_folio drift, LRU drop)
+ *   3. clear referenced + young
+ *   4. folio_isolate_lru (reclaim-side, NOT migration-side)
+ *   5. unevictable -> putback_lru; else list_add to batch
+ *   6. folio_put to drop our try_get (isolate keeps its own ref)
  *
- * Requires: swapon on NVMe device + fp_reclaim_pages resolved via kprobe.
+ * Then per batch: reclaim_pages(list, true). ignore_references=true because
+ * SMAP has already determined coldness via N consecutive zero-frequency
+ * windows — we don't want shrink_folio_list re-checking PTE young bits.
+ *
+ * reclaim_pages() empties the list itself: leftover folios are returned
+ * to LRU via folio_putback_lru in mm/vmscan.c reclaim_folio_list().
  */
 #define SWAP_OUT_INVALID_PADDR 0
 #define SWAP_OUT_BATCH_SIZE 256
@@ -498,10 +504,15 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 	u64 j, p_addr;
 	unsigned int total_reclaimed = 0;
 	unsigned long pfn;
-	struct page *p_page;
+	struct page *page;
+	struct folio *folio;
 
-	if (!fp_reclaim_pages) {
-		pr_err("reclaim_pages not available, swap-out disabled\n");
+	if (!fp_reclaim_pages || !fp_folio_isolate_lru ||
+	    !fp_folio_putback_lru) {
+		pr_err("swap-out symbols not resolved (reclaim_pages=%p "
+		       "folio_isolate_lru=%p folio_putback_lru=%p)\n",
+		       fp_reclaim_pages, fp_folio_isolate_lru,
+		       fp_folio_putback_lru);
 		return -ENOSYS;
 	}
 
@@ -509,21 +520,24 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 		return 0;
 
 	for (i = 0; i < msg->cnt; i++) {
+		unsigned int nr_isolated = 0;
+		unsigned int nr_reclaimed = 0;
+		unsigned int nr_unevictable = 0;
+		unsigned int nr_skip_invalid = 0;
+		unsigned int nr_skip_pfn = 0;
+		unsigned int nr_skip_page = 0;
+		unsigned int nr_skip_tail = 0;
+		unsigned int nr_skip_lru = 0;
+		unsigned int nr_skip_anon = 0;
+		unsigned int nr_skip_isolate = 0;
+		unsigned int batch_count = 0;
+		LIST_HEAD(folio_list);
+
 		if (is_node_invalid(mig_list[i].from) ||
 		    mig_list[i].nr <= 0 || mig_list[i].nr > MAX_MIG_LIST_NR)
 			continue;
 
-		unsigned int nr_isolated_total = 0;
-		unsigned int nr_reclaimed_total = 0;
-		unsigned int nr_isolate_fail = 0;
-		unsigned int nr_skip_invalid = 0;
-		unsigned int nr_skip_pfn = 0;
-		unsigned int nr_skip_page = 0;
-		unsigned int batch_isolated = 0;
-		unsigned int batch_num = 0;
-		LIST_HEAD(folio_list);
-
-		pr_info("swap_out[%d]: starting pid %d node %d, nr %llu\n",
+		pr_info("swap_out[%d]: pid %d node %d nr %llu\n",
 			i, mig_list[i].pid, mig_list[i].from, mig_list[i].nr);
 
 		for (j = 0; j < mig_list[i].nr; j++) {
@@ -539,111 +553,91 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 				continue;
 			}
 
-			p_page = pfn_to_online_page(pfn);
-			if (!p_page) {
+			page = pfn_to_online_page(pfn);
+			if (!page) {
 				nr_skip_page++;
 				continue;
 			}
+			/* Tail pages are not valid LRU isolation targets. */
+			if (PageTail(page)) {
+				nr_skip_tail++;
+				continue;
+			}
 
-			struct folio *folio = page_folio(p_page);
+			folio = page_folio(page);
 
-			/* Diagnostic: print first page's state */
-			if (j == 0) {
-				pr_info("swap_out: first folio pfn=%lu refcount=%d "
-					"mapcount=%d flags=0x%lx "
-					"anon=%d swapcache=%d locked=%d "
-					"lru=%d active=%d unevictable=%d\n",
-					pfn, folio_ref_count(folio),
-					folio_mapcount(folio),
-					folio->flags,
-					folio_test_anon(folio),
-					folio_test_swapcache(folio),
-					folio_test_locked(folio),
-					folio_test_lru(folio),
-					folio_test_active(folio),
-					folio_test_unevictable(folio));
+			if (!folio_test_lru(folio)) {
+				nr_skip_lru++;
+				continue;
+			}
+			/* Swap path is anonymous-only; reject shared mappings.
+			 * Matches madvise_pageout's pageout_anon_only_filter +
+			 * mapcount-vs-nr_pages exclusivity check. */
+			if (!folio_test_anon(folio) ||
+			    folio_mapcount(folio) != folio_nr_pages(folio)) {
+				nr_skip_anon++;
+				continue;
 			}
 
 			if (!folio_try_get(folio))
 				continue;
 
-			if (fp_isolate_folio_to_list(folio, &folio_list)) {
+			/* Race re-check: between pfn_to_online_page and try_get,
+			 * the page may have been freed and reallocated into a
+			 * different folio, or dropped off LRU. */
+			if (unlikely(page_folio(page) != folio ||
+				     !folio_test_lru(folio))) {
 				folio_put(folio);
-				batch_isolated++;
-				nr_isolated_total++;
-			} else {
-				folio_put(folio);
-				nr_isolate_fail++;
+				nr_skip_lru++;
+				continue;
 			}
 
-			if (batch_isolated >= SWAP_OUT_BATCH_SIZE) {
-				unsigned long before_count = 0;
-				struct folio *f;
-				list_for_each_entry(f, &folio_list, lru)
-					before_count++;
+			folio_clear_referenced(folio);
+			folio_test_clear_young(folio);
 
-				unsigned long reclaimed = fp_reclaim_pages(&folio_list);
-				nr_reclaimed_total += reclaimed;
+			if (!fp_folio_isolate_lru(folio)) {
+				folio_put(folio);
+				nr_skip_isolate++;
+				continue;
+			}
 
-				unsigned long after_count = 0;
-				list_for_each_entry(f, &folio_list, lru)
-					after_count++;
+			if (folio_test_unevictable(folio)) {
+				fp_folio_putback_lru(folio);
+				nr_unevictable++;
+			} else {
+				list_add(&folio->lru, &folio_list);
+				nr_isolated++;
+				batch_count++;
+			}
+			/* Drop our try_get; isolate has its own ref. */
+			folio_put(folio);
 
-				pr_info("swap_out: batch[%u] isolated=%u "
-					"list_before=%lu reclaimed=%lu "
-					"list_after=%lu\n",
-					batch_num, batch_isolated,
-					before_count, reclaimed, after_count);
-
-				/* Print first remaining folio's state */
-				if (after_count > 0) {
-					f = list_first_entry(&folio_list,
-							     struct folio, lru);
-					pr_info("swap_out: remaining folio "
-						"refcount=%d mapcount=%d "
-						"anon=%d dirty=%d writeback=%d "
-						"locked=%d mlock=%d\n",
-						folio_ref_count(f),
-						folio_mapcount(f),
-						folio_test_anon(f),
-						folio_test_dirty(f),
-						folio_test_writeback(f),
-						folio_test_locked(f),
-						folio_test_mlocked(f));
-				}
-
-				if (!list_empty(&folio_list))
-					fp_putback_movable_pages(&folio_list);
-
+			if (batch_count >= SWAP_OUT_BATCH_SIZE) {
+				nr_reclaimed += fp_reclaim_pages(&folio_list,
+								 true);
+				/* reclaim_pages empties the list itself, but be
+				 * defensive in case of partial consumption. */
 				INIT_LIST_HEAD(&folio_list);
-				batch_isolated = 0;
-				batch_num++;
+				batch_count = 0;
 				cond_resched();
 			}
 		}
 
-		/* Reclaim remaining batch */
-		if (batch_isolated > 0) {
-			unsigned long reclaimed = fp_reclaim_pages(&folio_list);
-			nr_reclaimed_total += reclaimed;
-			pr_info("swap_out: final_batch isolated=%u reclaimed=%lu\n",
-				batch_isolated, reclaimed);
+		if (!list_empty(&folio_list))
+			nr_reclaimed += fp_reclaim_pages(&folio_list, true);
 
-			if (!list_empty(&folio_list))
-				fp_putback_movable_pages(&folio_list);
-		}
-
-		pr_info("swap_out[%d]: pid %d node %d, total isolated=%u "
-			"reclaimed=%u isolate_fail=%u skip(invalid=%u "
-			"pfn=%u page=%u) batches=%u\n",
+		pr_info("swap_out[%d]: pid %d node %d isolated=%u reclaimed=%u "
+			"unev=%u skip(invalid=%u pfn=%u page=%u tail=%u "
+			"lru=%u anon=%u iso=%u)\n",
 			i, mig_list[i].pid, mig_list[i].from,
-			nr_isolated_total, nr_reclaimed_total,
-			nr_isolate_fail, nr_skip_invalid,
-			nr_skip_pfn, nr_skip_page, batch_num);
+			nr_isolated, nr_reclaimed, nr_unevictable,
+			nr_skip_invalid, nr_skip_pfn, nr_skip_page,
+			nr_skip_tail, nr_skip_lru, nr_skip_anon,
+			nr_skip_isolate);
 
 		mig_list[i].success_to_user = true;
-		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed_total;
-		total_reclaimed += nr_reclaimed_total;
+		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed;
+		total_reclaimed += nr_reclaimed;
 	}
 
 	return total_reclaimed;

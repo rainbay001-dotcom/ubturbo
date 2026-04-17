@@ -571,10 +571,13 @@ static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
 				continue;
 			}
 			/* Swap path is anonymous-only; reject shared mappings.
-			 * Matches madvise_pageout's pageout_anon_only_filter +
-			 * mapcount-vs-nr_pages exclusivity check. */
+			 * folio_likely_mapped_shared is fully inline (uses
+			 * page_mapcount on the head); folio_mapcount would
+			 * pull in non-exported folio_total_mapcount and break
+			 * the out-of-tree build. Same check madvise_pageout
+			 * uses (mm/madvise.c:514). */
 			if (!folio_test_anon(folio) ||
-			    folio_mapcount(folio) != folio_nr_pages(folio)) {
+			    folio_likely_mapped_shared(folio)) {
 				nr_skip_anon++;
 				continue;
 			}

@@ -28,7 +28,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Full history so Claude can see all branches/commits, not
+          # just the tip of the default branch (default fetch-depth=1
+          # hid commit 6a0f8fa and the entire feat/nvme-swap branch).
+          fetch-depth: 0
 
       - name: Run Claude Code
         id: claude

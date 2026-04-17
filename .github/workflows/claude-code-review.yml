@@ -29,7 +29,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # Full history so the reviewer can see prior commits on the
+          # PR branch, not just the tip.
+          fetch-depth: 0
 
       - name: Run Claude Code Review
         id: claude-review

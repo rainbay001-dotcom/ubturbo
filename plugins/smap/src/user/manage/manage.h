@@ -387,6 +387,7 @@ int VMPreprocess(pid_t pid, ProcessAttr *attr);
 
 int SetProcessLocalNuma(pid_t pid, uint32_t *nodeBitmap, bool hugeFlag);
 int SetLocalNumaByCpu(pid_t pid, uint32_t *nodeBitmap);
+int SetLocalNumaByMemPolicy(pid_t pid, uint32_t *nodeBitmap);
 
 int ProcessAddManage(ProcessParam *param, uint32_t *nodeBitmap);
 

@@ -759,9 +759,160 @@ static int SetLocalNumaByNumaMaps(pid_t pid, uint32_t *nodeBitmap, bool hugeFlag
     return 0;
 }
 
+/*
+ * ParseNumaMapsNodeList - Parse a numa_maps node list like "0", "0-3",
+ * "0,2-4", "0,1,3". Sets bits in *mask for each node referenced. Stops
+ * at whitespace, end of string, or any non-digit/non-separator char.
+ * Returns number of unique nodes added to mask.
+ */
+static int ParseNumaMapsNodeList(const char *list, uint32_t *mask)
+{
+    int count = 0;
+    while (*list && *list != ' ' && *list != '\t' && *list != '\n') {
+        if (*list < '0' || *list > '9') {
+            list++;
+            continue;
+        }
+        int start = 0;
+        while (*list >= '0' && *list <= '9') {
+            start = start * 10 + (*list - '0');
+            list++;
+        }
+        int end = start;
+        if (*list == '-') {
+            list++;
+            end = 0;
+            while (*list >= '0' && *list <= '9') {
+                end = end * 10 + (*list - '0');
+                list++;
+            }
+        }
+        for (int i = start; i <= end && i < 32; i++) {
+            if (!(*mask & (1U << i))) {
+                count++;
+            }
+            *mask |= (1U << i);
+        }
+        if (*list == ',') {
+            list++;
+        }
+    }
+    return count;
+}
+
+/*
+ * ParseMemPolicyFromLine - Extract bind:/interleave: nodes from a single
+ * numa_maps line.
+ *
+ * numa_maps line format:
+ *   7f8f40000000 default     anon=250000 dirty=250000 N0=250000 ...
+ *   7f8f40000000 bind:0      anon=250000 ...
+ *   7f8f40000000 interleave:0,1 ...
+ *   7f8f40000000 prefer:0    anon=250000 ...
+ *
+ * Only "bind:" and "interleave:" express strict placement intent
+ * (the equivalent of `numactl -m` / `numactl -i`). "default" allows
+ * any node; "prefer:" is a hint, not a restriction. Both are ignored.
+ *
+ * Returns true on bind/interleave match (and sets *mask).
+ */
+static bool ParseMemPolicyFromLine(const char *line, uint32_t *mask)
+{
+    /* Skip address field. */
+    while (*line && *line != ' ' && *line != '\t') {
+        line++;
+    }
+    while (*line == ' ' || *line == '\t') {
+        line++;
+    }
+
+    if (strncmp(line, "bind:", 5) == 0) {
+        ParseNumaMapsNodeList(line + 5, mask);
+        return true;
+    }
+    if (strncmp(line, "interleave:", 11) == 0) {
+        ParseNumaMapsNodeList(line + 11, mask);
+        return true;
+    }
+    return false;
+}
+
+/*
+ * SetLocalNumaByMemPolicy - Mask the L1 portion of nodeBitmap to nodes
+ * actually allowed by the process's mempolicy.
+ *
+ * Why: SetLocalNumaByCpu derives L1 from sched_getaffinity (all CPUs ->
+ * all NUMA sockets). For a process started with `numactl -m 0`, CPU
+ * affinity is unrestricted, so SetLocalNumaByCpu ends up adding every
+ * local NUMA node to L1. Downstream, PromoteMultiNumaVmStrategy iterates
+ * the whole L1 mask and spreads pages across nodes the user never
+ * intended (observed: from L2 node 4 to L1 nodes 0, 1, 3 instead of
+ * just node 0).
+ *
+ * Fix: parse /proc/$PID/numa_maps for bind:/interleave: mempolicy
+ * entries -- these reflect numactl -m / set_mempolicy(MPOL_BIND).
+ * If any such entry is found, restrict the L1 bits of nodeBitmap to
+ * the union of those policy node sets. L2 bits are left untouched.
+ *
+ * If the process has no explicit mempolicy (all "default"/"prefer:"),
+ * nodeBitmap is unchanged -- callers' CPU-affinity heuristic stands.
+ */
+int SetLocalNumaByMemPolicy(pid_t pid, uint32_t *nodeBitmap)
+{
+    FILE *fp;
+    char line[MAX_LINE_LENGTH];
+    uint32_t policyMask = 0;
+    bool found = false;
+    const uint32_t l1BitsMask = (1U << LOCAL_NUMA_BITS) - 1;
+
+    if (!nodeBitmap) {
+        return -EINVAL;
+    }
+
+    fp = OpenNumaMaps(pid);
+    if (!fp) {
+        SMAP_LOGGER_WARNING("SetLocalNumaByMemPolicy open numa_maps failed for pid %d.", pid);
+        return -EINVAL;
+    }
+
+    while (fgets(line, MAX_LINE_LENGTH, fp) != NULL) {
+        uint32_t lineMask = 0;
+        if (ParseMemPolicyFromLine(line, &lineMask)) {
+            policyMask |= lineMask;
+            found = true;
+        }
+    }
+    if (pclose(fp)) {
+        SMAP_LOGGER_WARNING("SetLocalNumaByMemPolicy close numa maps failed.");
+    }
+
+    if (!found) {
+        return 0; /* No explicit policy; leave caller's bitmap alone. */
+    }
+
+    uint32_t restrictedL1 = policyMask & l1BitsMask;
+    if (restrictedL1 == 0) {
+        SMAP_LOGGER_WARNING(
+            "pid %d mempolicy nodes 0x%x have no L1 bits; ignoring restriction.",
+            pid, policyMask);
+        return 0;
+    }
+
+    uint32_t beforeL1 = *nodeBitmap & l1BitsMask;
+    if (beforeL1 == restrictedL1) {
+        return 0;
+    }
+
+    *nodeBitmap = (*nodeBitmap & ~l1BitsMask) | restrictedL1;
+    SMAP_LOGGER_INFO(
+        "pid %d L1 restricted by mempolicy: 0x%x -> 0x%x (full bitmap 0x%x).",
+        pid, beforeL1, restrictedL1, *nodeBitmap);
+    return 0;
+}
+
 int SetProcessLocalNuma(pid_t pid, uint32_t *nodeBitmap, bool hugeFlag)
 {
-    int ret1, ret2;
+    int ret1, ret2, ret3;
 
     ret1 = SetLocalNumaByCpu(pid, nodeBitmap);
     if (ret1) {
@@ -773,8 +924,14 @@ int SetProcessLocalNuma(pid_t pid, uint32_t *nodeBitmap, bool hugeFlag)
         SMAP_LOGGER_WARNING("Set pid %d local numa by numa maps failed: %d.", pid, ret2);
     }
     SMAP_LOGGER_INFO("pid %d node bitmap after set local numa by numa maps: %#x.", pid, *nodeBitmap);
+    /* Last: narrow the (permissive) auto-detection down to whatever the
+     * process's mempolicy actually allows. No-op if there's no policy. */
+    ret3 = SetLocalNumaByMemPolicy(pid, nodeBitmap);
+    if (ret3) {
+        SMAP_LOGGER_WARNING("Set pid %d local numa by mempolicy failed: %d.", pid, ret3);
+    }
 
-    return ret1 & ret2;
+    return ret1 & ret2 & ret3;
 }
 
 static void PrintProcessNuma(ProcessAttr *attr)

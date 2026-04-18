@@ -596,8 +596,21 @@ static int AddProcessNumaBitMap(struct MigrateOutMsg *msg, uint32_t *nodeBitmap,
         if (ret) {
             SMAP_LOGGER_WARNING("Set pid %d local numa by cpu failed: %d.", msg->payload[i].pid, ret);
         }
-        // has no local numa, set all local numa 1
-        if (nodeBitmap[i] & LOCAL_NUMA_BIT_MAP_MASK == 0) {
+        /* SetLocalNumaByCpu derives L1 from sched_getaffinity, which for a
+         * process started with `numactl -m 0` returns ALL CPUs and therefore
+         * adds every local NUMA node to L1. Narrow it down to the actual
+         * mempolicy (bind:/interleave:) if one is set. No-op otherwise. */
+        ret = SetLocalNumaByMemPolicy(msg->payload[i].pid, &nodeBitmap[i]);
+        if (ret) {
+            SMAP_LOGGER_WARNING("Set pid %d local numa by mempolicy failed: %d.",
+                                msg->payload[i].pid, ret);
+        }
+        /* No local NUMA detected: fall back to all local NUMA nodes.
+         * Note: `&` has lower precedence than `==`, so the original
+         * `nodeBitmap[i] & LOCAL_NUMA_BIT_MAP_MASK == 0` parsed as
+         * `nodeBitmap[i] & (LOCAL_NUMA_BIT_MAP_MASK == 0)` = `& 0` = 0,
+         * making the branch dead. Parentheses fix that. */
+        if ((nodeBitmap[i] & LOCAL_NUMA_BIT_MAP_MASK) == 0) {
             SMAP_LOGGER_WARNING("Set pid %d all local numa.", msg->payload[i].pid);
             nodeBitmap[i] |= LOCAL_NUMA_BIT_MAP_MASK;
         }

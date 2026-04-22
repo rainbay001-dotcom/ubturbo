@@ -74,10 +74,17 @@ static int RebuildTracker(ColdTracker *ct, uint64_t new_count)
     return 0;
 }
 
-/* Returns true if nid is a node that should be tracked for cold page swap. */
+/*
+ * Returns true if nid is a node that should be tracked for cold page swap.
+ * When the process has L2 nodes (L1+L2+L3 topology), only L2 nodes are tracked.
+ * Without L2 (L1+L3 only), L1 nodes are tracked for direct swap to NVMe.
+ */
 static bool ShouldTrackNode(ProcessAttr *process, int nid)
 {
-    return InAttrL2(process, nid);
+    if (process->remoteNumaCnt > 0) {
+        return InAttrL2(process, nid);
+    }
+    return (nid < GetNrLocalNuma()) && InAttrL1(process, nid);
 }
 
 void UpdateColdWindowCounters(ProcessAttr *process)

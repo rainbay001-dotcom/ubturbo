@@ -133,6 +133,12 @@ int ProcessManagerInit(uint32_t pageType)
     EnvMutexInit(&g_processManager.threadLock);
     InitSceneInfo(&g_processManager.sceneInfo);
     g_runMode = WATERLINE_MODE;
+
+    g_processManager.swapPolicy.cold_window_threshold = SWAP_DEFAULT_COLD_WINDOW_THRESHOLD;
+    g_processManager.swapPolicy.max_swap_per_cycle = SWAP_DEFAULT_MAX_PER_CYCLE;
+    g_processManager.swapPolicy.swap_enabled = false;
+    g_processManager.swapPolicy.allow_vm_swap = false;
+
     return 0;
 }
 
@@ -223,6 +229,12 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     }
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
+    }
+    for (int si = 0; si < SWAP_MAX_NODES; si++) {
+        if (attr->coldState.tracker[si].cold_windows) {
+            free(attr->coldState.tracker[si].cold_windows);
+            attr->coldState.tracker[si].cold_windows = NULL;
+        }
     }
     free(attr);
 }

@@ -329,6 +329,23 @@ int ubturbo_smap_process_config_query(int nid, struct OldProcessPayload *result,
  */
 int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t length);
 
+/* *
+ * @brief   Enable or disable NVMe swap-out.
+ *          Assumes the swap partition is already active (swapon was called externally).
+ *
+ * @param enable  [IN] true to enable, false to disable
+ * @return int    0: success; non-zero: failure
+ */
+int ubturbo_smap_swap_config(bool enable);
+
+/* *
+ * @brief   Set the cold window threshold for swap candidate selection.
+ *
+ * @param threshold  [IN] Number of consecutive cold windows before swapping (1-255)
+ * @return int       0: success; non-zero: failure
+ */
+int ubturbo_smap_swap_set_threshold(uint32_t threshold);
+
 #ifdef __cplusplus
 }
 #endif

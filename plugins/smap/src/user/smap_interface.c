@@ -2210,3 +2210,31 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
     SMAP_LOGGER_INFO("ubturbo_smap_remote_numa_freq_query success.");
     return 0;
 }
+
+int ubturbo_smap_swap_config(bool enable)
+{
+    if (!ubturbo_smap_is_running()) {
+        SMAP_LOGGER_ERROR("SMAP not running, cannot configure swap.");
+        return -EPERM;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    manager->swapPolicy.swap_enabled = enable;
+    SMAP_LOGGER_INFO("NVMe swap %s.", enable ? "enabled" : "disabled");
+    return 0;
+}
+
+int ubturbo_smap_swap_set_threshold(uint32_t threshold)
+{
+    if (!ubturbo_smap_is_running()) {
+        return -EPERM;
+    }
+    if (threshold == 0 || threshold > COLD_TRACKER_MAX_WINDOWS) {
+        return -EINVAL;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    manager->swapPolicy.cold_window_threshold = threshold;
+    SMAP_LOGGER_INFO("Swap cold window threshold set to %u", threshold);
+    return 0;
+}

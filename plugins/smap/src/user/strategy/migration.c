@@ -29,6 +29,9 @@
 #include "securec.h"
 #include "smap_env.h"
 #include "migration.h"
+#include "cold_tracker.h"
+#include "swap_out.h"
+#include "manage/swap_account.h"
 
 #define MAX_MIG_ADDR_PRINT_LEN 2
 
@@ -679,6 +682,29 @@ int ScanMigrateWork(ThreadCtx *ctx)
     }
     ret = PerformMigration(manager);
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
+
+    /* === Phase 2: NVMe swap-out === */
+    if (manager->swapPolicy.swap_enabled) {
+        ProcessAttr *proc;
+        for (proc = manager->processes; proc; proc = proc->next) {
+            UpdateColdWindowCounters(proc);
+            if (!proc->enableSwap) {
+                continue;
+            }
+            if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+                continue;
+            }
+            if (proc->swapAccounting.max_swap_kb > 0 &&
+                proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
+                continue;
+            }
+            int swapped = DoSwapOut(proc);
+            if (swapped > 0) {
+                SMAP_LOGGER_INFO("pid %d swapped %d pages to NVMe.", proc->pid, swapped);
+            }
+            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+        }
+    }
 out:
     // 启动扫描
     EnableTracking(manager);

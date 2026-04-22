@@ -16,6 +16,7 @@
 #include "smap_env.h"
 #include "numa_nodes.h"
 #include "advanced-strategy/scene_info.h"
+#include "swap_types.h"
 
 #define LOCAL_NUMA_NUM 4
 #define REMOTE_NUMA_NUM 18
@@ -227,6 +228,8 @@ struct ProcessAttribute {
     StrategyAttribute strategyAttr;
     ScanAttribute scanAttr;
     VMPidAttribute vmPidAttr;
+    SwapAccounting swapAccounting;
+    ProcessColdState coldState;
     struct ProcessAttribute *next;
 };
 typedef struct ProcessAttribute ProcessAttr;
@@ -328,6 +331,7 @@ struct ProcessManager {
     struct RemoteNumaInfo remoteNumaInfo; // 借用远端内存数量
     EnvMutex lock;
     EnvMutex threadLock;
+    SwapPolicy swapPolicy;
 };
 
 struct ProcessMemBitmap {

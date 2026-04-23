@@ -128,6 +128,17 @@ extern int (*fp_migrate_pages)(struct list_head *from, new_folio_t get_new_folio
 		enum migrate_mode mode, int reason, unsigned int *ret_succeeded);
 extern void (*fp_putback_movable_pages)(struct list_head *l);
 extern bool (*fp_isolate_folio_to_list)(struct folio *folio, struct list_head *list);
+/*
+ * reclaim_pages() in mm/vmscan.c is (struct list_head *, bool ignore_references).
+ * The previous 1-arg signature read the bool from x1 garbage on aarch64,
+ * effectively ignore_references=false → all pages rotated back → reclaimed=0.
+ */
+extern unsigned long (*fp_reclaim_pages)(struct list_head *folio_list,
+					 bool ignore_references);
+/* Reclaim-side LRU isolation (mm/vmscan.c). NOT the same as
+ * isolate_folio_to_list (which is migration-side, mm/migrate.c). */
+extern bool (*fp_folio_isolate_lru)(struct folio *folio);
+extern void (*fp_folio_putback_lru)(struct folio *folio);
 
 int smap_process_symbols(void);
 struct folio *smap_alloc_huge_page_node(struct folio *folio, int nid,

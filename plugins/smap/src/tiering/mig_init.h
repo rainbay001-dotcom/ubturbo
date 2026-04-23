@@ -26,6 +26,7 @@
 #define SMAP_MIG_MIGRATE_NUMA _IOW(SMAP_MIG_MAGIC, 2, struct migrate_numa_msg)
 #define SMAP_MIG_PID_REMOTE_NUMA \
 	_IOW(SMAP_MIG_MAGIC, 3, struct migrate_pid_remote_numa_msg)
+#define SMAP_MIG_SWAP_OUT _IOW(SMAP_MIG_MAGIC, 4, struct migrate_msg)
 
 typedef struct {
 	u64 pme;

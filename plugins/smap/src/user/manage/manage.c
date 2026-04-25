@@ -31,6 +31,7 @@
 #include "strategy/period_config.h"
 #include "strategy/strategy.h"
 #include "strategy/migration.h"
+#include "strategy/cold_tracker.h"
 #include "manage.h"
 
 static struct ProcessManager g_processManager;
@@ -133,6 +134,12 @@ int ProcessManagerInit(uint32_t pageType)
     EnvMutexInit(&g_processManager.threadLock);
     InitSceneInfo(&g_processManager.sceneInfo);
     g_runMode = WATERLINE_MODE;
+
+    g_processManager.swapPolicy.cold_window_threshold = SWAP_DEFAULT_COLD_WINDOW_THRESHOLD;
+    g_processManager.swapPolicy.max_swap_per_cycle = SWAP_DEFAULT_MAX_PER_CYCLE;
+    g_processManager.swapPolicy.swap_enabled = true;
+    g_processManager.swapPolicy.allow_vm_swap = false;
+
     return 0;
 }
 
@@ -223,6 +230,12 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     }
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
+    }
+    for (int si = 0; si < SWAP_MAX_NODES; si++) {
+        if (attr->coldState.tracker[si].cold_windows) {
+            free(attr->coldState.tracker[si].cold_windows);
+            attr->coldState.tracker[si].cold_windows = NULL;
+        }
     }
     free(attr);
 }
@@ -571,6 +584,7 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
     attr->migrateMode = param->numaParam[0].migrateMode;
     attr->remoteNumaCnt = param->count;
     attr->enableSwap = true;
+    InitProcessColdState(&attr->coldState);
     attr->initLocalMemRatio = HUNDRED;
     for (int i = 0; i < param->count; i++) {
         attr->initLocalMemRatio -= param->numaParam[i].ratio;
@@ -589,7 +603,7 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
             attr->migrateParam[i].memSize = param->numaParam[i].memSize;
             SMAP_LOGGER_INFO("Multinuma vm destNid: %d, memSize: %lu", attr->migrateParam[i].nid,
                              attr->migrateParam[i].memSize);
-            
+
             for (int j = 0; j < nrLocalNuma && j < LOCAL_NUMA_NUM; j++) {
                 attr->strategyAttr.initRemoteMemRatio[j][param->numaParam[i].nid - nrLocalNuma] =
                     param->numaParam[i].ratio;

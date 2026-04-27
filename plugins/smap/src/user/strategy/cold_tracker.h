@@ -16,6 +16,7 @@
 
 void InitProcessColdState(ProcessColdState *state);
 void DestroyColdTracker(ProcessColdState *state);
+bool HasL2ScanData(ProcessAttr *process);
 void UpdateColdWindowCounters(ProcessAttr *process);
 
 #endif /* __COLD_TRACKER_H__ */

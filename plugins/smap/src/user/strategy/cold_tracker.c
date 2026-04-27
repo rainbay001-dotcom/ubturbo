@@ -74,9 +74,22 @@ static int RebuildTracker(ColdTracker *ct, uint64_t new_count)
     return 0;
 }
 
+bool HasL2ScanData(ProcessAttr *process)
+{
+    if (process->remoteNumaCnt == 0) {
+        return false;
+    }
+    for (int nid = 0; nid < SWAP_MAX_NODES; nid++) {
+        if (InAttrL2(process, nid) && process->scanAttr.actcLen[nid] > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool ShouldTrackNode(ProcessAttr *process, int nid)
 {
-    if (process->remoteNumaCnt > 0) {
+    if (HasL2ScanData(process)) {
         return InAttrL2(process, nid);
     }
     return (nid < GetNrLocalNuma()) && InAttrL1(process, nid);

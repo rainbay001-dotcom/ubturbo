@@ -76,7 +76,10 @@ static int RebuildTracker(ColdTracker *ct, uint64_t new_count)
 
 static bool ShouldTrackNode(ProcessAttr *process, int nid)
 {
-    return InAttrL2(process, nid);
+    if (process->remoteNumaCnt > 0) {
+        return InAttrL2(process, nid);
+    }
+    return (nid < GetNrLocalNuma()) && InAttrL1(process, nid);
 }
 
 void UpdateColdWindowCounters(ProcessAttr *process)

@@ -77,9 +77,20 @@ int DoSwapOut(ProcessAttr *process)
     uint64_t *savedAddrs[MAX_NODES];
     memset_s(savedAddrs, sizeof(savedAddrs), 0, sizeof(savedAddrs));
 
+    bool has_l2 = (process->remoteNumaCnt > 0);
+    int nrLocal = GetNrLocalNuma();
+
     for (int nid = 0; nid < SWAP_MAX_NODES; nid++) {
-        if (NotInAttrL2(process, nid)) {
-            continue;
+        if (has_l2) {
+            /* Standard tiered (L1+L2+L3): swap from L2 nodes */
+            if (NotInAttrL2(process, nid)) {
+                continue;
+            }
+        } else {
+            /* L1+L3 only: swap from L1 nodes directly */
+            if (nid >= nrLocal || NotInAttrL1(process, nid)) {
+                continue;
+            }
         }
 
         ActcData *data = process->scanAttr.actcData[nid];

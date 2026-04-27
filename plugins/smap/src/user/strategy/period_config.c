@@ -20,20 +20,24 @@
 #include "securec.h"
 #include "period_config.h"
 
-#define PERIOD_CONFIG_ENTRY 6
+#define PERIOD_CONFIG_ENTRY 7
 #define PERIOD_CONFIG_BUFFSIZE 500
 
 #define RETURN_OK 0
 #define RETURN_ERROR (-1)
 #define PERIOD_CONFIG_READ_OVER 100
 
-#define MAX_SCAN_PERIOD 200
+#define MAX_SCAN_PERIOD 2000
 #define DEFAULT_SCAN_PERIOD 100
 #define MIN_SCAN_PERIOD 50
 
 #define MAX_MIGRATE_PERIOD 2000
 #define DEFAULT_MIGRATE_PERIOD 1000
-#define MIN_MIGRATE_PERIOD 500
+#define MIN_MIGRATE_PERIOD 50
+
+#define MAX_COLD_THRESHOLD 255
+#define DEFAULT_COLD_THRESHOLD 5
+#define MIN_COLD_THRESHOLD 1
 
 #define MAX_SLOW_THRESHOLD (MAX_MIGRATE_PERIOD / MIN_SCAN_PERIOD)
 #define DEFAULT_SLOW_THRESHOLD 2
@@ -57,6 +61,7 @@ typedef struct {
     uint32_t remoteFreqPercentile;
     uint32_t slowThreshold;
     uint64_t freqWt;
+    uint32_t swapColdThreshold;
     bool fileConfSwitch;
     bool scanPeriodChanged;
     bool migratePeriodChanged;
@@ -98,6 +103,11 @@ uint32_t GetSlowThresholdConfig(void)
 uint64_t GetFreqWtConfig(void)
 {
     return g_periodConfig.freqWt;
+}
+
+uint32_t GetColdWindowThresholdConfig(void)
+{
+    return g_periodConfig.swapColdThreshold;
 }
 
 bool GetFileConfSwitchConfig(void)
@@ -234,6 +244,24 @@ static int32_t ConfigFreqWt(char *substr, char *value)
     return RETURN_OK;
 }
 
+static int32_t ConfigColdWindowThreshold(char *substr, char *value)
+{
+    SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
+    int32_t ret = ConfigReadValueToInt(value, &g_tmpPeriodConfig.swapColdThreshold);
+    if (ret != RETURN_OK) {
+        SMAP_LOGGER_ERROR("Config cold window threshold read failed, key:%s.", substr);
+        return ret;
+    }
+    if (g_tmpPeriodConfig.swapColdThreshold < MIN_COLD_THRESHOLD ||
+        g_tmpPeriodConfig.swapColdThreshold > MAX_COLD_THRESHOLD) {
+        SMAP_LOGGER_ERROR("Config cold threshold(%d) invalid, range(%d-%d), key:%s.",
+                          g_tmpPeriodConfig.swapColdThreshold, MIN_COLD_THRESHOLD,
+                          MAX_COLD_THRESHOLD, substr);
+        return RETURN_ERROR;
+    }
+    return RETURN_OK;
+}
+
 static int32_t ConfigFileConfSwitch(char *substr, char *value)
 {
     SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
@@ -283,6 +311,12 @@ static PeriodConfigReadElem g_periodConfigRead[] = {
         "smap.period.file.config.switch",
         ConfigFileConfSwitch,
         1UL,
+        0UL,
+    },
+    {
+        "smap.swap.cold.threshold",
+        ConfigColdWindowThreshold,
+        0UL,
         0UL,
     },
 };
@@ -429,6 +463,7 @@ static void InitPeriodConfig(void)
     g_periodConfig.remoteFreqPercentile = DEFAULT_REMOTE_FREQ_PERCENTILE;
     g_periodConfig.slowThreshold = DEFAULT_SLOW_THRESHOLD;
     g_periodConfig.freqWt = DEFAULT_FREQ_WT;
+    g_periodConfig.swapColdThreshold = DEFAULT_COLD_THRESHOLD;
     g_periodConfig.fileConfSwitch = false;
     g_periodConfig.scanPeriodChanged = false;
     g_periodConfig.migratePeriodChanged = false;
@@ -469,6 +504,7 @@ static int32_t InitPeriodConfigFileBuffer(char periodDefaultConfig[PERIOD_CONFIG
         { "smap.remote.freq.percentile = %d\n", DEFAULT_REMOTE_FREQ_PERCENTILE },
         { "smap.slow.threshold = %d\n", DEFAULT_SLOW_THRESHOLD },
         { "smap.freq.wt = %d\n", DEFAULT_FREQ_WT },
+        { "smap.swap.cold.threshold = %d\n", DEFAULT_COLD_THRESHOLD },
     };
     size_t numConfigs = sizeof(configs) / sizeof(configs[0]);
 
@@ -552,6 +588,7 @@ static bool UpdatePeriodConfigChanged(void)
 {
     uint32_t oldScanPeriod, oldMigratePeriod, scanPeriod, migratePeriod;
     uint32_t oldRemoteFreqPercentile, oldSlowThreshold, remoteFreqPercentile, slowThreshold;
+    uint32_t oldColdThreshold, coldThreshold;
     uint64_t oldFreqWt, freqWt;
 
     if (!g_tmpPeriodConfig.fileConfSwitch) {
@@ -563,15 +600,18 @@ static bool UpdatePeriodConfigChanged(void)
     oldRemoteFreqPercentile = g_periodConfig.remoteFreqPercentile;
     oldSlowThreshold = g_periodConfig.slowThreshold;
     oldFreqWt = g_periodConfig.freqWt;
+    oldColdThreshold = g_periodConfig.swapColdThreshold;
 
     scanPeriod = g_tmpPeriodConfig.scanPeriod;
     migratePeriod = g_tmpPeriodConfig.migratePeriod;
     remoteFreqPercentile = g_tmpPeriodConfig.remoteFreqPercentile;
     slowThreshold = g_tmpPeriodConfig.slowThreshold;
     freqWt = g_tmpPeriodConfig.freqWt;
+    coldThreshold = g_tmpPeriodConfig.swapColdThreshold;
 
     if (oldScanPeriod == scanPeriod && oldMigratePeriod == migratePeriod &&
-        oldRemoteFreqPercentile == remoteFreqPercentile && oldSlowThreshold == slowThreshold && oldFreqWt == freqWt) {
+        oldRemoteFreqPercentile == remoteFreqPercentile && oldSlowThreshold == slowThreshold &&
+        oldFreqWt == freqWt && oldColdThreshold == coldThreshold) {
         return false;
     }
 
@@ -595,11 +635,17 @@ static bool UpdatePeriodConfigChanged(void)
         SMAP_LOGGER_INFO("Start update freq wt from config to %lu.", freqWt);
     }
 
+    if (oldColdThreshold != coldThreshold) {
+        SMAP_LOGGER_INFO("Start update swap cold threshold from config to %u.", coldThreshold);
+    }
+
     return true;
 }
 
 void PeriodConfigRead(const char *configFile)
 {
+    /* Pre-seed optional fields so absent keys keep the current value */
+    g_tmpPeriodConfig.swapColdThreshold = g_periodConfig.swapColdThreshold;
     int ret = ConfigReadReadFile(configFile);
     if (ret != RETURN_OK) {
         PeriodConifgReset();

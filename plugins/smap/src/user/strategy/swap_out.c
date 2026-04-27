@@ -35,6 +35,7 @@
 #include "securec.h"
 #include "manage/manage.h"
 #include "manage/smap_ioctl.h"
+#include "cold_tracker.h"
 #include "swap_out.h"
 
 /*
@@ -77,7 +78,7 @@ int DoSwapOut(ProcessAttr *process)
     uint64_t *savedAddrs[MAX_NODES];
     memset_s(savedAddrs, sizeof(savedAddrs), 0, sizeof(savedAddrs));
 
-    bool has_l2 = (process->remoteNumaCnt > 0);
+    bool has_l2 = HasL2ScanData(process);
     int nrLocal = GetNrLocalNuma();
 
     for (int nid = 0; nid < SWAP_MAX_NODES; nid++) {

@@ -31,7 +31,9 @@
 #include "strategy/period_config.h"
 #include "strategy/strategy.h"
 #include "strategy/migration.h"
+#include "strategy/cold_tracker.h"
 #include "manage.h"
+#include "swap_account.h"
 
 static struct ProcessManager g_processManager;
 
@@ -133,6 +135,10 @@ int ProcessManagerInit(uint32_t pageType)
     EnvMutexInit(&g_processManager.threadLock);
     InitSceneInfo(&g_processManager.sceneInfo);
     g_runMode = WATERLINE_MODE;
+    g_processManager.swapPolicy.swap_enabled = true;
+    g_processManager.swapPolicy.allow_vm_swap = false;
+    g_processManager.swapPolicy.cold_window_threshold = SWAP_DEFAULT_COLD_WINDOW_THRESHOLD;
+    g_processManager.swapPolicy.max_swap_per_cycle = SWAP_DEFAULT_MAX_PER_CYCLE;
     return 0;
 }
 
@@ -224,6 +230,7 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
     }
+    DestroyColdTracker(&attr->coldState);
     free(attr);
 }
 
@@ -568,6 +575,22 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
     attr->scanTime = param->scanTime;
     attr->duration = param->duration;
     attr->scanType = param->scanType;
+    InitProcessColdState(&attr->coldState);
+    InitSwapAccounting(&attr->swapAccounting);
+
+    /* NVMe swap mode: skip L1->L2 migration setup entirely */
+    if (param->count == 1 && param->numaParam[0].nid == SMAP_NVME_SWAP_NID) {
+        attr->swapMode = true;
+        attr->remoteNumaCnt = 0;
+        attr->enableSwap = true;
+        attr->initLocalMemRatio = HUNDRED;
+        if (time(&attr->scanStart) == (time_t)-1) {
+            SMAP_LOGGER_ERROR("get time error");
+        }
+        SMAP_LOGGER_INFO("Pid: %d NVMe swap mode enabled (L1->NVMe).", attr->pid);
+        return;
+    }
+
     attr->migrateMode = param->numaParam[0].migrateMode;
     attr->remoteNumaCnt = param->count;
     attr->enableSwap = true;

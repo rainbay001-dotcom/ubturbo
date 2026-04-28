@@ -1455,13 +1455,130 @@ static int scan_forward_4k_mm(int pid, int page_size, scan_type type)
 	return 0;
 }
 
-int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type)
+static void hva_to_hpa_4k(struct kvm *kvm, unsigned long hva)
 {
-	if (page_size == g_pagesize_huge) {
-		return scan_forward_2M(pid, page_size, type);
-	} else {
+	pgd_t *pgdp;
+	p4d_t *p4dp;
+	pud_t *pudp;
+	pmd_t *pmdp, pmd;
+	pte_t *ptep, pte;
+	phys_addr_t paddr;
+
+	pgdp = pgd_offset(kvm->mm, hva);
+	if (pgd_none(READ_ONCE(*pgdp)))
+		return;
+
+	p4dp = p4d_offset(pgdp, hva);
+	if (p4d_none(READ_ONCE(*p4dp)))
+		return;
+
+	pudp = pud_offset(p4dp, hva);
+	if (pud_none(READ_ONCE(*pudp)))
+		return;
+
+	pmdp = pmd_offset(pudp, hva);
+	pmd = READ_ONCE(*pmdp);
+	if (pmd_none(pmd))
+		return;
+
+	if (pmd_huge(pmd)) {
+		paddr = PFN_PHYS(pmd_pfn(pmd)) + (hva & ~PMD_MASK);
+		actc_data_add(paddr, PAGE_SIZE);
+		return;
+	}
+
+	ptep = pte_offset_map(pmdp, hva);
+	if (!ptep)
+		return;
+	pte = ptep_get(ptep);
+	pte_unmap(ptep);
+	if (!pte_present(pte))
+		return;
+
+	paddr = PFN_PHYS(pte_pfn(pte));
+	actc_data_add(paddr, PAGE_SIZE);
+}
+
+static int scan_kvm_memslots_4k(struct kvm *kvm)
+{
+	struct kvm_memslots *slots;
+	struct kvm_memory_slot *memslot;
+	gpa_t gpa;
+	int bkt;
+
+	if (!kvm || !kvm->arch.mmu.pgt) {
+		pr_err("invalid kvm passed to scan kvm memslots 4k\n");
 		return -EINVAL;
 	}
+
+	slots = kvm_memslots(kvm);
+	if (!slots)
+		return -EINVAL;
+
+	kvm_for_each_memslot(memslot, bkt, slots) {
+		if (!memslot_is_mem(memslot))
+			continue;
+		for (gpa = memslot->base_gfn << PAGE_SHIFT;
+		     gpa < (memslot->base_gfn + memslot->npages) << PAGE_SHIFT;
+		     gpa += (gpa_t)PAGE_SIZE) {
+			unsigned long hva;
+			if (!smap_kvm_pgtable_stage2_mkold(kvm->arch.mmu.pgt,
+							   gpa))
+				continue;
+			hva = gfn_to_hva_memslot(memslot, gpa_to_gfn(gpa));
+			hva_to_hpa_4k(kvm, hva);
+		}
+	}
+	kvm_flush_remote_tlbs(kvm);
+	return 0;
+}
+
+static int scan_forward_4k_vm(pid_t pid, int page_size, scan_type type)
+{
+	int srcu_idx;
+	struct file *filp;
+	struct kvm *kvm;
+	struct pid *pid_s;
+	struct task_struct *task;
+
+	if (type == NO_SCAN)
+		return 0;
+
+	pid_s = find_get_pid(pid);
+	task = get_pid_task(pid_s, PIDTYPE_PID);
+	if (!task) {
+		put_pid(pid_s);
+		return -EINVAL;
+	}
+
+	filp = get_kvm_file_from_task(task);
+	if (!filp) {
+		release_resources(filp, task, pid_s);
+		return -EINVAL;
+	}
+	kvm = filp->private_data;
+	if (!kvm) {
+		release_resources(filp, task, pid_s);
+		return -EINVAL;
+	}
+
+	srcu_idx = pre_scan_kvm_memslots(kvm);
+	if (scan_kvm_memslots_4k(kvm))
+		pr_err("failed to scan kvm mem slots for pid: %d\n", pid);
+	post_scan_kvm_memslots(kvm, srcu_idx);
+
+	release_resources(filp, task, pid_s);
+	update_statistic_scan_num(pid);
+	return 0;
+}
+
+int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type)
+{
+	if (page_size == g_pagesize_huge)
+		return scan_forward_2M(pid, page_size, type);
+	else if (page_size == PAGE_SIZE)
+		return scan_forward_4k_vm(pid, page_size, type);
+	return -EINVAL;
 }
 
 int scan_accessed_bit_forward_mm(pid_t pid, int page_size, scan_type type)

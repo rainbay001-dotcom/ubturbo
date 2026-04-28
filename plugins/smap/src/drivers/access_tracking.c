@@ -447,7 +447,7 @@ static void work_func(struct work_struct *work)
 	ap = delay_work_to_ap(scan_work);
 	adev_buffer_down_read();
 	page_size = get_page_size(adev);
-	if (page_size == g_pagesize_huge) {
+	if (smap_mode == VM_MODE) {
 		ret = scan_accessed_bit_forward_vm(ap->pid, page_size,
 						   ap->type);
 	} else {

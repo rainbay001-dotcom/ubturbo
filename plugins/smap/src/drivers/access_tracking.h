@@ -18,7 +18,15 @@
 #include "hist_tracking.h"
 
 extern unsigned int smap_scene;
+extern unsigned int smap_mode;
 extern u32 g_pagesize_huge;
+
+enum smap_mode_args {
+	BARE_MODE,
+	VM_MODE,
+	PROCESS_MODE,
+	NR_MODE_ARGS,
+};
 
 enum access_page_mode {
 	PAGE_MODE_4K = 0,

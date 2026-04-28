@@ -24,8 +24,11 @@
 #include "manage/access_ioctl.h"
 #include "manage/smap_ioctl.h"
 #include "manage/device.h"
+#include "manage/swap_account.h"
 #include "strategy.h"
 #include "period_config.h"
+#include "cold_tracker.h"
+#include "swap_out.h"
 #include "securec.h"
 #include "smap_env.h"
 #include "migration.h"
@@ -467,6 +470,10 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
         if (current->scanType != NORMAL_SCAN) {
             continue;
         }
+        /* swapMode processes only do Phase 2 (NVMe swap), skip Phase 1 migration */
+        if (current->swapMode) {
+            continue;
+        }
         SMAP_LOGGER_INFO("+++++++scan_and_strategy_thread: processing pid %d.", current->pid);
         NumaMigReduceDeal(current);
         if (current->state != PROC_IDLE) {
@@ -627,6 +634,8 @@ static void UpdatePeriodFromConfig(ThreadCtx *ctx)
     if (GetMigratePeriodChanged()) {
         SMAP_LOGGER_INFO("Start update migrate period time from config to %u.", GetMigratePeriodConfig());
         ctx->period = GetMigratePeriodConfig();
+        /* Re-submit ntimes to kernel so scan cycle matches new migrate period */
+        UpdateAllProcessScanTime(ctx);
         SetMigratePeriodChanged(false);
     }
 
@@ -679,6 +688,32 @@ int ScanMigrateWork(ThreadCtx *ctx)
     }
     ret = PerformMigration(manager);
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
+
+    /* === Phase 2: NVMe swap-out for swapMode processes === */
+    if (manager->swapPolicy.swap_enabled) {
+        uint64_t maxSwapKb = GetMaxSwapKbConfig();
+        ProcessAttr *proc;
+        for (proc = manager->processes; proc; proc = proc->next) {
+            if (!proc->enableSwap || !proc->swapMode) {
+                continue;
+            }
+            if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+                continue;
+            }
+            /* Per-process swap limit check: skip if cumulative swap reached max */
+            if (proc->swapAccounting.total_swap_out_kb >= maxSwapKb) {
+                SMAP_LOGGER_INFO("pid %d total swap %lu KB reached limit %lu KB, skip.",
+                                 proc->pid, proc->swapAccounting.total_swap_out_kb, maxSwapKb);
+                continue;
+            }
+            UpdateColdWindowCounters(proc);
+            int swapped = DoSwapOut(proc);
+            if (swapped > 0) {
+                SMAP_LOGGER_INFO("pid %d swapped %d pages to NVMe.", proc->pid, swapped);
+            }
+            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+        }
+    }
 out:
     // 启动扫描
     EnableTracking(manager);

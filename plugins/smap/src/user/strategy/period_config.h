@@ -29,6 +29,8 @@ uint32_t GetSlowThresholdConfig(void);
 
 uint64_t GetFreqWtConfig(void);
 
+uint32_t GetColdWindowThresholdConfig(void);
+
 bool GetFileConfSwitchConfig(void);
 
 int32_t GeneratePeriodConfigFile(const char *configFile);

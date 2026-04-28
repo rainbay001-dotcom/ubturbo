@@ -18,6 +18,10 @@ int (*fp_migrate_pages)(struct list_head *from, new_folio_t get_new_folio,
 	enum migrate_mode mode, int reason, unsigned int *ret_succeeded) = NULL;
 void (*fp_putback_movable_pages)(struct list_head *l) = NULL;
 bool (*fp_isolate_folio_to_list)(struct folio *folio, struct list_head *list) = NULL;
+unsigned long (*fp_reclaim_pages)(struct list_head *folio_list,
+				  bool ignore_references) = NULL;
+bool (*fp_folio_isolate_lru)(struct folio *folio) = NULL;
+void (*fp_folio_putback_lru)(struct folio *folio) = NULL;
 
 static inline unsigned long *get_pageblock_bitmap(const struct page *p,
 						  unsigned long pfn)
@@ -57,7 +61,19 @@ int smap_process_symbols(void)
 		fp_kallsyms_lookup_name("isolate_folio_to_list");
 	if (!(fp_migrate_pages && fp_putback_movable_pages && fp_isolate_folio_to_list))
 		return -EFAULT;
-	
+
+	/* Symbols for L1->NVMe swap-out path */
+	fp_reclaim_pages = (unsigned long (*)(struct list_head *, bool))
+		fp_kallsyms_lookup_name("reclaim_pages");
+	fp_folio_isolate_lru = (bool (*)(struct folio *))
+		fp_kallsyms_lookup_name("folio_isolate_lru");
+	fp_folio_putback_lru = (void (*)(struct folio *))
+		fp_kallsyms_lookup_name("folio_putback_lru");
+	if (!fp_reclaim_pages || !fp_folio_isolate_lru || !fp_folio_putback_lru)
+		pr_warn("smap: swap-out symbols missing (reclaim_pages=%p "
+			"folio_isolate_lru=%p folio_putback_lru=%p) — swap disabled\n",
+			fp_reclaim_pages, fp_folio_isolate_lru, fp_folio_putback_lru);
+
 	return 0;
 }
 

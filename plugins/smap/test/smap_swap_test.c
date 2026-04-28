@@ -24,13 +24,15 @@
  *       -L <path-to-libsmap.so> -lsmap -lpthread
  *
  * Usage:
- *   ./smap_swap_test <scan_ms> <migrate_ms> <proc_type> <pid> [cold_threshold]
+ *   ./smap_swap_test <scan_ms> <migrate_ms> <proc_type> <pid> [cold_threshold [max_swap_kb]]
  *
  *   scan_ms         - per-process cold-page scan period in ms [50, 20000], multiple of 50
  *   migrate_ms      - global swap cycle period in ms [50, 20000]
  *   proc_type       - 0 = normal process (4K pages), 1 = VM (2M pages)
  *   pid             - PID of the target process to manage
  *   cold_threshold  - consecutive zero-freq windows before swap [1, 255], default 5
+ *   max_swap_kb     - per-process cumulative swap limit in KB; 0 = prohibit swap;
+ *                     omit to leave unlimited (smap.swap.max.kb not written)
  *
  * Prerequisites:
  *   - smap kernel modules loaded (smap_tracking_core, smap_histogram_tracking,
@@ -41,6 +43,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
@@ -54,6 +57,8 @@
 #define PERIOD_CONFIG_FILE "/opt/ubturbo/conf/smap/period.config"
 #define DEFAULT_COLD_THRESHOLD 5
 #define MONITOR_INTERVAL_SEC 10
+/* Sentinel: max_swap_kb not specified by caller — do not write the config key */
+#define MAX_SWAP_KB_UNSET UINT64_MAX
 
 static pid_t g_target_pid = -1;
 static volatile int g_stop = 0;
@@ -65,7 +70,7 @@ static void on_signal(int sig)
 }
 
 static int write_period_config(uint32_t scan_ms, uint32_t migrate_ms,
-                               uint32_t cold_threshold)
+                               uint32_t cold_threshold, uint64_t max_swap_kb)
 {
     FILE *f = fopen(PERIOD_CONFIG_FILE, "w");
     if (!f) {
@@ -80,9 +85,17 @@ static int write_period_config(uint32_t scan_ms, uint32_t migrate_ms,
     fprintf(f, "smap.freq.wt = 0\n");
     fprintf(f, "smap.period.file.config.switch = true\n");
     fprintf(f, "smap.swap.cold.threshold = %u\n",      cold_threshold);
+    if (max_swap_kb != MAX_SWAP_KB_UNSET) {
+        fprintf(f, "smap.swap.max.kb = %llu\n", (unsigned long long)max_swap_kb);
+    }
     fclose(f);
-    printf("[test] period config written: scan=%ums  migrate=%ums  cold_threshold=%u\n",
-           scan_ms, migrate_ms, cold_threshold);
+    if (max_swap_kb == MAX_SWAP_KB_UNSET) {
+        printf("[test] period config written: scan=%ums  migrate=%ums  cold_threshold=%u  max_swap_kb=unlimited\n",
+               scan_ms, migrate_ms, cold_threshold);
+    } else {
+        printf("[test] period config written: scan=%ums  migrate=%ums  cold_threshold=%u  max_swap_kb=%llu\n",
+               scan_ms, migrate_ms, cold_threshold, (unsigned long long)max_swap_kb);
+    }
     return 0;
 }
 
@@ -93,15 +106,17 @@ static void cleanup_period_config(void)
 
 int main(int argc, char *argv[])
 {
-    if (argc < 5 || argc > 6) {
+    if (argc < 5 || argc > 7) {
         fprintf(stderr,
-                "Usage: %s <scan_ms> <migrate_ms> <proc_type> <pid> [cold_threshold]\n"
+                "Usage: %s <scan_ms> <migrate_ms> <proc_type> <pid> [cold_threshold [max_swap_kb]]\n"
                 "\n"
                 "  scan_ms        : cold-page scan period in ms  [50, 20000], multiple of 50\n"
                 "  migrate_ms     : swap cycle period in ms      [50, 20000]\n"
                 "  proc_type      : 0 = normal process (4K)  1 = VM (2M)\n"
                 "  pid            : target process PID\n"
-                "  cold_threshold : consecutive zero-freq windows [1, 255], default %d\n",
+                "  cold_threshold : consecutive zero-freq windows [1, 255], default %d\n"
+                "  max_swap_kb    : per-process cumulative swap limit in KB; 0 = prohibit swap;\n"
+                "                   omit to leave unlimited\n",
                 argv[0], DEFAULT_COLD_THRESHOLD);
         return 1;
     }
@@ -110,7 +125,8 @@ int main(int argc, char *argv[])
     uint32_t migrate_ms    = (uint32_t)atoi(argv[2]);
     int      proc_type     = atoi(argv[3]);
     pid_t    target_pid    = (pid_t)atoi(argv[4]);
-    uint32_t cold_threshold = (argc == 6) ? (uint32_t)atoi(argv[5]) : DEFAULT_COLD_THRESHOLD;
+    uint32_t cold_threshold = (argc >= 6) ? (uint32_t)atoi(argv[5]) : DEFAULT_COLD_THRESHOLD;
+    uint64_t max_swap_kb   = (argc == 7) ? (uint64_t)strtoull(argv[6], NULL, 10) : MAX_SWAP_KB_UNSET;
 
     if (scan_ms < 50 || scan_ms > 20000 || scan_ms % 50 != 0) {
         fprintf(stderr, "[test] scan_ms must be a multiple of 50 in [50, 20000]\n");
@@ -136,7 +152,7 @@ int main(int argc, char *argv[])
     g_target_pid = target_pid;
 
     /* Step 1: Write period config */
-    if (write_period_config(scan_ms, migrate_ms, cold_threshold) < 0) {
+    if (write_period_config(scan_ms, migrate_ms, cold_threshold, max_swap_kb) < 0) {
         return 1;
     }
     atexit(cleanup_period_config);

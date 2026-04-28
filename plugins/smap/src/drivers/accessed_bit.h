@@ -61,6 +61,7 @@ struct pte_walk {
 	u64 nr_page[NR_LEVEL];
 	u64 statistic_cnt;
 	u64 *statistic_vaddr;
+	struct access_pid *ap;
 };
 
 struct freq_info {
@@ -72,8 +73,10 @@ int smap_create_tracking_info_file(struct ham_tracking_info *info);
 int get_ham_pages_freqs(pid_t pid, struct freq_info **freq_info_array,
 			uint64_t *freq_info_num);
 struct file *get_kvm_file_from_task(struct task_struct *task);
-int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type);
-int scan_accessed_bit_forward_mm(pid_t pid, int page_size, scan_type type);
+int scan_accessed_bit_forward_vm(pid_t pid, int page_size, scan_type type,
+				 struct access_pid *ap);
+int scan_accessed_bit_forward_mm(pid_t pid, int page_size, scan_type type,
+				 struct access_pid *ap);
 int scan_hva_info(pid_t pid_nr, u64 *l1_page_num, u64 *l2_page_num,
 		  u64 **l1_vaddr, u64 **l2_vaddr);
 int scan_hva_info_4k(pid_t pid, u64 *l1_page_num, u64 *l2_page_num,

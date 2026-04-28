@@ -196,13 +196,13 @@ static int add_to_bm_hugepage(u64 vaddr, u64 paddr, struct access_pid *ap)
 	return 0;
 }
 
-static inline void add_to_bm_huge(u64 vaddr, u64 paddr, struct access_pid *ap)
+void add_to_bm_huge(u64 vaddr, u64 paddr, struct access_pid *ap)
 {
 	u64 mask_paddr = paddr & TWO_MEGA_MASK;
 	add_to_bm_hugepage(vaddr, mask_paddr, ap);
 }
 
-static void add_to_bm_normal(u64 paddr, struct access_pid *ap)
+void add_to_bm_normal(u64 paddr, struct access_pid *ap)
 {
 	add_to_bm_page(paddr, ap);
 }

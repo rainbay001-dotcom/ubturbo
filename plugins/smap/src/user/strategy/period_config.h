@@ -31,6 +31,8 @@ uint64_t GetFreqWtConfig(void);
 
 uint32_t GetColdWindowThresholdConfig(void);
 
+uint64_t GetMaxSwapKbConfig(void);
+
 bool GetFileConfSwitchConfig(void);
 
 int32_t GeneratePeriodConfigFile(const char *configFile);

@@ -20,7 +20,7 @@
 #include "securec.h"
 #include "period_config.h"
 
-#define PERIOD_CONFIG_ENTRY 7
+#define PERIOD_CONFIG_ENTRY 8
 #define PERIOD_CONFIG_BUFFSIZE 500
 
 #define RETURN_OK 0
@@ -38,6 +38,9 @@
 #define MAX_COLD_THRESHOLD 255
 #define DEFAULT_COLD_THRESHOLD 5
 #define MIN_COLD_THRESHOLD 1
+
+/* 0 = prohibit swap (per Q3:B); UINT64_MAX = no limit (key absent) */
+#define DEFAULT_MAX_SWAP_KB UINT64_MAX
 
 #define MAX_SLOW_THRESHOLD (MAX_MIGRATE_PERIOD / MIN_SCAN_PERIOD)
 #define DEFAULT_SLOW_THRESHOLD 2
@@ -62,6 +65,7 @@ typedef struct {
     uint32_t slowThreshold;
     uint64_t freqWt;
     uint32_t swapColdThreshold;
+    uint64_t maxSwapKb;
     bool fileConfSwitch;
     bool scanPeriodChanged;
     bool migratePeriodChanged;
@@ -108,6 +112,11 @@ uint64_t GetFreqWtConfig(void)
 uint32_t GetColdWindowThresholdConfig(void)
 {
     return g_periodConfig.swapColdThreshold;
+}
+
+uint64_t GetMaxSwapKbConfig(void)
+{
+    return g_periodConfig.maxSwapKb;
 }
 
 bool GetFileConfSwitchConfig(void)
@@ -258,6 +267,35 @@ static int32_t ConfigFileConfSwitch(char *substr, char *value)
     return RETURN_OK;
 }
 
+static int32_t ConfigReadValueToUint64(char *pvalue, uint64_t *result)
+{
+    *result = 0;
+    while (*pvalue != '\0') {
+        if (*pvalue >= '0' && *pvalue <= '9') {
+            uint64_t digit = *pvalue - '0';
+            if (*result > (UINT64_MAX - digit) / RADIX_10) {
+                return RETURN_ERROR;
+            }
+            *result = RADIX_10 * (*result) + digit;
+            pvalue++;
+        } else {
+            return RETURN_ERROR;
+        }
+    }
+    return RETURN_OK;
+}
+
+static int32_t ConfigMaxSwapKb(char *substr, char *value)
+{
+    SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
+    int32_t ret = ConfigReadValueToUint64(value, &g_tmpPeriodConfig.maxSwapKb);
+    if (ret != RETURN_OK) {
+        SMAP_LOGGER_ERROR("Config max swap kb read failed, key:%s.", substr);
+        return ret;
+    }
+    return RETURN_OK;
+}
+
 static int32_t ConfigColdWindowThreshold(char *substr, char *value)
 {
     SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
@@ -316,6 +354,12 @@ static PeriodConfigReadElem g_periodConfigRead[] = {
     {
         "smap.swap.cold.threshold",
         ConfigColdWindowThreshold,
+        0UL,
+        0UL,
+    },
+    {
+        "smap.swap.max.kb",
+        ConfigMaxSwapKb,
         0UL,
         0UL,
     },
@@ -464,6 +508,7 @@ static void InitPeriodConfig(void)
     g_periodConfig.slowThreshold = DEFAULT_SLOW_THRESHOLD;
     g_periodConfig.freqWt = DEFAULT_FREQ_WT;
     g_periodConfig.swapColdThreshold = DEFAULT_COLD_THRESHOLD;
+    g_periodConfig.maxSwapKb = DEFAULT_MAX_SWAP_KB;
     g_periodConfig.fileConfSwitch = false;
     g_periodConfig.scanPeriodChanged = false;
     g_periodConfig.migratePeriodChanged = false;
@@ -646,6 +691,7 @@ void PeriodConfigRead(const char *configFile)
 {
     /* Pre-seed optional fields so absent keys keep the current value */
     g_tmpPeriodConfig.swapColdThreshold = g_periodConfig.swapColdThreshold;
+    g_tmpPeriodConfig.maxSwapKb = g_periodConfig.maxSwapKb;
     int ret = ConfigReadReadFile(configFile);
     if (ret != RETURN_OK) {
         PeriodConifgReset();

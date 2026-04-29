@@ -689,12 +689,19 @@ int ScanMigrateWork(ThreadCtx *ctx)
 
     /* === Phase 2: NVMe swap-out for swapMode processes === */
     if (manager->swapPolicy.swap_enabled) {
+        uint64_t maxSwapKb = GetMaxSwapKbConfig();
         ProcessAttr *proc;
         for (proc = manager->processes; proc; proc = proc->next) {
             if (!proc->enableSwap || !proc->swapMode) {
                 continue;
             }
             if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+                continue;
+            }
+            /* Skip if process has reached its per-process cumulative swap limit */
+            if (proc->swapAccounting.total_swap_out_kb >= maxSwapKb) {
+                SMAP_LOGGER_INFO("pid %d total_swap_out_kb %lu >= max %lu, skip.",
+                                 proc->pid, proc->swapAccounting.total_swap_out_kb, maxSwapKb);
                 continue;
             }
             UpdateColdWindowCounters(proc);

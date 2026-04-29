@@ -473,6 +473,193 @@ static int __ioctl_check_pagesize(void __user *argp)
 	return pageType == smap_pgsize ? 0 : -EINVAL;
 }
 
+/*
+ * do_swap_out - Force reclaim of cold pages to the configured swap device.
+ *
+ * Mirrors damon_pa_pageout() (mm/damon/paddr.c) — paddr-driven reclaim.
+ * Physical addresses come from convert_pos_to_paddr_sorted() (same path as
+ * SMAP_MIG_MIGRATE). Per-page recipe:
+ *   1. pfn_to_online_page; reject tail/non-LRU/non-anon/shared
+ *   2. folio_try_get + race re-check
+ *   3. clear referenced + young
+ *   4. fp_folio_isolate_lru (reclaim-side isolation)
+ *   5. unevictable -> fp_folio_putback_lru; else add to batch list
+ *   6. folio_put (isolate keeps its own ref)
+ *   Per batch of 256: fp_reclaim_pages(list, ignore_references=true)
+ *
+ * ignore_references=true: SMAP already confirmed coldness via N consecutive
+ * zero-frequency windows — no need for kernel to re-check PTE young bits.
+ */
+#define SWAP_OUT_INVALID_PADDR 0
+#define SWAP_OUT_BATCH_SIZE 256
+
+static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
+{
+	int i;
+	u64 j, p_addr;
+	unsigned int total_reclaimed = 0;
+	unsigned long pfn;
+	struct page *page;
+	struct folio *folio;
+
+	if (!fp_reclaim_pages || !fp_folio_isolate_lru ||
+	    !fp_folio_putback_lru) {
+		pr_err("swap-out symbols not resolved (reclaim_pages=%p "
+		       "folio_isolate_lru=%p folio_putback_lru=%p)\n",
+		       fp_reclaim_pages, fp_folio_isolate_lru, fp_folio_putback_lru);
+		return -ENOSYS;
+	}
+
+	if (msg->cnt == 0)
+		return 0;
+
+	for (i = 0; i < msg->cnt; i++) {
+		unsigned int nr_isolated = 0;
+		unsigned int nr_reclaimed = 0;
+		unsigned int nr_unevictable = 0;
+		unsigned int nr_skip_invalid = 0;
+		unsigned int nr_skip_pfn = 0;
+		unsigned int nr_skip_page = 0;
+		unsigned int nr_skip_tail = 0;
+		unsigned int nr_skip_lru = 0;
+		unsigned int nr_skip_anon = 0;
+		unsigned int nr_skip_isolate = 0;
+		unsigned int batch_count = 0;
+		LIST_HEAD(folio_list);
+
+		if (is_node_invalid(mig_list[i].from) ||
+		    mig_list[i].nr <= 0 || mig_list[i].nr > MAX_MIG_LIST_NR)
+			continue;
+
+		pr_info("swap_out[%d]: pid %d node %d nr %llu\n",
+			i, mig_list[i].pid, mig_list[i].from, mig_list[i].nr);
+
+		for (j = 0; j < mig_list[i].nr; j++) {
+			p_addr = mig_list[i].addr[j];
+			if (p_addr == SWAP_OUT_INVALID_PADDR) {
+				nr_skip_invalid++;
+				continue;
+			}
+
+			pfn = PHYS_PFN(p_addr);
+			if (!pfn_valid(pfn)) {
+				nr_skip_pfn++;
+				continue;
+			}
+
+			page = pfn_to_online_page(pfn);
+			if (!page) {
+				nr_skip_page++;
+				continue;
+			}
+			if (PageTail(page)) {
+				nr_skip_tail++;
+				continue;
+			}
+
+			folio = page_folio(page);
+
+			if (!folio_test_lru(folio)) {
+				nr_skip_lru++;
+				continue;
+			}
+			/* Swap is anonymous-only; reject shared mappings.
+			 * folio_likely_mapped_shared is fully inline (uses
+			 * page_mapcount on head); avoids non-exported
+			 * folio_total_mapcount. Same check as madvise_pageout. */
+			if (!folio_test_anon(folio) ||
+			    folio_likely_mapped_shared(folio)) {
+				nr_skip_anon++;
+				continue;
+			}
+
+			if (!folio_try_get(folio))
+				continue;
+
+			/* Race re-check: page may have been freed/reallocated */
+			if (unlikely(page_folio(page) != folio ||
+				     !folio_test_lru(folio))) {
+				folio_put(folio);
+				nr_skip_lru++;
+				continue;
+			}
+
+			folio_clear_referenced(folio);
+			folio_test_clear_young(folio);
+
+			if (!fp_folio_isolate_lru(folio)) {
+				folio_put(folio);
+				nr_skip_isolate++;
+				continue;
+			}
+
+			if (folio_test_unevictable(folio)) {
+				fp_folio_putback_lru(folio);
+				nr_unevictable++;
+			} else {
+				list_add(&folio->lru, &folio_list);
+				nr_isolated++;
+				batch_count++;
+			}
+			/* Drop our try_get; isolate has its own ref. */
+			folio_put(folio);
+
+			if (batch_count >= SWAP_OUT_BATCH_SIZE) {
+				nr_reclaimed += fp_reclaim_pages(&folio_list, true);
+				INIT_LIST_HEAD(&folio_list);
+				batch_count = 0;
+				cond_resched();
+			}
+		}
+
+		if (!list_empty(&folio_list))
+			nr_reclaimed += fp_reclaim_pages(&folio_list, true);
+
+		pr_info("swap_out[%d]: pid %d node %d isolated=%u reclaimed=%u "
+			"unev=%u skip(invalid=%u pfn=%u page=%u tail=%u "
+			"lru=%u anon=%u iso=%u)\n",
+			i, mig_list[i].pid, mig_list[i].from,
+			nr_isolated, nr_reclaimed, nr_unevictable,
+			nr_skip_invalid, nr_skip_pfn, nr_skip_page,
+			nr_skip_tail, nr_skip_lru, nr_skip_anon,
+			nr_skip_isolate);
+
+		mig_list[i].success_to_user = true;
+		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed;
+		total_reclaimed += nr_reclaimed;
+	}
+
+	return total_reclaimed;
+}
+
+static int __ioctl_swap_out(void __user *argp)
+{
+	struct migrate_msg msg;
+	struct mig_list *mig_list;
+	int ret;
+
+	if (copy_from_user(&msg, argp, sizeof(msg)))
+		return -EFAULT;
+	if (!is_migrate_msg_valid(&msg))
+		return -EINVAL;
+
+	ret = build_migrate_list(&msg, &mig_list);
+	if (ret)
+		return ret;
+
+	ret = do_swap_out(&msg, mig_list);
+
+	if (copy_to_user(argp, &msg, sizeof(msg)))
+		pr_err("unable to copy swap message to user space\n");
+	if (copy_to_user(msg.mig_list, mig_list,
+			 msg.cnt * sizeof(struct mig_list)))
+		pr_err("unable to copy swap list to user space\n");
+
+	free_migrate_list_addr(msg.cnt, mig_list);
+	free_migrate_list(&mig_list);
+	return ret;
+}
+
 static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -495,6 +682,10 @@ static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 	}
 	case SMAP_MIG_PID_REMOTE_NUMA: {
 		rc = __ioctl_migrate_pid_remote_numa(argp);
+		break;
+	}
+	case SMAP_MIG_SWAP_OUT: {
+		rc = __ioctl_swap_out(argp);
 		break;
 	}
 	default:

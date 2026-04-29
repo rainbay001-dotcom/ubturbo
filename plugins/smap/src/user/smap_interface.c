@@ -515,7 +515,7 @@ static int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint
     for (int i = 0; i < msg->count; ++i) {
         payload[i].type = NORMAL_SCAN;
         payload[i].pid = msg->payload[i].pid;
-        payload[i].scanTime = LIGHT_STABLE_SCAN_CYCLE;
+        payload[i].scanTime = GetFileConfSwitchConfig() ? GetScanPeriodConfig() : LIGHT_STABLE_SCAN_CYCLE;
         if (!PidIsValid(msg->payload[i].pid)) {
             SMAP_LOGGER_WARNING("pid %d doesn't exist.", msg->payload[i].pid);
             payload[i].pid = NON_EXIST_PID;
@@ -559,7 +559,7 @@ static int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType,
         nodeBitmapTmp = nodeBitmap ? &nodeBitmap[i] : NULL;
         ProcessParam param = { 0 };
         param.pid = msg->payload[i].pid;
-        param.scanTime = pidType == VM_TYPE ? SCAN_TIME_2M : SCAN_TIME_4K;
+        param.scanTime = GetFileConfSwitchConfig() ? GetScanPeriodConfig() : (pidType == VM_TYPE ? SCAN_TIME_2M : SCAN_TIME_4K);
         param.scanType = NORMAL_SCAN;
         param.count = msg->payload[i].count;
 

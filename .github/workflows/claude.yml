@@ -51,6 +51,19 @@ jobs:
           # hid commit 6a0f8fa and the entire feat/nvme-swap branch).
           fetch-depth: 0
 
+      - name: Checkout openEuler kernel reference (OLK-6.6)
+        uses: actions/checkout@v4
+        with:
+          # Cross-repo checkout so Claude can read OLK-6.6 source
+          # (drivers/ub, include/ub, etc.) when reasoning about kernel
+          # APIs referenced by ubturbo. Both repos are public, so the
+          # default GITHUB_TOKEN read scope works without a PAT.
+          # Working tree only (~1.7 GB); no history needed for source reads.
+          repository: rainbay001-dotcom/openEuler
+          ref: OLK-6.6
+          path: vendor/openeuler-kernel
+          fetch-depth: 1
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1

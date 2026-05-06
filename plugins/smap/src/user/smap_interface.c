@@ -33,6 +33,7 @@
 #include "manage/virt.h"
 #include "manage/smap_config.h"
 #include "strategy/migration.h"
+#include "strategy/period_config.h"
 
 #include "smap_interface.h"
 #define DEFAULT_NODE_NUMBER_SIZE 16
@@ -253,7 +254,9 @@ static int InitAllThreads(struct ProcessManager *manager)
 {
     int ret;
     EnvMutexLock(&manager->threadLock);
-    ret = InitThread(manager, SCAN_MIGRATE_PERIOD, ScanMigrateWork);
+    PeriodConfigRead(PERIOD_CONFIG_PATH);
+    uint32_t period = GetFileConfSwitchConfig() ? GetMigratePeriodConfig() : SCAN_MIGRATE_PERIOD;
+    ret = InitThread(manager, period, ScanMigrateWork);
     if (ret) {
         SMAP_LOGGER_ERROR("init scan migrate work thread error: %d.", ret);
         DestroyAllThread(manager);
@@ -378,6 +381,10 @@ static bool CheckMigOutPayloadItems(struct MigrateOutPayload *payload, int *tota
 {
     *totalRatio = 0;
     for (int i = 0; i < payload->count; i++) {
+        /* NVMe swap sentinel: skip all NID and param validation */
+        if (payload->inner[i].destNid == SMAP_NVME_SWAP_NID) {
+            continue;
+        }
         if (!IsRemoteNidValid(payload->inner[i].destNid)) {
             SMAP_LOGGER_ERROR("mig para pid:%d destnode%d invalid.", payload->pid, payload->inner[i].destNid);
             return false;
@@ -524,8 +531,12 @@ static int ProcessAddTrackingManage(struct MigrateOutMsg *msg, int pidType, uint
         } else {
             payload[i].numaNodes = nodeBitmap[i];
         }
-        // assign values for remote numa nodes
+        // assign values for remote numa nodes (skip for NVMe swap sentinel)
         for (int j = 0; j < msg->payload[i].count; ++j) {
+            if (msg->payload[i].inner[j].destNid == SMAP_NVME_SWAP_NID) {
+                SMAP_LOGGER_INFO("pid %d NVMe swap mode: skip AddL2.", payload[i].pid);
+                continue;
+            }
             SMAP_LOGGER_INFO("Add pid %d migrate dest node to %d.", payload[i].pid, msg->payload[i].inner[j].destNid);
             AddL2ByNid(&payload[i].numaNodes, msg->payload[i].inner[j].destNid);
         }
@@ -578,6 +589,20 @@ static int AddProcessNumaBitMap(struct MigrateOutMsg *msg, uint32_t *nodeBitmap,
 {
     for (int i = 0; i < msg->count; ++i) {
         if (msg->payload[i].count == 0) {
+            continue;
+        }
+        /* NVMe swap mode: skip remote NID validation, only set local NUMA bitmap */
+        bool is_nvme_swap = (msg->payload[i].count == 1 &&
+                             msg->payload[i].inner[0].destNid == SMAP_NVME_SWAP_NID);
+        if (is_nvme_swap) {
+            int ret = SetLocalNumaByCpu(msg->payload[i].pid, &nodeBitmap[i]);
+            if (ret) {
+                SMAP_LOGGER_WARNING("Set pid %d local numa by cpu failed: %d.", msg->payload[i].pid, ret);
+            }
+            if ((nodeBitmap[i] & LOCAL_NUMA_BIT_MAP_MASK) == 0) {
+                nodeBitmap[i] |= LOCAL_NUMA_BIT_MAP_MASK;
+            }
+            SMAP_LOGGER_INFO("pid:%d NVMe swap mode, local numa bitmap: %#x.", msg->payload[i].pid, nodeBitmap[i]);
             continue;
         }
         int *nidArray = calloc(msg->payload[i].count, sizeof(int));

@@ -40,14 +40,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           # Cross-repo checkout so the reviewer can read OLK-6.6 source
-          # (drivers/ub, include/ub, mm, kernel/sched, etc.) when reasoning
-          # about kernel APIs the PR touches. Both repos are public, so
-          # the default GITHUB_TOKEN read scope works without a PAT.
-          # Working tree only (~1.7 GB); no history needed for source reads.
+          # when reasoning about kernel APIs the PR touches. Both repos
+          # are public, so the default GITHUB_TOKEN read scope works
+          # without a PAT.
+          #
+          # Sparse-checkout to keep the working tree small (~80-150 MB
+          # instead of ~1.7 GB). Faster checkout on every PR open/sync.
+          # Add a directory below if a real workload needs it.
           repository: rainbay001-dotcom/openEuler
           ref: OLK-6.6
           path: vendor/openeuler-kernel
           fetch-depth: 1
+          sparse-checkout: |
+            drivers/ub
+            include/ub
+            include/uapi/ub
+            Documentation/ub
+            mm
+            kernel/sched
+            include/linux
+            MAINTAINERS
+          sparse-checkout-cone-mode: false
 
       - name: Run Claude Code Review
         id: claude-review

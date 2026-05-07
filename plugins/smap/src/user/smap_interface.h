@@ -34,6 +34,12 @@ extern "C" {
 #define MAX_SCAN_TIME 2000
 #define MIN_SCAN_TIME 50
 #define DEFAULT_L2_NODE (-1)
+/* Sentinel value for ubturbo_smap_migrate_out destNid to enable L1->NVMe swap mode.
+ * When passed, SMAP skips L1->L2 migration and directly swaps cold L1 pages to NVMe.
+ * Defined in manage/swap_types.h; re-exported here for public API callers. */
+#ifndef SMAP_NVME_SWAP_NID
+#define SMAP_NVME_SWAP_NID (-2)
+#endif
 #define KB_PER_2MB 2048
 #define MAX_SCAN_DURATION_SEC 300
 #define NON_EXIST_PID (-1)

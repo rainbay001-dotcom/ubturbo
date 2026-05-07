@@ -687,11 +687,17 @@ int ScanMigrateWork(ThreadCtx *ctx)
     ret = PerformMigration(manager);
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
 
-    /* === Phase 2: NVMe swap-out for swapMode processes === */
+    /* === Phase 2: NVMe swap-out ===
+     * Triggered for:
+     *   - swapMode processes (SMAP_NVME_SWAP_NID): L1 -> NVMe directly
+     *   - non-swapMode processes with real L2 scan data: L2 -> NVMe
+     */
     if (manager->swapPolicy.swap_enabled) {
         ProcessAttr *proc;
         for (proc = manager->processes; proc; proc = proc->next) {
-            if (!proc->enableSwap || !proc->swapMode) {
+            bool doSwap = proc->enableSwap &&
+                          (proc->swapMode || HasL2ScanData(proc));
+            if (!doSwap) {
                 continue;
             }
             if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {

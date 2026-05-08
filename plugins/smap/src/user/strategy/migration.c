@@ -31,6 +31,7 @@
 #include "migration.h"
 
 #define MAX_MIG_ADDR_PRINT_LEN 2
+#define MAX_SWAP_LIST_PER_PID MAX_NODES
 
 int AddMigList(struct MigrateMsg *mMsg, struct MigList *mList)
 {
@@ -92,6 +93,76 @@ static void InitMigList(struct MigList mList[MAX_NODES][MAX_NODES], int pid)
             mList[from][to].addr = NULL;
         }
     }
+}
+
+static void FreeSwapList(struct MigList swapList[MAX_NODES])
+{
+    for (int n = 0; n < MAX_NODES; n++) {
+        if (swapList[n].addr) {
+            free(swapList[n].addr);
+            swapList[n].addr = NULL;
+        }
+        swapList[n].nr = 0;
+    }
+}
+
+static int BuildTieredMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg,
+                                   struct MigrateMsg *swapMsg, uint64_t *migratePage)
+{
+    int ret;
+    struct MigList migList[MAX_NODES][MAX_NODES];
+    struct MigList swapList[MAX_NODES];
+
+    InitMigList(migList, process->pid);
+    for (int n = 0; n < MAX_NODES; n++) {
+        swapList[n].addr = NULL;
+        swapList[n].nr = 0;
+    }
+
+    ret = BuildTieredMsg(process, migList, swapList);
+    if (ret) {
+        SMAP_LOGGER_ERROR("BuildTieredMsg for pid %d failed: %d.", process->pid, ret);
+        FreeMigList(migList);
+        FreeSwapList(swapList);
+        return ret;
+    }
+
+    /* Collect swap entries into swapMsg */
+    for (int n = 0; n < MAX_NODES; n++) {
+        if (!swapList[n].nr) {
+            if (swapList[n].addr) {
+                free(swapList[n].addr);
+                swapList[n].addr = NULL;
+            }
+            continue;
+        }
+        SMAP_LOGGER_INFO("Pid %d swap node %d nr %llu.", process->pid, n, swapList[n].nr);
+        /* Transfer ownership of addr to swapMsg slot */
+        swapMsg->migList[swapMsg->cnt] = swapList[n];
+        swapMsg->cnt++;
+        swapList[n].addr = NULL; /* ownership transferred */
+    }
+
+    /* Collect L1<->L2 migration entries into mMsg */
+    uint64_t nrMigTotal = 0;
+    for (int from = 0; from < MAX_NODES; from++) {
+        for (int to = 0; to < MAX_NODES; to++) {
+            if (!migList[from][to].nr) {
+                continue;
+            }
+            nrMigTotal += migList[from][to].nr;
+            ret = AddMigList(mMsg, &migList[from][to]);
+            if (ret) {
+                SMAP_LOGGER_ERROR("Pid %d AddMigList %d %d failed: %d.", process->pid, from, to, ret);
+                FreeMigList(migList);
+                return ret;
+            }
+            SMAP_LOGGER_INFO("Numa %d --> Numa %d, mig %llu pages.", from, to, migList[from][to].nr);
+        }
+    }
+    FreeMigList(migList);
+    *migratePage += nrMigTotal;
+    return 0;
 }
 
 static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint64_t *migratePage)
@@ -206,6 +277,45 @@ int DoMigration(struct MigrateMsg *mMsg, struct ProcessManager *manager)
         }
     }
     free(tmpAddr);
+    return err;
+}
+
+int InitSwapMsg(struct MigrateMsg *swapMsg, struct ProcessManager *manager)
+{
+    int maxProcessCnt = GetCurrentMaxNrPid();
+    int maxSwapListNum = maxProcessCnt * MAX_SWAP_LIST_PER_PID;
+    swapMsg->cnt = 0;
+    swapMsg->migList = calloc(maxSwapListNum, sizeof(struct MigList));
+    if (!swapMsg->migList) {
+        SMAP_LOGGER_ERROR("swapMsg->migList malloc failed.");
+        return -ENOMEM;
+    }
+    swapMsg->mulMig.nrThread = 1;
+    swapMsg->mulMig.isMulThread = false;
+    swapMsg->mulMig.pageSize = manager->tracking.pageSize;
+    return 0;
+}
+
+int DoSwapOut(struct MigrateMsg *swapMsg, struct ProcessManager *manager)
+{
+    int err = 0;
+    SMAP_LOGGER_DEBUG("DoSwapOut swapMsg->cnt %d.", swapMsg->cnt);
+    if (swapMsg->cnt > 0) {
+        uint64_t **tmpAddr = malloc(sizeof(*tmpAddr) * swapMsg->cnt);
+        if (!tmpAddr) {
+            return -ENOMEM;
+        }
+        for (int i = 0; i < swapMsg->cnt; i++) {
+            tmpAddr[i] = swapMsg->migList[i].addr;
+        }
+        err = ioctl(manager->fds.migrate, SMAP_MIG_SWAP_OUT, swapMsg);
+        for (int i = 0; i < swapMsg->cnt; i++) {
+            if (tmpAddr[i]) {
+                free(tmpAddr[i]);
+            }
+        }
+        free(tmpAddr);
+    }
     return err;
 }
 
@@ -450,7 +560,8 @@ static void NumaMigReduceDeal(ProcessAttr *current)
     }
 }
 
-static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg, uint64_t *migratePages)
+static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
+                        struct MigrateMsg *swapMsg, uint64_t *migratePages)
 {
     int ret;
     ProcessAttr *current;
@@ -461,6 +572,14 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
     if (ret) {
         EnvMutexUnlock(&manager->lock);
         SMAP_LOGGER_ERROR("InitMigrateMsg failed! ret:%d.", ret);
+        return ret;
+    }
+    ret = InitSwapMsg(swapMsg, manager);
+    if (ret) {
+        free(mMsg->migList);
+        mMsg->migList = NULL;
+        EnvMutexUnlock(&manager->lock);
+        SMAP_LOGGER_ERROR("InitSwapMsg failed! ret:%d.", ret);
         return ret;
     }
     for (current = manager->processes; current; current = current->next) {
@@ -475,8 +594,11 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
         }
         current->state = PROC_MIGRATE;
         SMAP_LOGGER_DEBUG("change pid %d state from idle to migrate.", current->pid);
-        // 识别每个进程的待迁移冷热页
-        ret = BuildMigrationMsg(current, mMsg, migratePages);
+        if (current->nvmeRatio > 0 && !IsMultiNumaVm(current)) {
+            ret = BuildTieredMigrationMsg(current, mMsg, swapMsg, migratePages);
+        } else {
+            ret = BuildMigrationMsg(current, mMsg, migratePages);
+        }
         SMAP_LOGGER_INFO("Add process: %d to migrate msg ret: %d.", current->pid, ret);
         isForcedSingleThread = isForcedSingleThread || current->vmPidAttr.mmapType;
     }
@@ -486,12 +608,15 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
     return 0;
 }
 
-static void PostMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg)
+static void PostMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
+                          struct MigrateMsg *swapMsg)
 {
     EnvMutexLock(&manager->lock);
     UpdateMigResult(mMsg, manager);
     free(mMsg->migList);
     mMsg->migList = NULL;
+    free(swapMsg->migList);
+    swapMsg->migList = NULL;
     for (ProcessAttr *current = manager->processes; current; current = current->next) {
         if (current->state == PROC_MIGRATE) {
             SMAP_LOGGER_DEBUG("set pid %d state from migrate to idle.", current->pid);
@@ -506,12 +631,19 @@ static int PerformMigration(struct ProcessManager *manager)
     int ret;
     uint64_t migratePages = 0;
     struct MigrateMsg mMsg;
+    struct MigrateMsg swapMsg;
     struct timeval start, end;
 
-    ret = PreMigration(manager, &mMsg, &migratePages);
+    ret = PreMigration(manager, &mMsg, &swapMsg, &migratePages);
     if (ret) {
         SMAP_LOGGER_ERROR("PreMigration failed! ret: %d.", ret);
         return ret;
+    }
+
+    /* Swap out (NVMe) must happen before L1<->L2 migration to free memory */
+    if (swapMsg.cnt > 0) {
+        ret = DoSwapOut(&swapMsg, manager);
+        SMAP_LOGGER_INFO("DoSwapOut result: %d.", ret);
     }
 
     // 调用迁移接口
@@ -520,7 +652,7 @@ static int PerformMigration(struct ProcessManager *manager)
     gettimeofday(&end, NULL);
     PrintMigSpeed(manager, migratePages, start, end);
     SMAP_LOGGER_INFO("Do migration result: %d.", ret);
-    PostMigration(manager, &mMsg);
+    PostMigration(manager, &mMsg, &swapMsg);
     if (ret) {
         SMAP_LOGGER_INFO("Do migration failed! migration_failure_count=%d.", ret);
         return ret;

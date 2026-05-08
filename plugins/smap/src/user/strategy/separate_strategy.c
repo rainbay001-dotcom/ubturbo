@@ -134,11 +134,6 @@ static uint64_t CalcMigrateNumByFreq(ProcessAttr *process)
     migrateNum = MIN(migrateNum, remoteFreePages);
     migrateNum = MIN(migrateNum, (l2Act ? l2Act->freqNum : 0));
 
-    if (!process->enableSwap) {
-        SMAP_LOGGER_INFO("Pid %d not enable swap.", process->pid);
-        return 0;
-    }
-
     // calculate freq weight
     l1FreqMax = (l1Act ? l1Act->freqMax : 0);
     l2FreqMax = (l2Act ? l2Act->freqMax : 0);

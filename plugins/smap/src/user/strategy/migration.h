@@ -33,6 +33,10 @@ void UpdateMigResult(struct MigrateMsg *mMsg, struct ProcessManager *manager);
 
 int DoMigration(struct MigrateMsg *mMsg, struct ProcessManager *manager);
 
+int InitSwapMsg(struct MigrateMsg *swapMsg, struct ProcessManager *manager);
+
+int DoSwapOut(struct MigrateMsg *swapMsg, struct ProcessManager *manager);
+
 int ScanMigrateWork(ThreadCtx *ctx);
 
 int MigrateRemoteNuma(struct ProcessManager *manager, struct MigrateNumaIoctlMsg *msg);

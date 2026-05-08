@@ -79,6 +79,7 @@ struct ProcessPayload {
         uint8_t ratio; // remote ratio set by upstream component
         uint64_t memSize;
     } migrateParam[REMOTE_NUMA_NUM];
+    uint8_t nvmeRatio; // NVMe (L3) swap target ratio, appended for backward compat
 };
 
 int RecoverFromConfig(void);

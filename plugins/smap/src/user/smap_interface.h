@@ -62,71 +62,82 @@ enum {
 
 typedef enum { INPUT_PROCESS = 0, INPUT_VM, INPUT_MAX } InputPidType;
 
+/* 单个远端 NUMA 目标节点的迁出参数 */
 struct MigrateOutPayloadInner {
-    int destNid;
-    int ratio;
-    uint64_t memSize; // 内存迁移大小(KB)
-    MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
+    int destNid;              /* 目标远端 NUMA 节点 ID */
+    int ratio;                /* 迁移比例（百分比，仅比例模式有效） */
+    uint64_t memSize;         /* 内存迁移大小（KB，仅大小模式有效） */
+    MigrateMode migrateMode;  /* 内存迁移模式：按比例或按大小 */
 };
 
+/* 单个进程的迁出请求，可同时指定多个目标远端 NUMA */
 struct MigrateOutPayload {
-    int srcNid; // 是否指定迁出源节点（-1表示不指定）
-    pid_t pid;
-    int count;
-    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM];
+    int srcNid;  /* 迁出源节点（-1 表示不指定，由算法自动选择） */
+    pid_t pid;   /* 目标进程 PID */
+    int count;   /* inner 数组中有效的目标 NUMA 配置数量 */
+    struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM]; /* 各目标远端 NUMA 的迁移参数 */
 };
 
+/* 批量迁出消息，包含多个进程的迁出请求 */
 struct MigrateOutMsg {
-    int count;
-    struct MigrateOutPayload payload[MAX_NR_MIGOUT];
+    int count;                               /* payload 数组中有效的进程数量 */
+    struct MigrateOutPayload payload[MAX_NR_MIGOUT]; /* 各进程的迁出请求 */
 };
 
+/* 单段远端内存迁回请求（将远端地址段迁回本地） */
 struct MigrateBackPayload {
-    int srcNid;
-    int destNid;
-    uint64_t memid;
+    int srcNid;      /* 远端内存当前所在的 NUMA 节点 ID */
+    int destNid;     /* 迁回目标本地 NUMA 节点 ID */
+    uint64_t memid;  /* 内存段标识（内核分配的物理地址段 ID） */
 };
 
+/* 批量迁回消息 */
 struct MigrateBackMsg {
-    unsigned long long taskID;
-    int count;
-    struct MigrateBackPayload payload[MAX_NR_MIGBACK];
+    unsigned long long taskID;                    /* 任务 ID，用于异步结果查询 */
+    int count;                                    /* payload 数组中有效的迁回请求数量 */
+    struct MigrateBackPayload payload[MAX_NR_MIGBACK]; /* 各段内存的迁回请求 */
 };
 
+/* 单个进程的移除请求（将进程从指定远端 NUMA 节点移除） */
 struct RemovePayload {
-    pid_t pid;
-    int count;
-    int nid[REMOTE_NUMA_NUM];
+    pid_t pid;              /* 目标进程 PID */
+    int count;              /* nid 数组中有效的远端 NUMA 节点数量 */
+    int nid[REMOTE_NUMA_NUM]; /* 要移除该进程的远端 NUMA 节点 ID 列表 */
 };
 
+/* 批量移除消息 */
 struct RemoveMsg {
-    int count;
-    struct RemovePayload payload[MAX_NR_REMOVE];
+    int count;                               /* payload 数组中有效的进程数量 */
+    struct RemovePayload payload[MAX_NR_REMOVE]; /* 各进程的移除请求 */
 };
 
+/* 启用/禁用指定 NUMA 节点的消息 */
 struct EnableNodeMsg {
-    int enable;
-    int nid;
+    int enable; /* 1 表示启用，0 表示禁用 */
+    int nid;    /* 目标 NUMA 节点 ID */
 };
 
+/* 设置本地 NUMA 对远端 NUMA 可借用内存大小的消息 */
 struct SetRemoteNumaInfoMsg {
-    int srcNid; // 设置-1时表示每个本地numa都可用此远端numa
-    int destNid;
-    uint64_t size;
+    int srcNid;      /* 本地 NUMA 节点 ID（设置 -1 时表示所有本地 NUMA 均可借用此远端节点） */
+    int destNid;     /* 远端 NUMA 节点 ID */
+    uint64_t size;   /* 可借用的内存大小（字节） */
 };
 
+/* 单个进程的逃生迁移请求（将进程内存从一个远端 NUMA 迁移到另一个远端 NUMA） */
 struct MigrateEscapePayload {
-    pid_t pid;
-    int srcNid;
-    int destNid;
-    int ratio;
-    uint64_t memSize;
-    MigrateMode migrateMode;
+    pid_t pid;              /* 目标进程 PID */
+    int srcNid;             /* 迁出的源远端 NUMA 节点 ID */
+    int destNid;            /* 迁入的目标远端 NUMA 节点 ID */
+    int ratio;              /* 迁移比例（百分比，仅比例模式有效） */
+    uint64_t memSize;       /* 迁移内存大小（KB，仅大小模式有效） */
+    MigrateMode migrateMode; /* 迁移模式：按比例或按大小 */
 };
 
+/* 批量逃生迁移消息 */
 struct MigrateEscapeMsg {
-    int count;
-    struct MigrateEscapePayload payload[MAX_NR_MIGRATE_ESCAPE];
+    int count;                                          /* payload 数组中有效的进程数量 */
+    struct MigrateEscapePayload payload[MAX_NR_MIGRATE_ESCAPE]; /* 各进程的逃生迁移请求 */
 };
 
 enum {
@@ -241,11 +252,12 @@ int ubturbo_smap_migrate_out_sync(struct MigrateOutMsg *msg, int pidType, uint64
 
 /* 迁移远端内存相关接口 */
 
+/* 远端 NUMA 间内存迁移消息（内存段从一个远端 NUMA 迁到另一个远端 NUMA） */
 struct MigrateNumaMsg {
-    int srcNid;
-    int destNid;
-    int count;
-    uint64_t memids[MAX_NR_MIGNUMA];
+    int srcNid;                       /* 源远端 NUMA 节点 ID */
+    int destNid;                      /* 目标远端 NUMA 节点 ID */
+    int count;                        /* memids 数组中有效的内存段数量 */
+    uint64_t memids[MAX_NR_MIGNUMA];  /* 待迁移的内存段 ID 数组 */
 };
 
 /* *

@@ -70,11 +70,12 @@ typedef enum {
     MIG_MEMSIZE_MODE, // 按照内存大小迁移
 } MigrateMode;
 
-/* MUTEX */
+/* 互斥锁封装 */
 typedef struct {
-    pthread_mutex_t lock;
+    pthread_mutex_t lock; /* POSIX 互斥锁 */
 } EnvMutex;
 
+/* 销毁互斥锁，成功返回 0，失败返回 1 */
 static inline int EnvMutexDestroy(EnvMutex *mutex)
 {
     if (pthread_mutex_destroy(&mutex->lock)) {
@@ -84,6 +85,7 @@ static inline int EnvMutexDestroy(EnvMutex *mutex)
     return 0;
 }
 
+/* 初始化互斥锁，成功返回 0，失败返回 1 */
 static inline int EnvMutexInit(EnvMutex *mutex)
 {
     if (pthread_mutex_init(&mutex->lock, NULL)) {
@@ -93,30 +95,36 @@ static inline int EnvMutexInit(EnvMutex *mutex)
     return 0;
 }
 
+/* 加锁（阻塞等待） */
 static inline void EnvMutexLock(EnvMutex *mutex)
 {
     pthread_mutex_lock(&mutex->lock);
 }
 
+/* 解锁 */
 static inline void EnvMutexUnlock(EnvMutex *mutex)
 {
     pthread_mutex_unlock(&mutex->lock);
 }
 
+/* 原子整数封装，兼容 C 和 C++ */
 typedef struct {
-    atomic_int counter;
+    atomic_int counter; /* 原子计数器 */
 } EnvAtomic;
 
+/* 原子读取计数器当前值 */
 static inline int EnvAtomicRead(const EnvAtomic *a)
 {
     return atomic_load(&a->counter);
 }
 
+/* 原子设置计数器值为 i */
 static inline void EnvAtomicSet(EnvAtomic *a, int i)
 {
     atomic_store(&a->counter, i);
 }
 
+/* 原子比较并交换：若当前值等于 oldValue 则置为 newValue，返回交换前的值 */
 static inline int EnvAtomicCmpAndSwap(int oldValue, int newValue, EnvAtomic *a)
 {
 #ifdef __cplusplus
@@ -128,7 +136,8 @@ static inline int EnvAtomicCmpAndSwap(int oldValue, int newValue, EnvAtomic *a)
     return __sync_val_compare_and_swap(&a->counter, oldValue, newValue); // C 中使用内置函数
 #endif
 }
-/* TIME */
+/* 时间工具 */
+/* 睡眠 n 毫秒 */
 static inline void EnvMsleep(uint64_t n)
 {
     usleep(n * USEC_PER_MSEC);

@@ -172,24 +172,26 @@ int IsQemuTask(pid_t pid)
         SMAP_LOGGER_ERROR("Failed to open file, errno is %d.", errno);
         return -EINVAL;
     }
-    if (fgets(comm, sizeof(comm), file)) {
-        SMAP_LOGGER_DEBUG("Skip the first line of comm file.");
-    }
-    if (fgets(comm, sizeof(comm), file)) {
+    ret = -1;
+    while (fgets(comm, sizeof(comm), file)) {
+        /* comm entries are at most PID_NAME_LEN chars + newline; skip longer header lines */
+        if (strlen(comm) > (size_t)(PID_NAME_LEN + 1)) {
+            continue;
+        }
         SMAP_LOGGER_INFO("After fgets comm file");
-        pclose(file);
         if ((strncmp(comm, VM_NAME_STR, PID_NAME_LEN) == 0) ||
             (strncmp(comm, VM_KVM_NAME_STR, PID_KVM_NAME_LEN) == 0)) {
             ret = VM_TYPE;
         } else {
             ret = PROCESS_TYPE;
         }
-        return ret;
+        break;
     }
-    SMAP_LOGGER_ERROR("Error occur in fgets comm file");
-
+    if (ret == -1) {
+        SMAP_LOGGER_ERROR("Error occur in fgets comm file");
+    }
     (void)pclose(file);
-    return -1;
+    return ret;
 }
 
 void LinkedListAdd(ProcessAttr **head, ProcessAttr **add)

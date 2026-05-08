@@ -570,11 +570,12 @@ static void SetProcessConfig(ProcessAttr *attr, ProcessParam *param)
     attr->scanType = param->scanType;
     attr->migrateMode = param->numaParam[0].migrateMode;
     attr->remoteNumaCnt = param->count;
-    attr->enableSwap = true;
+    attr->nvmeRatio = param->nvmeRatio;
     attr->initLocalMemRatio = HUNDRED;
     for (int i = 0; i < param->count; i++) {
         attr->initLocalMemRatio -= param->numaParam[i].ratio;
     }
+    attr->initLocalMemRatio -= param->nvmeRatio;
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error");
     }
@@ -2179,7 +2180,6 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
     uint64_t remoteNum;
     pid_t pid = attr->pid;
 
-    attr->enableSwap = false;
     if (IsMultiNumaVm(attr)) {
         *isMultiNumaPid = true;
         for (int i = 0; i < attr->remoteNumaCnt; i++) {
@@ -2191,7 +2191,6 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
                 return false;
             }
         }
-        attr->enableSwap = true;
         ret = true;
     } else {
         int l1Node = GetAttrL1(attr);
@@ -2207,7 +2206,6 @@ bool MigOutIsDone(ProcessAttr *attr, bool *isMultiNumaPid)
         uint64_t localNum = remoteNum >= attr->walkPage.nrPage ? 0 : (attr->walkPage.nrPage - remoteNum);
         SMAP_LOGGER_INFO("localNum %llu, attr->nrPages[l1Node] %llu.", localNum, attr->walkPage.nrPages[l1Node]);
         if (attr->walkPage.nrPage && localNum == attr->walkPage.nrPages[l1Node]) {
-            attr->enableSwap = true;
             ret = true;
         }
     }

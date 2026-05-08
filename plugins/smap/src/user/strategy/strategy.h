@@ -19,6 +19,7 @@
 #define FREE_BYTES_INDEX 3
 #define KB_TO_PAGE_SHIFT 2
 #define NR_RESERVED_PAGES 16384
+#define NR_RESERVED_HUGE_PAGES 32 /* 32 x 2MB = 64MB reserved for kernel swap-in headroom */
 
 static inline void CalcMaxMigrate(uint divisor, uint64_t total, uint64_t *res)
 {
@@ -67,6 +68,8 @@ static inline int CheckActcDataValid(ProcessAttr *process)
 }
 
 int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize);
+int BuildTieredMsg(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+                   struct MigList swapList[MAX_NODES]);
 uint64_t GetNrFreePagesByNode(int nid);
 uint64_t GetNrFreeHugePagesByNode(int nid);
 

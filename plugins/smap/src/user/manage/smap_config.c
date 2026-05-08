@@ -400,14 +400,14 @@ static void AssignProcessAttr(ProcessAttr *attr, struct ProcessPayload *payload)
         totalRatio += payload->migrateParam[i].ratio;
     }
 
-    attr->initLocalMemRatio = HUNDRED - totalRatio;
+    attr->nvmeRatio = payload->nvmeRatio;
+    attr->initLocalMemRatio = HUNDRED - totalRatio - payload->nvmeRatio;
     attr->type = payload->type;
     attr->state = payload->state;
     attr->scanType = payload->scanType;
     attr->scanTime = payload->scanTime;
     attr->migrateMode = payload->migrateMode;
     attr->duration = payload->duration;
-    attr->enableSwap = true;
     if (time(&attr->scanStart) == (time_t)-1) {
         SMAP_LOGGER_ERROR("get time error.");
     }
@@ -550,6 +550,7 @@ static int BuildAllProcessPayload(struct ProcessPayload **payload, int *len)
         tmp->scanTime = attr->scanTime;
         tmp->duration = attr->duration;
         tmp->count = attr->remoteNumaCnt;
+        tmp->nvmeRatio = (uint8_t)attr->nvmeRatio;
         for (int i = 0; i < tmp->count; i++) {
             tmp->migrateParam[i].nid = attr->migrateParam[i].nid;
             tmp->migrateParam[i].memSize = attr->migrateParam[i].memSize;

@@ -73,6 +73,7 @@ struct MigrateOutPayload {
     int srcNid; // 是否指定迁出源节点（-1表示不指定）
     pid_t pid;
     int count;
+    int nvmeRatio; // NVMe (L3) swap ratio, 0-100
     struct MigrateOutPayloadInner inner[REMOTE_NUMA_NUM];
 };
 

@@ -434,8 +434,13 @@ static bool IsMigParaValid(struct MigrateOutPayload *payload)
         return false;
     }
 
-    if (GetRunMode() == WATERLINE_MODE && totalRatio > HUNDRED) {
-        SMAP_LOGGER_ERROR("pid %d, migrate out total ration > 100.", payload->pid);
+    if (payload->nvmeRatio < 0 || payload->nvmeRatio > HUNDRED) {
+        SMAP_LOGGER_ERROR("pid %d, nvmeRatio %d is invalid.", payload->pid, payload->nvmeRatio);
+        return false;
+    }
+
+    if (GetRunMode() == WATERLINE_MODE && totalRatio + payload->nvmeRatio > HUNDRED) {
+        SMAP_LOGGER_ERROR("pid %d, migrate out total ratio + nvmeRatio > 100.", payload->pid);
         return false;
     }
     return true;
@@ -551,6 +556,7 @@ static int AddProcessesToGlobalManager(struct MigrateOutMsg *msg, int pidType,
         param.scanTime = pidType == VM_TYPE ? SCAN_TIME_2M : SCAN_TIME_4K;
         param.scanType = NORMAL_SCAN;
         param.count = msg->payload[i].count;
+        param.nvmeRatio = msg->payload[i].nvmeRatio;
 
         for (int j = 0; j < msg->payload[i].count; ++j) {
             param.numaParam[j].nid = msg->payload[i].inner[j].destNid;

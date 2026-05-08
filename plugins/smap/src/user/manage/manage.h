@@ -213,9 +213,9 @@ struct ProcessAttribute {
     SceneInfo sceneInfo; // 场景：轻载/重载/稳态/非稳态，扫描周期等
     MigrateMode migrateMode; // 内存迁移模式，按照比例或是大小
     int initLocalMemRatio; // 接口设置的内存比例
+    int nvmeRatio; // NVMe (L3) swap target ratio, 0-100
     int remoteNumaCnt; // 远端numa数量
     bool isLowMem; // 多numa虚机场景，表示目的端内存不够
-    bool enableSwap; // 控制是否开启交换，默认开启
     struct { // 迁移相关参数
         int nid;
         uint64_t memSize; // 迁移内存大小,单位为KB
@@ -347,6 +347,7 @@ typedef struct {
     uint32_t duration;
     int scanType;
     int count;
+    int nvmeRatio;
     struct {
         int nid;
         int ratio;

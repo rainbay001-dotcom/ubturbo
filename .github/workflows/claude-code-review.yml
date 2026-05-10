@@ -30,14 +30,14 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Full history so the reviewer can see prior commits on the
           # PR branch, not just the tip.
           fetch-depth: 0
 
       - name: Checkout openEuler kernel reference (OLK-6.6)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Cross-repo checkout so the reviewer can read OLK-6.6 source
           # when reasoning about kernel APIs the PR touches. Both repos

@@ -44,7 +44,7 @@ jobs:
       actions: read # Required for Claude to read CI results on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Full history so Claude can see all branches/commits, not
           # just the tip of the default branch (default fetch-depth=1
@@ -52,7 +52,7 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout openEuler kernel reference (OLK-6.6)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Cross-repo checkout so Claude can read OLK-6.6 source when
           # reasoning about kernel APIs referenced by ubturbo. Both repos

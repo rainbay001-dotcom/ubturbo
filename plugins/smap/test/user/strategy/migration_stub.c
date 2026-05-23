@@ -7,12 +7,14 @@
 #include <stdio.h>
 
 #include "user/manage/manage.h"
+#include "user/strategy/separate_strategy.h"
 
 #define LOCAL_NUMA_BITS 4
 #define REMOTE_NUMA_BITS 18
 #define MAX_NODES (LOCAL_NUMA_BITS + REMOTE_NUMA_BITS)
 
-int RunStrategyStub(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize)
+int RunStrategyStub(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize,
+                    GlobalDemoteCtx *ctx)
 {
     int i, j;
 

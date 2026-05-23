@@ -100,7 +100,8 @@ uint64_t GetNrFreeHugePagesByNode(int nid)
     return nr;
 }
 
-int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize)
+int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize,
+                GlobalDemoteCtx *ctx)
 {
     if (mlistSize < MAX_NODES) {
         SMAP_LOGGER_ERROR("Miglist size is small, size:%zu.", mlistSize);
@@ -114,7 +115,7 @@ int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]
         if (IsMultiNumaVm(process)) {
             return SeparateStrategyMultiNumaVm(process, mlist);
         } else {
-            return SeparateStrategy(process, mlist);
+            return SeparateStrategy(process, mlist, ctx);
         }
     } else {
         return SeparateStrategy4K(process, mlist);

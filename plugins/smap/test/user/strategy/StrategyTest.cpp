@@ -28,7 +28,8 @@ protected:
     }
 };
 
-extern "C" int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize);
+extern "C" int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize,
+                            GlobalDemoteCtx *ctx);
 TEST_F(StrategyTest, TestRunStrategyOne)
 {
     size_t mlistSize = NR_LEVEL;
@@ -39,7 +40,7 @@ TEST_F(StrategyTest, TestRunStrategyOne)
     MOCKER(IsHugeMode).stubs().will(returnValue(true));
     MOCKER(SeparateStrategy).stubs().will(returnValue(0));
     MOCKER(SeparateStrategy4K).stubs().will(returnValue(0));
-    int ret = RunStrategy(&process, mlist, mlistSize);
+    int ret = RunStrategy(&process, mlist, mlistSize, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -53,7 +54,7 @@ TEST_F(StrategyTest, TestRunStrategyTwo)
     MOCKER(IsHugeMode).stubs().will(returnValue(false));
     MOCKER(SeparateStrategy).stubs().will(returnValue(0));
     MOCKER(SeparateStrategy4K).stubs().will(returnValue(0));
-    int ret = RunStrategy(&process, mlist, mlistSize);
+    int ret = RunStrategy(&process, mlist, mlistSize, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -64,7 +65,7 @@ TEST_F(StrategyTest, TestRunStrategyThree)
     struct MigList mlist[MAX_NODES][MAX_NODES] = {};
     MOCKER(SeparateStrategy).stubs().will(returnValue(0));
     MOCKER(SeparateStrategy4K).stubs().will(returnValue(0));
-    int ret = RunStrategy(&process, mlist, mlistSize);
+    int ret = RunStrategy(&process, mlist, mlistSize, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 

@@ -20,7 +20,7 @@
 #include "securec.h"
 #include "period_config.h"
 
-#define PERIOD_CONFIG_ENTRY 6
+#define PERIOD_CONFIG_ENTRY 7
 #define PERIOD_CONFIG_BUFFSIZE 500
 
 #define RETURN_OK 0
@@ -47,6 +47,10 @@
 #define DEFAULT_FREQ_WT 0
 #define MIN_FREQ_WT 0
 
+#define MAX_GLOBAL_DEMOTE_RATIO 50
+#define DEFAULT_GLOBAL_DEMOTE_RATIO 5
+#define MIN_GLOBAL_DEMOTE_RATIO 1
+
 #define SCAN_MULTIPLE 5UL
 
 #define RADIX_10 10UL
@@ -60,6 +64,7 @@ typedef struct {
     bool fileConfSwitch;
     bool scanPeriodChanged;
     bool migratePeriodChanged;
+    uint32_t globalDemoteRatio;
 } PeriodConfig;
 
 static PeriodConfig g_tmpPeriodConfig;
@@ -98,6 +103,11 @@ uint32_t GetSlowThresholdConfig(void)
 uint64_t GetFreqWtConfig(void)
 {
     return g_periodConfig.freqWt;
+}
+
+uint32_t GetGlobalDemoteRatioConfig(void)
+{
+    return g_periodConfig.globalDemoteRatio == 0 ? DEFAULT_GLOBAL_DEMOTE_RATIO : g_periodConfig.globalDemoteRatio;
 }
 
 bool GetFileConfSwitchConfig(void)
@@ -234,6 +244,23 @@ static int32_t ConfigFreqWt(char *substr, char *value)
     return RETURN_OK;
 }
 
+static int32_t ConfigGlobalDemoteRatio(char *substr, char *value)
+{
+    SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
+    int32_t ret = ConfigReadValueToInt(value, &g_tmpPeriodConfig.globalDemoteRatio);
+    if (ret != RETURN_OK) {
+        SMAP_LOGGER_ERROR("Config global demote ratio read failed, key:%s.", substr);
+        return ret;
+    }
+    if (g_tmpPeriodConfig.globalDemoteRatio < MIN_GLOBAL_DEMOTE_RATIO ||
+        g_tmpPeriodConfig.globalDemoteRatio > MAX_GLOBAL_DEMOTE_RATIO) {
+        SMAP_LOGGER_ERROR("Config global demote ratio(%d) invalid, range(%d-%d), key:%s.",
+                          g_tmpPeriodConfig.globalDemoteRatio, MIN_GLOBAL_DEMOTE_RATIO, MAX_GLOBAL_DEMOTE_RATIO, substr);
+        return RETURN_ERROR;
+    }
+    return RETURN_OK;
+}
+
 static int32_t ConfigFileConfSwitch(char *substr, char *value)
 {
     SMAP_LOGGER_DEBUG("Read config key:%s, value:%s.", substr, value);
@@ -283,6 +310,12 @@ static PeriodConfigReadElem g_periodConfigRead[] = {
         "smap.period.file.config.switch",
         ConfigFileConfSwitch,
         1UL,
+        0UL,
+    },
+    {
+        "smap.global.demote.ratio",
+        ConfigGlobalDemoteRatio,
+        0UL,
         0UL,
     },
 };
@@ -488,6 +521,12 @@ static int32_t InitPeriodConfigFileBuffer(char periodDefaultConfig[PERIOD_CONFIG
         SMAP_LOGGER_ERROR("Strncpy smap period switch failed.");
         return RETURN_ERROR;
     }
+    ret = snprintf_s(periodDefaultConfig[numConfigs + 1], PERIOD_CONFIG_BUFFSIZE, PERIOD_CONFIG_BUFFSIZE - 1,
+                     "smap.global.demote.ratio = %d\n", DEFAULT_GLOBAL_DEMOTE_RATIO);
+    if (ret < 0) {
+        SMAP_LOGGER_ERROR("Snprintf failed for smap.global.demote.ratio.");
+        return RETURN_ERROR;
+    }
     return RETURN_OK;
 }
 
@@ -553,6 +592,7 @@ static bool UpdatePeriodConfigChanged(void)
     uint32_t oldScanPeriod, oldMigratePeriod, scanPeriod, migratePeriod;
     uint32_t oldRemoteFreqPercentile, oldSlowThreshold, remoteFreqPercentile, slowThreshold;
     uint64_t oldFreqWt, freqWt;
+    uint32_t oldGlobalDemoteRatio, globalDemoteRatio;
 
     if (!g_tmpPeriodConfig.fileConfSwitch) {
         return false;
@@ -563,15 +603,18 @@ static bool UpdatePeriodConfigChanged(void)
     oldRemoteFreqPercentile = g_periodConfig.remoteFreqPercentile;
     oldSlowThreshold = g_periodConfig.slowThreshold;
     oldFreqWt = g_periodConfig.freqWt;
+    oldGlobalDemoteRatio = g_periodConfig.globalDemoteRatio;
 
     scanPeriod = g_tmpPeriodConfig.scanPeriod;
     migratePeriod = g_tmpPeriodConfig.migratePeriod;
     remoteFreqPercentile = g_tmpPeriodConfig.remoteFreqPercentile;
     slowThreshold = g_tmpPeriodConfig.slowThreshold;
     freqWt = g_tmpPeriodConfig.freqWt;
+    globalDemoteRatio = g_tmpPeriodConfig.globalDemoteRatio;
 
     if (oldScanPeriod == scanPeriod && oldMigratePeriod == migratePeriod &&
-        oldRemoteFreqPercentile == remoteFreqPercentile && oldSlowThreshold == slowThreshold && oldFreqWt == freqWt) {
+        oldRemoteFreqPercentile == remoteFreqPercentile && oldSlowThreshold == slowThreshold &&
+        oldFreqWt == freqWt && oldGlobalDemoteRatio == globalDemoteRatio) {
         return false;
     }
 
@@ -593,6 +636,10 @@ static bool UpdatePeriodConfigChanged(void)
 
     if (oldFreqWt != freqWt) {
         SMAP_LOGGER_INFO("Start update freq wt from config to %lu.", freqWt);
+    }
+
+    if (oldGlobalDemoteRatio != globalDemoteRatio) {
+        SMAP_LOGGER_INFO("Start update global demote ratio from config to %u.", globalDemoteRatio);
     }
 
     return true;

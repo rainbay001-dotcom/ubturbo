@@ -25,6 +25,7 @@
 #include "manage/smap_ioctl.h"
 #include "manage/device.h"
 #include "strategy.h"
+#include "separate_strategy.h"
 #include "period_config.h"
 #include "securec.h"
 #include "smap_env.h"
@@ -94,7 +95,8 @@ static void InitMigList(struct MigList mList[MAX_NODES][MAX_NODES], int pid)
     }
 }
 
-static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint64_t *migratePage)
+static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint64_t *migratePage,
+                             GlobalDemoteCtx *ctx)
 {
     int ret = CheckActcDataValid(process);
     if (ret) {
@@ -111,7 +113,7 @@ static int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint
     }
     struct MigList migList[MAX_NODES][MAX_NODES];
     InitMigList(migList, process->pid);
-    ret = RunStrategy(process, migList, MAX_NODES);
+    ret = RunStrategy(process, migList, MAX_NODES, ctx);
     if (ret) {
         SMAP_LOGGER_ERROR("Run strategy for pid %d failed: %d.", process->pid, ret);
         FreeMigList(migList);
@@ -463,6 +465,10 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
         SMAP_LOGGER_ERROR("InitMigrateMsg failed! ret:%d.", ret);
         return ret;
     }
+
+    GlobalDemoteCtx ctx;
+    BuildGlobalDemoteCtx(manager, &ctx);
+
     for (current = manager->processes; current; current = current->next) {
         if (current->scanType != NORMAL_SCAN) {
             continue;
@@ -476,7 +482,7 @@ static int PreMigration(struct ProcessManager *manager, struct MigrateMsg *mMsg,
         current->state = PROC_MIGRATE;
         SMAP_LOGGER_DEBUG("change pid %d state from idle to migrate.", current->pid);
         // 识别每个进程的待迁移冷热页
-        ret = BuildMigrationMsg(current, mMsg, migratePages);
+        ret = BuildMigrationMsg(current, mMsg, migratePages, &ctx);
         SMAP_LOGGER_INFO("Add process: %d to migrate msg ret: %d.", current->pid, ret);
         isForcedSingleThread = isForcedSingleThread || current->vmPidAttr.mmapType;
     }

@@ -15,6 +15,7 @@
 
 #include "manage/manage.h"
 #include "smap_user_log.h"
+#include "separate_strategy.h"
 
 #define FREE_BYTES_INDEX 3
 #define KB_TO_PAGE_SHIFT 2
@@ -66,7 +67,8 @@ static inline int CheckActcDataValid(ProcessAttr *process)
     return 0;
 }
 
-int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize);
+int RunStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize,
+                GlobalDemoteCtx *ctx);
 uint64_t GetNrFreePagesByNode(int nid);
 uint64_t GetNrFreeHugePagesByNode(int nid);
 

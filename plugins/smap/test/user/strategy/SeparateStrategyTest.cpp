@@ -229,7 +229,7 @@ TEST_F(SeparateStrategyTest, TestCalcMigrateNumByFreqTwo)
 }
 
 extern "C" int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
-    uint64_t rawMigrateNum, MigrateDirection dir);
+    uint64_t rawMigrateNum, MigrateDirection dir, GlobalDemoteCtx *ctx);
 TEST_F(SeparateStrategyTest, TestBaseStrategyOne)
 {
     ProcessAttr process = {};
@@ -242,7 +242,7 @@ TEST_F(SeparateStrategyTest, TestBaseStrategyOne)
     process.scanAttr.actcLen[0] = 0;
     process.scanAttr.actcLen[1] = 0;
     MOCKER(CalcMigrateNumByFreq).stubs().will(returnValue((uint64_t)0));
-    int ret = BaseStrategy(&process, mlist, rawMigrateNum, dir);
+    int ret = BaseStrategy(&process, mlist, rawMigrateNum, dir, nullptr);
     EXPECT_EQ(-22, ret);
 }
 
@@ -269,18 +269,19 @@ TEST_F(SeparateStrategyTest, TestPromotionStrategy)
 }
 
 extern "C" int DemotionStrategy(ProcessAttr *process,
-    struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum);
+    struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum, GlobalDemoteCtx *ctx);
 TEST_F(SeparateStrategyTest, TestDemotionStrategy)
 {
     ProcessAttr process;
     struct MigList mlist[MAX_NODES][MAX_NODES];
     uint64_t rawMigrateNum;
     MOCKER(BaseStrategy).stubs().will(returnValue(0));
-    int ret = DemotionStrategy(&process, mlist, rawMigrateNum);
+    int ret = DemotionStrategy(&process, mlist, rawMigrateNum, nullptr);
     EXPECT_EQ(0, ret);
 }
 
-extern "C" int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
+extern "C" int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES],
+    GlobalDemoteCtx *ctx);
 void SeparateStrategyinit(ActcData actcData1[2], ActcData actcData2[4], ProcessAttr *process)
 {
     actcData1[0].freq = 0;
@@ -323,7 +324,7 @@ TEST_F(SeparateStrategyTest, TestSeparateStrategyall)
     process.scanAttr.actcLen[0] = len1;
     process.scanAttr.actcLen[4] = len2;
 
-    int ret = SeparateStrategy(&process, mlist);
+    int ret = SeparateStrategy(&process, mlist, nullptr);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(1, mlist[0][4].nr);
     EXPECT_EQ(1, mlist[4][0].nr);
@@ -338,7 +339,7 @@ TEST_F(SeparateStrategyTest, TestSeparateStrategyall)
 
     SeparateStrategyinit(actcData1, actcData2, &process);
     process.strategyAttr.nrMigratePages[4][0] = 1;
-    ret = SeparateStrategy(&process, mlist);
+    ret = SeparateStrategy(&process, mlist, nullptr);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(0, mlist[0][4].nr);
     EXPECT_EQ(1, mlist[4][0].nr);
@@ -353,7 +354,7 @@ TEST_F(SeparateStrategyTest, TestSeparateStrategyall)
 
     SeparateStrategyinit(actcData1, actcData2, &process);
     process.strategyAttr.nrMigratePages[0][4] = 1;
-    ret = SeparateStrategy(&process, mlist);
+    ret = SeparateStrategy(&process, mlist, nullptr);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(1, mlist[0][4].nr);
     EXPECT_EQ(0, mlist[4][0].nr);

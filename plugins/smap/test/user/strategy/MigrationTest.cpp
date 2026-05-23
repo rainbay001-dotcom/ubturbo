@@ -140,7 +140,8 @@ TEST_F(MigrationTest, TestInitMigList)
     EXPECT_EQ(nullptr, mlist[0][0].addr);
 }
 
-extern "C" int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint64_t *migratePage);
+extern "C" int BuildMigrationMsg(ProcessAttr *process, struct MigrateMsg *mMsg, uint64_t *migratePage,
+                                  GlobalDemoteCtx *ctx);
 extern "C" bool IsNodeForbidden(int nid);
 
 TEST_F(MigrationTest, TestBuildMigrationMsgActcDataInvalid)
@@ -150,7 +151,7 @@ TEST_F(MigrationTest, TestBuildMigrationMsgActcDataInvalid)
     ProcessAttr process = {};
     struct MigrateMsg mMsg = {};
 
-    ret = BuildMigrationMsg(&process, &mMsg, &pages);
+    ret = BuildMigrationMsg(&process, &mMsg, &pages, nullptr);
     EXPECT_EQ(-ENODATA, ret);
 }
 
@@ -169,7 +170,7 @@ TEST_F(MigrationTest, TestBuildMigrationMsgRunStrategyFail)
     EnvAtomicSet(&g_forbiddenNodes[nid], 0);
 
     MOCKER(RunStrategy).stubs().will(returnValue(-ENOENT));
-    ret = BuildMigrationMsg(&process, &mMsg, &pages);
+    ret = BuildMigrationMsg(&process, &mMsg, &pages, nullptr);
     EXPECT_EQ(-ENOENT, ret);
 }
 
@@ -188,7 +189,7 @@ TEST_F(MigrationTest, TestBuildMigrationMsgNullPtrOfMigratePage)
     EnvAtomicSet(&g_forbiddenNodes[nid], 0);
 
     MOCKER(RunStrategy).stubs().will(returnValue(0));
-    ret = BuildMigrationMsg(&process, &mMsg, nullptr);
+    ret = BuildMigrationMsg(&process, &mMsg, nullptr, nullptr);
     EXPECT_EQ(-EINVAL, ret);
 }
 
@@ -207,7 +208,7 @@ TEST_F(MigrationTest, TestBuildMigrationMsgNoPage)
     EnvAtomicSet(&g_forbiddenNodes[nid], 0);
 
     MOCKER(AddMigList).stubs().will(returnValue(0));
-    ret = BuildMigrationMsg(&process, &mMsg, &pages);
+    ret = BuildMigrationMsg(&process, &mMsg, &pages, nullptr);
     EXPECT_EQ(0, ret);
 }
 
@@ -225,12 +226,13 @@ TEST_F(MigrationTest, TestBuildMigrationMsgL2NodeForbidden)
     g_processManager.nrLocalNuma = 4;
     EnvAtomicSet(&g_forbiddenNodes[nid], 1);
 
-    ret = BuildMigrationMsg(&process, &mMsg, &pages);
+    ret = BuildMigrationMsg(&process, &mMsg, &pages, nullptr);
     EXPECT_EQ(-EPERM, ret);
 }
 
 extern "C" uint64_t CalcMigrateNumByFreq(ProcessAttr *process);
-extern "C" int RunStrategyStub(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize);
+extern "C" int RunStrategyStub(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], size_t mlistSize,
+                                GlobalDemoteCtx *ctx);
 TEST_F(MigrationTest, TestBuildMigrationMsgSuccess)
 {
     int ret;
@@ -249,7 +251,7 @@ TEST_F(MigrationTest, TestBuildMigrationMsgSuccess)
     MOCKER(RunStrategy).stubs().will(invoke(RunStrategyStub));
     MOCKER(AddMigList).stubs().will(returnValue(0));
 
-    ret = BuildMigrationMsg(&process, &mMsg, &pages);
+    ret = BuildMigrationMsg(&process, &mMsg, &pages, nullptr);
     EXPECT_EQ(0, ret);
     EXPECT_EQ(484, pages);
 }

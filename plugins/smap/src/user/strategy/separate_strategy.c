@@ -198,7 +198,7 @@ static int BaseStrategyInner(ProcessAttr *process, struct MigList mlist[MAX_NODE
 }
 
 static int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum,
-                        MigrateDirection dir)
+                        MigrateDirection dir, GlobalDemoteCtx *ctx)
 {
     int ret = 0;
     uint64_t freePageNum;
@@ -220,8 +220,47 @@ static int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MA
     uint64_t SwapMigrateNum = CalcMigrateNumByFreq(process);
     mlist[l1Node][l2Node].nr = mlist[l2Node][l1Node].nr = SwapMigrateNum;
     if (dir == DEMOTE) {
-        mlist[l1Node][l2Node].nr = MAX(SwapMigrateNum, rawMigrateNum);
-        mlist[l2Node][l1Node].nr = mlist[l1Node][l2Node].nr - rawMigrateNum;
+        if (ctx != NULL && ctx->thresholdFreq >= 0) {
+            uint64_t vm_count = 0;
+            uint64_t n = (uint64_t)GetL1ActcLen(process);
+            ActcData *data = process->scanAttr.actcData[l1Node];
+
+            if (ctx->thresholdFreq == 0) {
+                uint64_t vm_zero = 0;
+                for (uint64_t i = 0; i < n; i++) {
+                    if (data[i].isWhiteListPage || data[i].freq > 0) {
+                        break;
+                    }
+                    vm_zero++;
+                }
+                if (ctx->totalZeroFreqPages > 0) {
+                    vm_count = ctx->budget * vm_zero / ctx->totalZeroFreqPages;
+                }
+            } else {
+                uint32_t take_rem = ctx->takeAtThreshold;
+                for (uint64_t i = 0; i < n; i++) {
+                    if (data[i].isWhiteListPage) {
+                        continue;
+                    }
+                    int freq = data[i].freq;
+                    if (freq < ctx->thresholdFreq) {
+                        vm_count++;
+                    } else if (freq == ctx->thresholdFreq && take_rem > 0) {
+                        vm_count++;
+                        take_rem--;
+                    } else {
+                        break;
+                    }
+                }
+                ctx->takeAtThreshold = take_rem;
+            }
+
+            mlist[l1Node][l2Node].nr = vm_count;
+            mlist[l2Node][l1Node].nr = 0;
+        } else {
+            mlist[l1Node][l2Node].nr = MAX(SwapMigrateNum, rawMigrateNum);
+            mlist[l2Node][l1Node].nr = mlist[l1Node][l2Node].nr - rawMigrateNum;
+        }
     } else if (dir == PROMOTE) {
         mlist[l2Node][l1Node].nr = MAX(SwapMigrateNum, rawMigrateNum);
         mlist[l1Node][l2Node].nr = mlist[l2Node][l1Node].nr - rawMigrateNum;
@@ -248,22 +287,23 @@ static int BaseStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MA
 static int PromotionStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum)
 {
     SMAP_LOGGER_INFO("Pid %d promotion, raw migrate num %lu.", process->pid, rawMigrateNum);
-    return BaseStrategy(process, mlist, rawMigrateNum, PROMOTE);
+    return BaseStrategy(process, mlist, rawMigrateNum, PROMOTE, NULL);
 }
 
-static int DemotionStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum)
+static int DemotionStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], uint64_t rawMigrateNum,
+                             GlobalDemoteCtx *ctx)
 {
     SMAP_LOGGER_INFO("Pid %d demotion, raw migrate num %lu.", process->pid, rawMigrateNum);
-    return BaseStrategy(process, mlist, rawMigrateNum, DEMOTE);
+    return BaseStrategy(process, mlist, rawMigrateNum, DEMOTE, ctx);
 }
 
 static int SwapStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES])
 {
     SMAP_LOGGER_INFO("Pid %d swap.", process->pid);
-    return BaseStrategy(process, mlist, 0, SWAP);
+    return BaseStrategy(process, mlist, 0, SWAP, NULL);
 }
 
-int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES])
+int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], GlobalDemoteCtx *ctx)
 {
     if (process->separateParam.freqWt == 0) {
         InitSeparateParam(process);
@@ -284,10 +324,19 @@ int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_N
         return -EINVAL;
     }
 
-    if (process->strategyAttr.nrMigratePages[l1Node][l2Node] > 0) {
-        return DemotionStrategy(process, mlist, process->strategyAttr.nrMigratePages[l1Node][l2Node]);
-    } else if (process->strategyAttr.nrMigratePages[l2Node][l1Node] > 0) {
+    /* Promote takes priority regardless of mode */
+    if (process->strategyAttr.nrMigratePages[l2Node][l1Node] > 0) {
         return PromotionStrategy(process, mlist, process->strategyAttr.nrMigratePages[l2Node][l1Node]);
+    }
+
+    /* Global demote mode: bypass per-VM nrMigratePages gate (P0 fix) */
+    if (ctx != NULL && ctx->thresholdFreq >= 0) {
+        return DemotionStrategy(process, mlist, 0, ctx);
+    }
+
+    /* Per-VM demote mode */
+    if (process->strategyAttr.nrMigratePages[l1Node][l2Node] > 0) {
+        return DemotionStrategy(process, mlist, process->strategyAttr.nrMigratePages[l1Node][l2Node], NULL);
     }
 
     return SwapStrategy(process, mlist);
@@ -431,6 +480,64 @@ static void FindThreshold(const SelectionMode mode, uint64_t nrMig, const uint32
             countSoFar += buckets[i];
         }
     }
+}
+
+void BuildGlobalDemoteCtx(struct ProcessManager *manager, GlobalDemoteCtx *ctx)
+{
+    ctx->thresholdFreq      = -1;
+    ctx->takeAtThreshold    = 0;
+    ctx->budget             = 0;
+    ctx->totalZeroFreqPages = 0;
+
+    if (!IsHugeMode()) {
+        return;
+    }
+
+    uint32_t buckets[STRATEGY_ACTC_MAX_FREQ] = {0};
+    uint64_t total_pages   = 0;
+    uint64_t total_l2_free = 0;
+    bool     l2_counted[MAX_NODES] = {false};
+
+    for (ProcessAttr *vm = manager->processes; vm != NULL; vm = vm->next) {
+        if (vm->scanType != NORMAL_SCAN || IsMultiNumaVm(vm)) {
+            continue;
+        }
+        if (vm->state != PROC_IDLE) {
+            continue;
+        }
+        int l1 = GetAttrL1(vm);
+        int l2 = GetAttrL2(vm);
+        if (l1 < 0 || l2 < 0) {
+            continue;
+        }
+        for (uint64_t i = 0; i < vm->scanAttr.actcLen[l1]; i++) {
+            if (vm->scanAttr.actcData[l1][i].isWhiteListPage) {
+                continue;
+            }
+            int freq = MIN((int)vm->scanAttr.actcData[l1][i].freq, STRATEGY_ACTC_MAX_FREQ - 1);
+            buckets[freq]++;
+            total_pages++;
+        }
+        if (!l2_counted[l2]) {
+            total_l2_free += GetNrFreeHugePagesByNode(l2);
+            l2_counted[l2] = true;
+        }
+    }
+
+    if (total_pages == 0) {
+        return;
+    }
+
+    uint32_t ratio = GetGlobalDemoteRatioConfig();
+    uint64_t budget = total_pages * ratio / 100;
+    budget = MIN(budget, total_l2_free);
+    if (budget == 0) {
+        return;
+    }
+
+    ctx->budget             = budget;
+    ctx->totalZeroFreqPages = (uint64_t)buckets[0];
+    FindThreshold(SELECT_BOTTOM_K, budget, buckets, &ctx->thresholdFreq, &ctx->takeAtThreshold);
 }
 
 static void CollectPages(const SelectionMode mode, uint64_t offset, uint64_t actcLen, ActcData *currentData,

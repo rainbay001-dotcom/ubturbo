@@ -21,6 +21,8 @@ extern "C" {
 
 uint32_t GetScanPeriodConfig(void);
 
+uint32_t GetGlobalDemoteRatioConfig(void);
+
 uint32_t GetMigratePeriodConfig(void);
 
 uint32_t GetRemoteFreqPercentileConfig(void);

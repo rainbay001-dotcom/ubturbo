@@ -37,7 +37,21 @@ typedef struct {
     MigrateDirection dir;
 } RemoteMigInfo;
 
-int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
+/*
+ * Cross-VM global demote context.
+ * thresholdFreq == -1: inactive, fall back to per-VM mode.
+ * thresholdFreq ==  0: zero-freq pages dominate; use proportional allocation.
+ * thresholdFreq  >  0: normal threshold path.
+ */
+typedef struct {
+    int      thresholdFreq;
+    uint32_t takeAtThreshold;
+    uint64_t budget;
+    uint64_t totalZeroFreqPages;
+} GlobalDemoteCtx;
+
+void BuildGlobalDemoteCtx(struct ProcessManager *manager, GlobalDemoteCtx *ctx);
+int SeparateStrategy(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES], GlobalDemoteCtx *ctx);
 int SeparateStrategy4K(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
 int SeparateStrategyMultiNumaVm(ProcessAttr *process, struct MigList mlist[MAX_NODES][MAX_NODES]);
 #endif /* __SEPARATE_STRATEGY_H__ */

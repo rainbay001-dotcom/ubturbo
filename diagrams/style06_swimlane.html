@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 场景示意 06 — 泳道时序风格</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei',Arial,sans-serif">
+<defs>
+  <filter id="sh6"><feDropShadow dx="0" dy="2" stdDeviation="5" flood-color="#00000016"/></filter>
+</defs>
+
+<rect width="1280" height="720" fill="#f8f9fb"/>
+
+<!-- Title -->
+<rect width="1280" height="56" fill="#0f172a"/>
+<text x="640" y="30" text-anchor="middle" fill="white" font-size="20" font-weight="bold">openclaw Browser · SMAP 泳道时序交互图</text>
+<text x="640" y="50" text-anchor="middle" fill="#94a3b8" font-size="12">三个参与者 · 分层交互流程</text>
+
+<rect x="14" y="62" rx="11" width="130" height="22" fill="#475569"/>
+<text x="79" y="77" text-anchor="middle" fill="white" font-size="11" font-weight="bold">06 · 泳道时序风格</text>
+
+<!-- ===== SWIMLANE HEADERS (3 lanes) ===== -->
+<!-- Lane 1: User (left 1/4) -->
+<rect x="0" y="84" width="320" height="636" fill="#eff6ff" opacity="0.5"/>
+<rect x="0" y="84" width="320" height="68" fill="#2563eb"/>
+<!-- Lane label -->
+<g transform="translate(0, 84)">
+  <circle cx="160" cy="34" r="28" fill="rgba(255,255,255,0.2)"/>
+  <!-- mini user icon -->
+  <circle cx="160" cy="26" r="14" fill="white" opacity="0.9"/>
+  <circle cx="155" cy="22" r="2.5" fill="#1e3a8a"/><circle cx="165" cy="22" r="2.5" fill="#1e3a8a"/>
+  <path d="M154,28 Q160,33 166,28" stroke="#1e3a8a" fill="none" stroke-width="1.5"/>
+  <text x="160" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">用  户</text>
+  <text x="160" y="68" text-anchor="middle" fill="#bfdbfe" font-size="11">User</text>
+</g>
+
+<!-- Lane 2: VM/openclaw (middle 1/2) -->
+<rect x="320" y="84" width="640" height="636" fill="#fff7ed" opacity="0.5"/>
+<rect x="320" y="84" width="640" height="68" fill="#ea580c"/>
+<g transform="translate(320, 84)">
+  <!-- mini browser icon -->
+  <rect x="264" y="8" width="112" height="52" rx="6" fill="rgba(255,255,255,0.2)"/>
+  <rect x="264" y="8" width="112" height="16" rx="6" fill="rgba(255,255,255,0.2)"/>
+  <!-- claw marks mini -->
+  <path d="M276,30 Q279,42 273,58" stroke="white" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M293,30 Q296,42 290,58" stroke="white" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M310,30 Q313,42 307,58" stroke="white" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="370" y="35" text-anchor="middle" fill="white" font-size="14" font-weight="bold">VM  +  openclaw</text>
+  <text x="370" y="55" text-anchor="middle" fill="#fed7aa" font-size="11">2vCPU / 4GB</text>
+  <text x="370" y="68" text-anchor="middle" fill="#fed7aa" font-size="10">Virtual Machine + openclaw browser</text>
+</g>
+
+<!-- Lane 3: Memory (right 1/4) -->
+<rect x="960" y="84" width="320" height="636" fill="#f5f3ff" opacity="0.5"/>
+<rect x="960" y="84" width="320" height="68" fill="#7c3aed"/>
+<g transform="translate(960, 84)">
+  <!-- SSD mini icon in header -->
+  <rect x="68" y="8" width="184" height="52" rx="6" fill="rgba(255,255,255,0.15)"/>
+  <rect x="76" y="14" width="32" height="22" rx="3" fill="rgba(255,255,255,0.4)"/>
+  <text x="76" y="30" fill="white" font-size="7" font-family="monospace" opacity="0.8">NAND</text>
+  <rect x="114" y="14" width="32" height="22" rx="3" fill="rgba(255,255,255,0.4)"/>
+  <text x="114" y="30" fill="white" font-size="7" font-family="monospace" opacity="0.8">NAND</text>
+  <text x="160" y="35" text-anchor="middle" fill="white" font-size="14" font-weight="bold">内存分层</text>
+  <text x="160" y="55" text-anchor="middle" fill="#ddd6fe" font-size="11">L1 · L2 · L3</text>
+  <text x="160" y="68" text-anchor="middle" fill="#ddd6fe" font-size="10">SMAP Memory Tiers</text>
+</g>
+
+<!-- Lane dividers -->
+<line x1="320" y1="84" x2="320" y2="720" stroke="#cbd5e1" stroke-width="2"/>
+<line x1="960" y1="84" x2="960" y2="720" stroke="#cbd5e1" stroke-width="2"/>
+
+<!-- ===== TIMELINE ===== -->
+<!-- Time axis -->
+<line x1="40" y1="172" x2="1240" y2="172" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="8,6"/>
+
+<!-- Action 1: User clicks browser (T=1) -->
+<g transform="translate(50, 182)">
+  <!-- User action block -->
+  <rect width="230" height="80" rx="12" fill="white" stroke="#3b82f6" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="230" height="28" rx="12" fill="#3b82f6"/>
+  <rect y="18" width="230" height="10" fill="#3b82f6"/>
+  <text x="115" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">① 点击浏览器图标</text>
+  <!-- Large user click icon -->
+  <g transform="translate(20, 34)">
+    <circle cx="24" cy="20" r="18" fill="#dbeafe"/>
+    <circle cx="24" cy="16" r="9" fill="#2563eb"/>
+    <path d="M12,30 Q12,40 24,42 Q36,40 36,30 Q36,26 29,27 Q24,30 19,27 Z" fill="#3b82f6"/>
+  </g>
+  <!-- Mouse click icon -->
+  <g transform="translate(70, 34)">
+    <rect x="0" y="0" width="20" height="28" rx="10" fill="white" stroke="#2563eb" stroke-width="1.5"/>
+    <line x1="10" y1="0" x2="10" y2="14" stroke="#2563eb" stroke-width="1"/>
+    <circle cx="5" cy="8" r="3" fill="#2563eb"/>
+    <!-- Ripple -->
+    <circle cx="5" cy="8" r="7" fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3,2"/>
+  </g>
+  <text x="155" y="50" text-anchor="middle" fill="#1e40af" font-size="11">用户触发</text>
+  <text x="155" y="65" text-anchor="middle" fill="#64748b" font-size="10">浏览请求</text>
+</g>
+
+<!-- Arrow: User → VM -->
+<g transform="translate(285, 210)">
+  <line x1="0" y1="12" x2="68" y2="12" stroke="#f97316" stroke-width="2.5"/>
+  <polygon points="65,6 80,12 65,18" fill="#f97316"/>
+  <text x="34" y="6" text-anchor="middle" fill="#c2410c" font-size="10">HTTP 请求</text>
+</g>
+
+<!-- Action 2: openclaw processes (T=1) -->
+<g transform="translate(368, 182)">
+  <rect width="560" height="168" rx="12" fill="white" stroke="#ea580c" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="560" height="28" rx="12" fill="#ea580c"/>
+  <rect y="18" width="560" height="10" fill="#ea580c"/>
+  <text x="280" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">② openclaw Browser 在 VM 中渲染执行</text>
+
+  <!-- Large openclaw browser graphic -->
+  <g transform="translate(16, 38)">
+    <rect width="270" height="118" rx="8" fill="white" stroke="#ea580c" stroke-width="1.5"/>
+    <rect width="270" height="24" rx="8" fill="#f97316"/>
+    <rect y="16" width="270" height="8" fill="#f97316"/>
+    <circle cx="14" cy="11" r="5" fill="#ef4444"/>
+    <circle cx="26" cy="11" r="5" fill="#fbbf24"/>
+    <circle cx="38" cy="11" r="5" fill="#22c55e"/>
+    <rect x="52" y="6" width="196" height="12" rx="6" fill="rgba(255,255,255,0.8)"/>
+    <text x="150" y="16" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">openclaw://page/render</text>
+    <!-- claw marks -->
+    <rect x="0" y="24" width="270" height="94" fill="#fffbf7"/>
+    <line x1="30" y1="30" x2="14" y2="115" stroke="#f97316" stroke-width="14" stroke-linecap="round" opacity="0.1"/>
+    <line x1="80" y1="30" x2="64" y2="115" stroke="#f97316" stroke-width="14" stroke-linecap="round" opacity="0.1"/>
+    <line x1="130" y1="30" x2="114" y2="115" stroke="#f97316" stroke-width="14" stroke-linecap="round" opacity="0.1"/>
+    <path d="M26,32 Q33,65 18,113" stroke="#ea580c" fill="none" stroke-width="4" stroke-linecap="round"/>
+    <path d="M76,32 Q83,65 68,113" stroke="#ea580c" fill="none" stroke-width="4" stroke-linecap="round"/>
+    <path d="M126,32 Q133,65 118,113" stroke="#ea580c" fill="none" stroke-width="4" stroke-linecap="round"/>
+    <text x="210" y="70" text-anchor="middle" fill="#ea580c" font-size="11" font-weight="bold" opacity="0.7">openclaw</text>
+    <text x="210" y="86" text-anchor="middle" fill="#ea580c" font-size="9" opacity="0.6">browser</text>
+  </g>
+
+  <!-- VM info on right side -->
+  <g transform="translate(304, 38)">
+    <text x="0" y="18" fill="#9a3412" font-size="11" font-weight="bold">虚机规格</text>
+    <rect x="0" y="24" width="112" height="28" rx="6" fill="#fff7ed" stroke="#f97316" stroke-width="1"/>
+    <text x="56" y="43" text-anchor="middle" fill="#ea580c" font-size="12" font-weight="bold">2vCPU / 4GB</text>
+    <text x="0" y="68" fill="#9a3412" font-size="11" font-weight="bold">进程</text>
+    <rect x="0" y="74" width="240" height="18" rx="4" fill="#1e293b" opacity="0.08"/>
+    <text x="6" y="87" fill="#475569" font-size="9" font-family="monospace">openclaw-browser --headless</text>
+    <text x="0" y="108" fill="#9a3412" font-size="11" font-weight="bold">内存请求</text>
+    <g transform="translate(0, 114)">
+      <rect width="112" height="16" rx="8" fill="#e2e8f0"/>
+      <rect width="95" height="16" rx="8" fill="#3b82f6"/>
+      <text x="48" y="11" text-anchor="middle" fill="white" font-size="8">DRAM 85%</text>
+    </g>
+  </g>
+</g>
+
+<!-- Arrow: VM → Memory -->
+<g transform="translate(930, 246)">
+  <line x1="0" y1="12" x2="52" y2="12" stroke="#7c3aed" stroke-width="2.5"/>
+  <polygon points="49,6 64,12 49,18" fill="#7c3aed"/>
+  <text x="26" y="6" text-anchor="middle" fill="#5b21b6" font-size="9">读请求</text>
+</g>
+
+<!-- Memory Access Block (T=1): L1 Check -->
+<g transform="translate(974, 182)">
+  <rect width="280" height="80" rx="12" fill="white" stroke="#3b82f6" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="280" height="24" rx="12" fill="#2563eb"/>
+  <rect y="14" width="280" height="10" fill="#2563eb"/>
+  <text x="140" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L1 DRAM — 查询热数据</text>
+  <!-- RAM icon mini -->
+  <g transform="translate(14, 30)">
+    <rect width="34" height="42" rx="2" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+    <rect width="34" height="12" rx="2" fill="#1d4ed8" opacity="0.3"/>
+    <rect x="3" y="2" width="6" height="5" rx="1" fill="#1d4ed8"/><rect x="12" y="2" width="6" height="5" rx="1" fill="#1d4ed8"/><rect x="21" y="2" width="6" height="5" rx="1" fill="#1d4ed8"/>
+    <rect x="3" y="11" width="6" height="5" rx="1" fill="#60a5fa"/><rect x="12" y="11" width="6" height="5" rx="1" fill="#60a5fa"/>
+    <rect x="3" y="20" width="6" height="5" rx="1" fill="#93c5fd"/>
+    <rect x="10" y="34" width="14" height="7" fill="#dbeafe"/>
+    <rect x="2" y="41" width="5" height="3" fill="#f59e0b" rx="1"/><rect x="10" y="41" width="5" height="3" fill="#f59e0b" rx="1"/>
+  </g>
+  <text x="165" y="46" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="bold">热数据</text>
+  <text x="165" y="62" text-anchor="middle" fill="#3b82f6" font-size="10">延迟 ~100ns</text>
+</g>
+
+<!-- T=2: Miss, go to L2 -->
+<line x1="40" y1="384" x2="1240" y2="384" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="8,6"/>
+<!-- Timeline marker -->
+<text x="40" y="378" fill="#94a3b8" font-size="10">T+1ms</text>
+
+<!-- Miss return arrow -->
+<g transform="translate(974, 270)">
+  <line x1="140" y1="0" x2="140" y2="34" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="155" y="22" fill="#92400e" font-size="9">未命中</text>
+  <polygon points="134,31 146,31 140,40" fill="#f59e0b"/>
+</g>
+
+<!-- VM sends to L2 -->
+<g transform="translate(930, 350)">
+  <line x1="0" y1="12" x2="52" y2="12" stroke="#16a34a" stroke-width="2.5"/>
+  <polygon points="49,6 64,12 49,18" fill="#16a34a"/>
+  <text x="26" y="5" text-anchor="middle" fill="#065f46" font-size="9">L2访问</text>
+</g>
+
+<!-- Action 3: VM notified of L1 miss -->
+<g transform="translate(368, 360)">
+  <rect width="560" height="80" rx="12" fill="white" stroke="#f59e0b" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="560" height="24" rx="12" fill="#f59e0b"/>
+  <rect y="14" width="560" height="10" fill="#f59e0b"/>
+  <text x="280" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">③ SMAP 判断 L1 未命中 → 触发 L2 UB 借用内存访问</text>
+  <text x="280" y="52" text-anchor="middle" fill="#78350f" font-size="12" font-weight="bold">SMAP 内存调度引擎  →  将温数据页面路由至 L2</text>
+  <text x="280" y="68" text-anchor="middle" fill="#64748b" font-size="11">openEuler UB Stack 驱动跨节点内存借用</text>
+</g>
+
+<!-- L2 UB action -->
+<g transform="translate(974, 360)">
+  <rect width="280" height="80" rx="12" fill="white" stroke="#16a34a" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="280" height="24" rx="12" fill="#16a34a"/>
+  <rect y="14" width="280" height="10" fill="#16a34a"/>
+  <text x="140" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L2 UB — 访问温数据</text>
+  <!-- network nodes mini -->
+  <g transform="translate(14, 32)">
+    <line x1="34" y1="20" x2="14" y2="10" stroke="#16a34a" stroke-width="1.5"/>
+    <line x1="34" y1="20" x2="54" y2="10" stroke="#16a34a" stroke-width="1.5"/>
+    <line x1="34" y1="20" x2="14" y2="30" stroke="#16a34a" stroke-width="1.5"/>
+    <line x1="34" y1="20" x2="54" y2="30" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="14" cy="10" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="54" cy="10" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="14" cy="30" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="54" cy="30" r="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="34" cy="20" r="11" fill="#16a34a"/>
+    <text x="34" y="24" text-anchor="middle" fill="white" font-size="7" font-weight="bold">UB</text>
+  </g>
+  <text x="160" y="44" text-anchor="middle" fill="#065f46" font-size="11" font-weight="bold">温数据 ~1μs</text>
+  <text x="160" y="60" text-anchor="middle" fill="#64748b" font-size="10">跨节点借用内存</text>
+</g>
+
+<!-- T=3 line -->
+<line x1="40" y1="476" x2="1240" y2="476" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="8,6"/>
+<text x="40" y="470" fill="#94a3b8" font-size="10">T+100ms</text>
+
+<!-- VM → L3 (for cold data) -->
+<g transform="translate(930, 456)">
+  <line x1="0" y1="12" x2="52" y2="12" stroke="#7c3aed" stroke-width="2.5"/>
+  <polygon points="49,6 64,12 49,18" fill="#7c3aed"/>
+  <text x="26" y="5" text-anchor="middle" fill="#5b21b6" font-size="9">L3访问</text>
+</g>
+
+<!-- Action 4: Cold data goes to L3 NVMe -->
+<g transform="translate(368, 452)">
+  <rect width="560" height="80" rx="12" fill="white" stroke="#7c3aed" stroke-width="2" filter="url(#sh6)"/>
+  <rect width="560" height="24" rx="12" fill="#7c3aed"/>
+  <rect y="14" width="560" height="10" fill="#7c3aed"/>
+  <text x="280" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">④ DAMOS_DEMOTION → 冷数据下沉至 L3 NVMe  ★核心</text>
+  <text x="280" y="52" text-anchor="middle" fill="#4c1d95" font-size="12" font-weight="bold">冷页面透明迁移  →  NVMe SSD  →  超分比 ↑ 1.8×</text>
+  <text x="280" y="68" text-anchor="middle" fill="#64748b" font-size="11">SMAP 将不活跃内存页自动迁移，应用无感知</text>
+</g>
+
+<!-- L3 NVMe action -->
+<g transform="translate(974, 452)">
+  <rect width="280" height="80" rx="12" fill="white" stroke="#7c3aed" stroke-width="2.5" filter="url(#sh6)"/>
+  <rect width="280" height="24" rx="12" fill="#7c3aed"/>
+  <rect y="14" width="280" height="10" fill="#7c3aed"/>
+  <text x="140" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L3 NVMe — 冷数据存储</text>
+  <!-- SSD mini graphic -->
+  <g transform="translate(14, 34)">
+    <rect width="80" height="38" rx="4" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+    <rect x="4" y="5" width="18" height="14" rx="2" fill="#7c3aed" opacity="0.85"/>
+    <rect x="26" y="5" width="18" height="14" rx="2" fill="#7c3aed" opacity="0.85"/>
+    <rect x="48" y="5" width="18" height="14" rx="2" fill="#7c3aed" opacity="0.85"/>
+    <rect x="4" y="23" width="28" height="10" rx="2" fill="#6d28d9" opacity="0.7"/>
+    <rect x="64" y="12" width="16" height="22" rx="2" fill="#7c3aed"/>
+    <rect x="66" y="14" width="3" height="4" fill="#fbbf24" rx="1"/>
+    <rect x="66" y="21" width="3" height="4" fill="#fbbf24" rx="1"/>
+    <rect x="71" y="14" width="3" height="4" fill="#fbbf24" rx="1"/>
+    <rect x="71" y="21" width="3" height="4" fill="#fbbf24" rx="1"/>
+    <polygon points="60,5 54,20 60,20 52,36 72,20 64,20 72,5" fill="#f59e0b" transform="scale(0.6) translate(50,0)"/>
+  </g>
+  <text x="168" y="46" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="bold">冷数据 ~100μs</text>
+  <text x="168" y="62" text-anchor="middle" fill="#7c3aed" font-size="10">DAMOS_DEMOTION</text>
+</g>
+
+<!-- Result row -->
+<g transform="translate(40, 556)">
+  <rect width="560" height="64" rx="12" fill="white" stroke="#bfdbfe" stroke-width="2" filter="url(#sh6)"/>
+  <text x="280" y="24" text-anchor="middle" fill="#1e40af" font-size="13" font-weight="bold">用户感知结果</text>
+  <text x="280" y="44" text-anchor="middle" fill="#3b82f6" font-size="12">页面正常加载，openclaw 透明完成 L1/L2/L3 分层访问</text>
+  <text x="280" y="58" text-anchor="middle" fill="#64748b" font-size="11">VM 可承载更多 openclaw 实例，超分比提升至 1.8×</text>
+</g>
+
+<!-- L3 benefit metric -->
+<g transform="translate(638, 556)">
+  <rect width="602" height="64" rx="12" fill="white" stroke="#e9d5ff" stroke-width="2" filter="url(#sh6)"/>
+  <!-- 3 metric pills -->
+  <g transform="translate(16, 12)">
+    <rect width="120" height="40" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="60" y="16" text-anchor="middle" fill="#64748b" font-size="10">VM承载</text>
+    <text x="60" y="34" text-anchor="middle" fill="#2563eb" font-size="18" font-weight="bold">5台</text>
+  </g>
+  <g transform="translate(152, 12)">
+    <rect width="120" height="40" rx="10" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+    <text x="60" y="16" text-anchor="middle" fill="#64748b" font-size="10">超分比</text>
+    <text x="60" y="34" text-anchor="middle" fill="#7c3aed" font-size="18" font-weight="bold">↑1.8×</text>
+  </g>
+  <g transform="translate(288, 12)">
+    <rect width="120" height="40" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="60" y="16" text-anchor="middle" fill="#64748b" font-size="10">内存利用</text>
+    <text x="60" y="34" text-anchor="middle" fill="#16a34a" font-size="18" font-weight="bold">90%</text>
+  </g>
+  <g transform="translate(424, 12)">
+    <rect width="162" height="40" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="81" y="16" text-anchor="middle" fill="#64748b" font-size="10">openclaw 场景</text>
+    <text x="81" y="34" text-anchor="middle" fill="#ea580c" font-size="14" font-weight="bold">L2+L3 超分</text>
+  </g>
+</g>
+
+<!-- Vertical timeline labels -->
+<text x="40" y="226" fill="#64748b" font-size="10">T=0</text>
+<text x="40" y="296" fill="#64748b" font-size="10">T=0</text>
+<text x="40" y="340" fill="#64748b" font-size="10">T+1ms</text>
+<text x="40" y="420" fill="#64748b" font-size="10">T+1ms</text>
+<text x="40" y="500" fill="#64748b" font-size="10">T+10ms</text>
+<text x="40" y="540" fill="#64748b" font-size="10">T+100ms</text>
+
+<!-- Timeline vertical axis -->
+<line x1="36" y1="170" x2="36" y2="630" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="36" cy="222" r="4" fill="#2563eb"/>
+<circle cx="36" cy="292" r="4" fill="#ea580c"/>
+<circle cx="36" cy="362" r="4" fill="#f59e0b"/>
+<circle cx="36" cy="452" r="4" fill="#7c3aed"/>
+
+<!-- Footer -->
+<rect y="636" width="1280" height="84" fill="white" opacity="0.9"/>
+<rect y="694" width="1280" height="26" fill="#0f172a"/>
+<text x="640" y="711" text-anchor="middle" fill="#94a3b8" font-size="11">openEuler OLK-6.6 · UB Stack · DAMOS_DEMOTION · 字节跳动火山 AI 服务平台</text>
+</svg>
+</body>
+</html>

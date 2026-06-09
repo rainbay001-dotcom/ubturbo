@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 场景示意 10 — 极简主义风格</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei',Arial,sans-serif">
+<defs>
+  <filter id="sh10"><feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#00000012"/></filter>
+  <filter id="glow10"><feGaussianBlur stdDeviation="6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+
+<!-- Pure white background -->
+<rect width="1280" height="720" fill="white"/>
+
+<!-- Thin top accent line -->
+<rect width="1280" height="4" fill="#ea580c"/>
+
+<!-- Style label (minimal) -->
+<text x="34" y="36" fill="#e2e8f0" font-size="80" font-weight="bold" opacity="0.5">10</text>
+<text x="34" y="56" fill="#64748b" font-size="14" font-weight="bold">极简主义风格</text>
+
+<!-- Main title (large, elegant) -->
+<text x="640" y="64" text-anchor="middle" fill="#0f172a" font-size="28" font-weight="bold" letter-spacing="2">openclaw  ×  SMAP</text>
+<text x="640" y="90" text-anchor="middle" fill="#64748b" font-size="14" letter-spacing="1">内存分层超分场景 · 字节火山 AI 平台</text>
+
+<!-- Thin separator line -->
+<line x1="200" y1="106" x2="1080" y2="106" stroke="#e2e8f0" stroke-width="1"/>
+
+<!-- ===== FOUR GIANT ICONS arranged horizontally ===== -->
+
+<!-- USER ICON (far left) -->
+<g transform="translate(34, 140)" filter="url(#sh10)">
+  <!-- Outer circle accent -->
+  <circle cx="110" cy="160" r="120" fill="#f8faff"/>
+  <circle cx="110" cy="160" r="120" fill="none" stroke="#dbeafe" stroke-width="2"/>
+  <!-- Very large, clean user icon -->
+  <!-- Head -->
+  <circle cx="110" cy="108" r="48" fill="#2563eb"/>
+  <!-- Face: minimal -->
+  <circle cx="96" cy="99" r="7" fill="white" opacity="0.9"/>
+  <circle cx="124" cy="99" r="7" fill="white" opacity="0.9"/>
+  <circle cx="98" cy="101" r="3.5" fill="#1e3a8a"/>
+  <circle cx="126" cy="101" r="3.5" fill="#1e3a8a"/>
+  <path d="M94,116 Q110,126 126,116" stroke="white" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <!-- Body -->
+  <path d="M56,172 Q52,208 110,214 Q168,208 164,172 Q164,158 142,163 Q110,170 78,163 Z" fill="#3b82f6"/>
+  <!-- Mouse -->
+  <rect x="160" y="178" width="30" height="42" rx="15" fill="white" stroke="#2563eb" stroke-width="2.5"/>
+  <line x1="175" y1="178" x2="175" y2="200" stroke="#2563eb" stroke-width="2"/>
+  <circle cx="167" cy="190" r="5" fill="#2563eb"/>
+  <!-- Click ripple 1 -->
+  <circle cx="167" cy="190" r="12" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <!-- Click ripple 2 -->
+  <circle cx="167" cy="190" r="20" fill="none" stroke="#bfdbfe" stroke-width="1"/>
+</g>
+<text x="144" y="444" text-anchor="middle" fill="#0f172a" font-size="18" font-weight="bold">用  户</text>
+<text x="144" y="466" text-anchor="middle" fill="#64748b" font-size="13">触发浏览操作</text>
+
+<!-- Connector arrow 1 (thin, minimal) -->
+<g transform="translate(274, 305)">
+  <line x1="0" y1="0" x2="76" y2="0" stroke="#e2e8f0" stroke-width="2"/>
+  <polygon points="73,-5 86,0 73,5" fill="#e2e8f0"/>
+  <text x="38" y="-8" text-anchor="middle" fill="#94a3b8" font-size="11">请求</text>
+</g>
+
+<!-- openclaw BROWSER ICON (center-left large) -->
+<g transform="translate(366, 116)" filter="url(#sh10)">
+  <!-- Background bubble -->
+  <rect x="-10" y="-10" width="328" height="348" rx="24" fill="#fff8f3"/>
+  <!-- Large browser window -->
+  <rect x="0" y="0" width="308" height="228" rx="16" fill="white" stroke="#ea580c" stroke-width="3"/>
+  <!-- Browser chrome / tab bar -->
+  <rect x="0" y="0" width="308" height="44" rx="16" fill="#ea580c"/>
+  <rect y="30" width="308" height="14" fill="#ea580c"/>
+  <!-- Window control circles -->
+  <circle cx="22" cy="20" r="8" fill="#ef4444"/>
+  <circle cx="42" cy="20" r="8" fill="#fbbf24"/>
+  <circle cx="62" cy="20" r="8" fill="#22c55e"/>
+  <!-- URL bar -->
+  <rect x="80" y="12" width="206" height="18" rx="9" fill="rgba(255,255,255,0.85)"/>
+  <text x="183" y="25" text-anchor="middle" fill="#6b7280" font-size="10" font-family="monospace">openclaw://page/browse</text>
+  <!-- Browser content: DOMINANT CLAW MARKS -->
+  <rect x="0" y="44" width="308" height="184" fill="#fffcf9"/>
+  <!-- Large shadow claw marks (background) -->
+  <line x1="52" y1="56" x2="24" y2="220" stroke="#f97316" stroke-width="30" stroke-linecap="round" opacity="0.08"/>
+  <line x1="132" y1="56" x2="104" y2="220" stroke="#f97316" stroke-width="30" stroke-linecap="round" opacity="0.08"/>
+  <line x1="212" y1="56" x2="184" y2="220" stroke="#f97316" stroke-width="30" stroke-linecap="round" opacity="0.08"/>
+  <!-- Main claw strokes (bold, defined) -->
+  <path d="M48,62 Q58,110 36,218" stroke="#ea580c" fill="none" stroke-width="7" stroke-linecap="round"/>
+  <path d="M128,62 Q138,110 116,218" stroke="#ea580c" fill="none" stroke-width="7" stroke-linecap="round"/>
+  <path d="M208,62 Q218,110 196,218" stroke="#ea580c" fill="none" stroke-width="7" stroke-linecap="round"/>
+  <!-- Page content hints (right side) -->
+  <rect x="236" y="62" width="60" height="8" rx="4" fill="#f1f5f9"/>
+  <rect x="236" y="76" width="48" height="8" rx="4" fill="#f1f5f9"/>
+  <rect x="236" y="90" width="56" height="8" rx="4" fill="#f1f5f9"/>
+  <rect x="236" y="104" width="44" height="8" rx="4" fill="#f1f5f9"/>
+  <rect x="236" y="124" width="60" height="48" rx="6" fill="#f8faff"/>
+
+  <!-- VM label inside bubble -->
+  <text x="154" y="258" text-anchor="middle" fill="#ea580c" font-size="16" font-weight="bold">openclaw  browser</text>
+  <text x="154" y="278" text-anchor="middle" fill="#9a3412" font-size="12">虚机 VM  ·  2vCPU / 4GB</text>
+  <!-- Process text -->
+  <rect x="8" y="290" width="292" height="24" rx="6" fill="#fff7ed" stroke="#f97316" stroke-width="1"/>
+  <text x="154" y="307" text-anchor="middle" fill="#c2410c" font-size="11" font-family="monospace">$ openclaw-browser --headless</text>
+</g>
+<text x="530" y="560" text-anchor="middle" fill="#0f172a" font-size="18" font-weight="bold">openclaw  Browser</text>
+<text x="530" y="582" text-anchor="middle" fill="#64748b" font-size="13">在虚机内渲染执行</text>
+
+<!-- Connector arrow 2 -->
+<g transform="translate(716, 305)">
+  <line x1="0" y1="0" x2="76" y2="0" stroke="#e2e8f0" stroke-width="2"/>
+  <polygon points="73,-5 86,0 73,5" fill="#e2e8f0"/>
+  <text x="38" y="-8" text-anchor="middle" fill="#94a3b8" font-size="11">分层</text>
+</g>
+
+<!-- MEMORY TIERS ICON GROUP (right side: 3 stacked) -->
+<!-- L1 DRAM (top) -->
+<g transform="translate(808, 116)" filter="url(#sh10)">
+  <rect width="408" height="130" rx="16" fill="#eff6ff" stroke="#3b82f6" stroke-width="2.5"/>
+  <!-- Large L1 badge -->
+  <rect x="16" y="16" width="70" height="70" rx="14" fill="#2563eb"/>
+  <text x="51" y="48" text-anchor="middle" fill="white" font-size="30" font-weight="bold">L1</text>
+  <text x="51" y="68" text-anchor="middle" fill="#bfdbfe" font-size="12">DRAM</text>
+
+  <!-- Large RAM sticks (dominant graphic) -->
+  <g transform="translate(104, 16)">
+    <!-- 4 RAM sticks -->
+    <g transform="translate(0,0)">
+      <rect width="52" height="88" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <rect width="52" height="20" rx="4" fill="#1d4ed8" opacity="0.4"/>
+      <rect x="4" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/><rect x="18" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/><rect x="32" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/>
+      <rect x="4" y="17" width="12" height="9" rx="2" fill="#60a5fa"/><rect x="18" y="17" width="12" height="9" rx="2" fill="#60a5fa"/><rect x="32" y="17" width="12" height="9" rx="2" fill="#60a5fa"/>
+      <rect x="4" y="30" width="12" height="9" rx="2" fill="#93c5fd"/><rect x="18" y="30" width="12" height="9" rx="2" fill="#93c5fd"/>
+      <rect x="4" y="44" width="12" height="9" rx="2" fill="#bfdbfe"/>
+      <rect x="16" y="72" width="20" height="12" fill="#dbeafe"/>
+      <rect x="4" y="84" width="8" height="4" fill="#fbbf24" rx="1"/><rect x="14" y="84" width="8" height="4" fill="#fbbf24" rx="1"/><rect x="24" y="84" width="8" height="4" fill="#fbbf24" rx="1"/><rect x="34" y="84" width="8" height="4" fill="#fbbf24" rx="1"/>
+    </g>
+    <g transform="translate(62,0)">
+      <rect width="52" height="88" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <rect width="52" height="20" rx="4" fill="#1d4ed8" opacity="0.4"/>
+      <rect x="4" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/><rect x="18" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/><rect x="32" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/>
+      <rect x="4" y="17" width="12" height="9" rx="2" fill="#60a5fa"/><rect x="18" y="17" width="12" height="9" rx="2" fill="#60a5fa"/>
+      <rect x="4" y="30" width="12" height="9" rx="2" fill="#93c5fd"/>
+      <rect x="16" y="72" width="20" height="12" fill="#dbeafe"/>
+    </g>
+    <g transform="translate(124,0)">
+      <rect width="52" height="88" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <rect width="52" height="20" rx="4" fill="#1d4ed8" opacity="0.4"/>
+      <rect x="4" y="4" width="12" height="9" rx="2" fill="#1d4ed8"/>
+      <rect x="16" y="72" width="20" height="12" fill="#dbeafe"/>
+    </g>
+  </g>
+
+  <text x="340" y="54" text-anchor="middle" fill="#1e40af" font-size="15" font-weight="bold">本地 DRAM</text>
+  <text x="340" y="74" text-anchor="middle" fill="#3b82f6" font-size="12">热数据 · ~100ns</text>
+  <text x="340" y="94" text-anchor="middle" fill="#64748b" font-size="11">命中率约 60%</text>
+  <rect x="280" y="104" width="120" height="18" rx="9" fill="#dbeafe"/>
+  <text x="340" y="117" text-anchor="middle" fill="#1d4ed8" font-size="11" font-weight="bold">直接访问</text>
+</g>
+
+<!-- Down arrows between tiers (minimal dots) -->
+<g transform="translate(1008, 252)">
+  <line x1="0" y1="0" x2="0" y2="40" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4"/>
+  <polygon points="-5,37 5,37 0,47" fill="#f59e0b"/>
+  <text x="14" y="26" fill="#92400e" font-size="10">未命中↓</text>
+</g>
+
+<!-- L2 UB (middle) -->
+<g transform="translate(808, 304)" filter="url(#sh10)">
+  <rect width="408" height="130" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="2.5"/>
+  <!-- Large L2 badge -->
+  <rect x="16" y="16" width="70" height="70" rx="14" fill="#16a34a"/>
+  <text x="51" y="48" text-anchor="middle" fill="white" font-size="30" font-weight="bold">L2</text>
+  <text x="51" y="68" text-anchor="middle" fill="#bbf7d0" font-size="12">UB借用</text>
+
+  <!-- Large network nodes graphic -->
+  <g transform="translate(108, 18)">
+    <line x1="84" y1="48" x2="24" y2="18" stroke="#16a34a" stroke-width="2.5"/>
+    <line x1="84" y1="48" x2="144" y2="18" stroke="#16a34a" stroke-width="2.5"/>
+    <line x1="84" y1="48" x2="24" y2="78" stroke="#16a34a" stroke-width="2.5"/>
+    <line x1="84" y1="48" x2="144" y2="78" stroke="#16a34a" stroke-width="2.5"/>
+    <circle cx="24" cy="18" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="24" y="23" text-anchor="middle" fill="#065f46" font-size="10" font-weight="bold">N1</text>
+    <circle cx="144" cy="18" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="144" y="23" text-anchor="middle" fill="#065f46" font-size="10" font-weight="bold">N2</text>
+    <circle cx="24" cy="78" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="24" y="83" text-anchor="middle" fill="#065f46" font-size="10" font-weight="bold">N3</text>
+    <circle cx="144" cy="78" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="144" y="83" text-anchor="middle" fill="#065f46" font-size="10" font-weight="bold">N4</text>
+    <!-- Center hub -->
+    <circle cx="84" cy="48" r="24" fill="#16a34a" opacity="0.15"/>
+    <circle cx="84" cy="48" r="16" fill="#16a34a"/>
+    <text x="84" y="44" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+    <text x="84" y="56" text-anchor="middle" fill="white" font-size="8">Hub</text>
+    <!-- Data packet -->
+    <circle cx="52" cy="32" r="6" fill="#f59e0b"/>
+    <circle cx="116" cy="64" r="6" fill="#fbbf24"/>
+  </g>
+
+  <text x="340" y="54" text-anchor="middle" fill="#065f46" font-size="15" font-weight="bold">UB 借用内存</text>
+  <text x="340" y="74" text-anchor="middle" fill="#16a34a" font-size="12">温数据 · ~1μs</text>
+  <text x="340" y="94" text-anchor="middle" fill="#64748b" font-size="11">跨节点共享 · 扩容×1.4</text>
+  <rect x="280" y="104" width="120" height="18" rx="9" fill="#dcfce7"/>
+  <text x="340" y="117" text-anchor="middle" fill="#065f46" font-size="11" font-weight="bold">openEuler UB Stack</text>
+</g>
+
+<!-- Down arrow -->
+<g transform="translate(1008, 440)">
+  <line x1="0" y1="0" x2="0" y2="40" stroke="#8b5cf6" stroke-width="2.5" stroke-dasharray="6,4"/>
+  <polygon points="-5,37 5,37 0,47" fill="#8b5cf6"/>
+  <text x="14" y="26" fill="#5b21b6" font-size="10">未命中↓</text>
+</g>
+
+<!-- L3 NVMe (bottom, most prominent) -->
+<g transform="translate(808, 492)" filter="url(#sh10)">
+  <!-- Special glow border for L3 (key element) -->
+  <rect x="-3" y="-3" width="414" height="188" rx="18" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity="0.5"/>
+  <rect width="408" height="182" rx="16" fill="#faf5ff" stroke="#7c3aed" stroke-width="3"/>
+
+  <!-- Core star badge -->
+  <rect x="256" y="8" width="144" height="28" rx="14" fill="#7c3aed"/>
+  <text x="328" y="26" text-anchor="middle" fill="white" font-size="12" font-weight="bold">★  核 心 超 分</text>
+
+  <!-- Large L3 badge -->
+  <rect x="16" y="16" width="70" height="70" rx="14" fill="#7c3aed"/>
+  <text x="51" y="48" text-anchor="middle" fill="white" font-size="30" font-weight="bold">L3</text>
+  <text x="51" y="68" text-anchor="middle" fill="#ddd6fe" font-size="12">NVMe</text>
+
+  <!-- Large SSD PCB graphic -->
+  <g transform="translate(104, 18)">
+    <rect x="0" y="4" width="220" height="120" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2.5"/>
+    <!-- NAND chips row 1 -->
+    <rect x="8" y="14" width="42" height="32" rx="5" fill="#7c3aed" opacity="0.85"/>
+    <text x="29" y="34" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="58" y="14" width="42" height="32" rx="5" fill="#7c3aed" opacity="0.85"/>
+    <text x="79" y="34" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="108" y="14" width="42" height="32" rx="5" fill="#7c3aed" opacity="0.85"/>
+    <text x="129" y="34" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <!-- NAND row 2 -->
+    <rect x="8" y="52" width="42" height="32" rx="5" fill="#6d28d9" opacity="0.7"/>
+    <text x="29" y="72" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <!-- Controller chip -->
+    <rect x="58" y="52" width="68" height="42" rx="5" fill="#4c1d95"/>
+    <text x="92" y="78" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NVMe CTRL</text>
+    <!-- PCIe connector -->
+    <rect x="180" y="32" width="32" height="60" rx="4" fill="#7c3aed"/>
+    <rect x="184" y="36" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="184" y="47" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="184" y="58" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="192" y="36" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="192" y="47" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="192" y="58" width="5" height="7" fill="#fbbf24" rx="1"/>
+    <!-- Large lightning bolt (dominant) -->
+    <polygon points="148,14 134,50 146,50 130,86 166,50 152,50 166,14" fill="#f59e0b" opacity="0.95"/>
+    <!-- Bottom edge contacts (PCIe gold fingers) -->
+    <rect x="8" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="21" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="34" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="47" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="60" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="73" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="86" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="99" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="112" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+    <rect x="125" y="114" width="9" height="7" fill="#fbbf24" rx="1"/>
+  </g>
+
+  <text x="340" y="68" text-anchor="middle" fill="#5b21b6" font-size="15" font-weight="bold">NVMe SSD</text>
+  <text x="340" y="88" text-anchor="middle" fill="#7c3aed" font-size="12">冷数据 · ~100μs</text>
+  <text x="340" y="108" text-anchor="middle" fill="#64748b" font-size="11">DAMOS_DEMOTION</text>
+  <rect x="268" y="118" width="144" height="22" rx="11" fill="#7c3aed"/>
+  <text x="340" y="133" text-anchor="middle" fill="white" font-size="12" font-weight="bold">超分比  ↑  1.8×</text>
+  <text x="340" y="155" text-anchor="middle" fill="#64748b" font-size="11">openEuler UB Stack 驱动</text>
+</g>
+
+<!-- Bottom info bar (minimal) -->
+<g transform="translate(34, 614)">
+  <line x1="0" y1="0" x2="1212" y2="0" stroke="#e2e8f0" stroke-width="1"/>
+  <text x="0" y="20" fill="#94a3b8" font-size="11">字节火山 AI 服务平台</text>
+  <text x="0" y="36" fill="#94a3b8" font-size="11">openEuler OLK-6.6</text>
+  <text x="200" y="20" fill="#94a3b8" font-size="11">UB Stack  ·  DAMOS_DEMOTION</text>
+  <text x="200" y="36" fill="#94a3b8" font-size="11">SMAP 内存分层引擎</text>
+  <!-- Superratio large text -->
+  <text x="900" y="44" text-anchor="middle" fill="#7c3aed" font-size="42" font-weight="bold" opacity="0.15">1.8×</text>
+  <text x="900" y="36" text-anchor="middle" fill="#7c3aed" font-size="22" font-weight="bold">超分比  ↑ 1.8×</text>
+  <text x="900" y="16" text-anchor="middle" fill="#64748b" font-size="11">L2 UB借用 + L3 NVMe</text>
+  <!-- VM count -->
+  <text x="1160" y="36" text-anchor="middle" fill="#ea580c" font-size="22" font-weight="bold">5 台</text>
+  <text x="1160" y="16" text-anchor="middle" fill="#64748b" font-size="11">VM 承载</text>
+</g>
+
+<!-- Bottom thin accent line -->
+<rect y="664" width="1280" height="3" fill="#e2e8f0"/>
+
+<!-- Minimal footer text -->
+<text x="640" y="694" text-anchor="middle" fill="#cbd5e1" font-size="11">openEuler OLK-6.6  ·  UB Stack  ·  DAMOS_DEMOTION  ·  字节跳动火山 AI 服务平台</text>
+</svg>
+</body>
+</html>

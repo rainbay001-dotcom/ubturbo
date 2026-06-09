@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 场景示意 09 — 故事时间线风格</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei',Arial,sans-serif">
+<defs>
+  <linearGradient id="bg9" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#f0f9ff"/>
+    <stop offset="1" stop-color="#f0fdf4"/>
+  </linearGradient>
+  <filter id="sh9"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#00000016"/></filter>
+</defs>
+
+<rect width="1280" height="720" fill="url(#bg9)"/>
+
+<!-- Header -->
+<rect width="1280" height="58" fill="#1e293b"/>
+<text x="640" y="30" text-anchor="middle" fill="white" font-size="20" font-weight="bold">openclaw × SMAP — 内存分层超分故事时间线</text>
+<text x="640" y="50" text-anchor="middle" fill="#94a3b8" font-size="12">从用户点击到冷数据存储 · 全程可视化</text>
+
+<rect x="14" y="64" rx="11" width="140" height="22" fill="#0f172a"/>
+<text x="84" y="79" text-anchor="middle" fill="white" font-size="11" font-weight="bold">09 · 故事时间线风格</text>
+
+<!-- Timeline axis (horizontal center line) -->
+<line x1="60" y1="400" x2="1220" y2="400" stroke="#cbd5e1" stroke-width="3"/>
+<!-- Arrow at end -->
+<polygon points="1215,394 1230,400 1215,406" fill="#cbd5e1"/>
+<text x="1240" y="404" fill="#94a3b8" font-size="11">时间</text>
+
+<!-- ===== EVENT 1: USER CLICK (above the line, left) ===== -->
+<g transform="translate(62, 104)">
+  <!-- Card (above the line) -->
+  <rect width="220" height="248" rx="16" fill="white" stroke="#2563eb" stroke-width="2" filter="url(#sh9)"/>
+  <rect width="220" height="40" rx="16" fill="#2563eb"/>
+  <rect y="28" width="220" height="12" fill="#2563eb"/>
+  <circle cx="196" cy="18" r="10" fill="rgba(255,255,255,0.2)"/>
+  <text x="196" y="23" text-anchor="middle" fill="white" font-size="12" font-weight="bold">①</text>
+  <text x="86" y="24" text-anchor="middle" fill="white" font-size="13" font-weight="bold">用户点击</text>
+
+  <!-- Large user icon -->
+  <g transform="translate(28, 54)">
+    <circle cx="56" cy="44" r="42" fill="#eff6ff"/>
+    <circle cx="56" cy="32" r="22" fill="#2563eb"/>
+    <circle cx="48" cy="26" r="3.5" fill="white"/>
+    <circle cx="64" cy="26" r="3.5" fill="white"/>
+    <path d="M47,35 Q56,42 65,35" stroke="white" fill="none" stroke-width="2"/>
+    <path d="M32,60 Q30,72 56,75 Q82,72 80,60 Q80,53 67,56 Q56,60 45,56 Z" fill="#3b82f6"/>
+    <!-- mouse -->
+    <rect x="74" y="60" width="20" height="28" rx="10" fill="white" stroke="#2563eb" stroke-width="1.5"/>
+    <line x1="84" y1="60" x2="84" y2="72" stroke="#2563eb" stroke-width="1"/>
+    <circle cx="78" cy="67" r="3" fill="#2563eb"/>
+    <!-- click ripples -->
+    <circle cx="78" cy="67" r="8" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <circle cx="78" cy="67" r="14" fill="none" stroke="#bfdbfe" stroke-width="1" stroke-dasharray="3,3"/>
+  </g>
+
+  <text x="110" y="176" text-anchor="middle" fill="#1e40af" font-size="14" font-weight="bold">用  户  触  发</text>
+  <text x="110" y="196" text-anchor="middle" fill="#64748b" font-size="11">打开浏览器</text>
+  <text x="110" y="212" text-anchor="middle" fill="#64748b" font-size="11">输入目标 URL</text>
+  <rect x="20" y="222" width="180" height="18" rx="9" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+  <text x="110" y="235" text-anchor="middle" fill="#1d4ed8" font-size="10">请求发往 openclaw</text>
+</g>
+
+<!-- Timeline connector 1 -->
+<circle cx="172" cy="400" r="16" fill="#2563eb"/>
+<text x="172" y="405" text-anchor="middle" fill="white" font-size="12" font-weight="bold">①</text>
+<line x1="172" y1="352" x2="172" y2="384" stroke="#2563eb" stroke-width="2.5"/>
+
+<!-- ===== EVENT 2: openclaw in VM (below the line) ===== -->
+<g transform="translate(330, 416)">
+  <rect width="268" height="268" rx="16" fill="white" stroke="#ea580c" stroke-width="2" filter="url(#sh9)"/>
+  <rect width="268" height="40" rx="16" fill="#ea580c"/>
+  <rect y="28" width="268" height="12" fill="#ea580c"/>
+  <circle cx="244" cy="18" r="10" fill="rgba(255,255,255,0.2)"/>
+  <text x="244" y="23" text-anchor="middle" fill="white" font-size="12" font-weight="bold">②</text>
+  <text x="110" y="24" text-anchor="middle" fill="white" font-size="13" font-weight="bold">VM + openclaw 执行</text>
+
+  <!-- openclaw browser graphic (dominant) -->
+  <g transform="translate(12, 50)">
+    <rect width="244" height="168" rx="10" fill="white" stroke="#f97316" stroke-width="2"/>
+    <rect width="244" height="28" rx="10" fill="#f97316"/>
+    <rect y="18" width="244" height="10" fill="#f97316"/>
+    <circle cx="16" cy="13" r="5" fill="#ef4444"/>
+    <circle cx="28" cy="13" r="5" fill="#fbbf24"/>
+    <circle cx="40" cy="13" r="5" fill="#22c55e"/>
+    <rect x="54" y="7" width="170" height="14" rx="7" fill="rgba(255,255,255,0.9)"/>
+    <text x="139" y="18" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">openclaw://render/page</text>
+    <!-- claw marks content -->
+    <rect x="0" y="28" width="244" height="140" fill="#fffbf7"/>
+    <line x1="30" y1="34" x2="14" y2="164" stroke="#f97316" stroke-width="16" stroke-linecap="round" opacity="0.1"/>
+    <line x1="82" y1="34" x2="66" y2="164" stroke="#f97316" stroke-width="16" stroke-linecap="round" opacity="0.1"/>
+    <line x1="134" y1="34" x2="118" y2="164" stroke="#f97316" stroke-width="16" stroke-linecap="round" opacity="0.1"/>
+    <path d="M26,38 Q33,76 18,162" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <path d="M78,38 Q85,76 70,162" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <path d="M130,38 Q137,76 122,162" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <text x="200" y="90" text-anchor="middle" fill="#ea580c" font-size="14" font-weight="bold" opacity="0.7">oc</text>
+    <text x="200" y="110" text-anchor="middle" fill="#ea580c" font-size="10" opacity="0.6">browser</text>
+  </g>
+
+  <text x="134" y="238" text-anchor="middle" fill="#9a3412" font-size="11" font-weight="bold">2vCPU / 4GB · openclaw browser</text>
+  <text x="134" y="256" text-anchor="middle" fill="#64748b" font-size="10">页面渲染 · 内存分配请求</text>
+</g>
+
+<!-- Timeline connector 2 -->
+<circle cx="464" cy="400" r="16" fill="#ea580c"/>
+<text x="464" y="405" text-anchor="middle" fill="white" font-size="12" font-weight="bold">②</text>
+<line x1="464" y1="400" x2="464" y2="416" stroke="#ea580c" stroke-width="2.5"/>
+
+<!-- ===== EVENT 3: L1 DRAM hit (above the line) ===== -->
+<g transform="translate(630, 104)">
+  <rect width="200" height="248" rx="16" fill="white" stroke="#3b82f6" stroke-width="2" filter="url(#sh9)"/>
+  <rect width="200" height="40" rx="16" fill="#3b82f6"/>
+  <rect y="28" width="200" height="12" fill="#3b82f6"/>
+  <circle cx="176" cy="18" r="10" fill="rgba(255,255,255,0.2)"/>
+  <text x="176" y="23" text-anchor="middle" fill="white" font-size="12" font-weight="bold">③</text>
+  <text x="76" y="24" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L1 查热数据</text>
+
+  <!-- Large RAM icon -->
+  <g transform="translate(22, 52)">
+    <!-- 3 RAM sticks side by side -->
+    <g transform="translate(0,0)">
+      <rect width="40" height="84" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <rect width="40" height="18" rx="3" fill="#1d4ed8" opacity="0.3"/>
+      <rect x="3" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/><rect x="14" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/><rect x="25" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/>
+      <rect x="3" y="14" width="8" height="7" rx="1" fill="#60a5fa"/><rect x="14" y="14" width="8" height="7" rx="1" fill="#60a5fa"/><rect x="25" y="14" width="8" height="7" rx="1" fill="#60a5fa"/>
+      <rect x="3" y="26" width="8" height="7" rx="1" fill="#93c5fd"/><rect x="14" y="26" width="8" height="7" rx="1" fill="#93c5fd"/>
+      <rect x="3" y="38" width="8" height="7" rx="1" fill="#bfdbfe"/>
+      <rect x="12" y="70" width="16" height="12" fill="#dbeafe"/>
+      <rect x="2" y="82" width="7" height="4" fill="#f59e0b" rx="1"/><rect x="11" y="82" width="7" height="4" fill="#f59e0b" rx="1"/><rect x="20" y="82" width="7" height="4" fill="#f59e0b" rx="1"/><rect x="29" y="82" width="7" height="4" fill="#f59e0b" rx="1"/>
+    </g>
+    <g transform="translate(48,0)">
+      <rect width="40" height="84" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <rect width="40" height="18" rx="3" fill="#1d4ed8" opacity="0.3"/>
+      <rect x="3" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/><rect x="14" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/><rect x="25" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/>
+      <rect x="3" y="14" width="8" height="7" rx="1" fill="#60a5fa"/><rect x="14" y="14" width="8" height="7" rx="1" fill="#60a5fa"/>
+      <rect x="3" y="26" width="8" height="7" rx="1" fill="#93c5fd"/>
+      <rect x="12" y="70" width="16" height="12" fill="#dbeafe"/>
+    </g>
+    <g transform="translate(96,0)">
+      <rect width="40" height="84" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <rect width="40" height="18" rx="3" fill="#1d4ed8" opacity="0.3"/>
+      <rect x="3" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/><rect x="14" y="3" width="8" height="7" rx="1" fill="#1d4ed8"/>
+      <rect x="12" y="70" width="16" height="12" fill="#dbeafe"/>
+    </g>
+  </g>
+
+  <text x="100" y="176" text-anchor="middle" fill="#1e40af" font-size="13" font-weight="bold">本  地  DRAM</text>
+  <text x="100" y="196" text-anchor="middle" fill="#3b82f6" font-size="11">热数据 · ~100ns</text>
+  <text x="100" y="212" text-anchor="middle" fill="#64748b" font-size="10">命中率约 60%</text>
+  <rect x="20" y="222" width="160" height="18" rx="9" fill="#dbeafe"/>
+  <text x="100" y="235" text-anchor="middle" fill="#1d4ed8" font-size="10" font-weight="bold">直接访问</text>
+</g>
+
+<!-- Timeline connector 3 -->
+<circle cx="730" cy="400" r="16" fill="#3b82f6"/>
+<text x="730" y="405" text-anchor="middle" fill="white" font-size="12" font-weight="bold">③</text>
+<line x1="730" y1="352" x2="730" y2="384" stroke="#3b82f6" stroke-width="2.5"/>
+
+<!-- ===== EVENT 4: L2 UB (below the line) ===== -->
+<g transform="translate(840, 416)">
+  <rect width="188" height="208" rx="16" fill="white" stroke="#16a34a" stroke-width="2" filter="url(#sh9)"/>
+  <rect width="188" height="40" rx="16" fill="#16a34a"/>
+  <rect y="28" width="188" height="12" fill="#16a34a"/>
+  <circle cx="164" cy="18" r="10" fill="rgba(255,255,255,0.2)"/>
+  <text x="164" y="23" text-anchor="middle" fill="white" font-size="12" font-weight="bold">④</text>
+  <text x="70" y="24" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L2 UB借用</text>
+
+  <!-- Large UB network icon -->
+  <g transform="translate(16, 52)">
+    <line x1="78" y1="52" x2="22" y2="24" stroke="#16a34a" stroke-width="2"/>
+    <line x1="78" y1="52" x2="134" y2="24" stroke="#16a34a" stroke-width="2"/>
+    <line x1="78" y1="52" x2="22" y2="80" stroke="#16a34a" stroke-width="2"/>
+    <line x1="78" y1="52" x2="134" y2="80" stroke="#16a34a" stroke-width="2"/>
+    <circle cx="22" cy="24" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="22" y="29" text-anchor="middle" fill="#065f46" font-size="9" font-weight="bold">N1</text>
+    <circle cx="134" cy="24" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="134" y="29" text-anchor="middle" fill="#065f46" font-size="9" font-weight="bold">N2</text>
+    <circle cx="22" cy="80" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="22" y="85" text-anchor="middle" fill="#065f46" font-size="9" font-weight="bold">N3</text>
+    <circle cx="134" cy="80" r="18" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="134" y="85" text-anchor="middle" fill="#065f46" font-size="9" font-weight="bold">N4</text>
+    <circle cx="78" cy="52" r="22" fill="#16a34a" opacity="0.15"/>
+    <circle cx="78" cy="52" r="15" fill="#16a34a"/>
+    <text x="78" y="49" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+    <text x="78" y="60" text-anchor="middle" fill="white" font-size="7">Hub</text>
+    <circle cx="50" cy="36" r="5" fill="#f59e0b"/>
+  </g>
+
+  <text x="94" y="178" text-anchor="middle" fill="#065f46" font-size="13" font-weight="bold">UB 借用内存</text>
+  <text x="94" y="196" text-anchor="middle" fill="#16a34a" font-size="11">温数据 · ~1μs</text>
+</g>
+
+<!-- Timeline connector 4 -->
+<circle cx="934" cy="400" r="16" fill="#16a34a"/>
+<text x="934" y="405" text-anchor="middle" fill="white" font-size="12" font-weight="bold">④</text>
+<line x1="934" y1="400" x2="934" y2="416" stroke="#16a34a" stroke-width="2.5"/>
+
+<!-- ===== EVENT 5: L3 NVMe (above the line) ===== -->
+<g transform="translate(1032, 94)">
+  <rect width="218" height="258" rx="16" fill="white" stroke="#7c3aed" stroke-width="3" filter="url(#sh9)"/>
+  <!-- Core badge -->
+  <rect x="86" y="-12" width="132" height="26" rx="13" fill="#7c3aed" filter="url(#sh9)"/>
+  <text x="152" y="5" text-anchor="middle" fill="white" font-size="11" font-weight="bold">★ 核心超分</text>
+  <rect width="218" height="40" rx="16" fill="#7c3aed"/>
+  <rect y="28" width="218" height="12" fill="#7c3aed"/>
+  <circle cx="194" cy="18" r="10" fill="rgba(255,255,255,0.2)"/>
+  <text x="194" y="23" text-anchor="middle" fill="white" font-size="12" font-weight="bold">⑤</text>
+  <text x="84" y="24" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L3 NVMe</text>
+
+  <!-- Large SSD PCB icon -->
+  <g transform="translate(18, 52)">
+    <rect x="0" y="4" width="180" height="112" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+    <!-- NAND chips -->
+    <rect x="6" y="10" width="34" height="26" rx="4" fill="#7c3aed" opacity="0.85"/>
+    <text x="23" y="27" text-anchor="middle" fill="white" font-size="7" font-family="monospace">NAND</text>
+    <rect x="46" y="10" width="34" height="26" rx="4" fill="#7c3aed" opacity="0.85"/>
+    <text x="63" y="27" text-anchor="middle" fill="white" font-size="7" font-family="monospace">NAND</text>
+    <rect x="86" y="10" width="34" height="26" rx="4" fill="#7c3aed" opacity="0.85"/>
+    <text x="103" y="27" text-anchor="middle" fill="white" font-size="7" font-family="monospace">NAND</text>
+    <rect x="6" y="42" width="34" height="26" rx="4" fill="#6d28d9" opacity="0.7"/>
+    <text x="23" y="59" text-anchor="middle" fill="white" font-size="7" font-family="monospace">NAND</text>
+    <!-- Controller -->
+    <rect x="46" y="42" width="54" height="40" rx="4" fill="#4c1d95"/>
+    <text x="73" y="66" text-anchor="middle" fill="white" font-size="7" font-family="monospace">NVMe</text>
+    <text x="73" y="77" text-anchor="middle" fill="#ddd6fe" font-size="6" font-family="monospace">CTRL</text>
+    <!-- PCIe connector -->
+    <rect x="148" y="24" width="28" height="56" rx="3" fill="#7c3aed"/>
+    <rect x="151" y="28" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="151" y="38" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="151" y="48" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="158" y="28" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="158" y="38" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="158" y="48" width="4" height="6" fill="#fbbf24" rx="1"/>
+    <!-- Lightning bolt -->
+    <polygon points="124,10 114,36 122,36 110,62 140,36 130,36 142,10" fill="#f59e0b" opacity="0.9"/>
+    <!-- PCB edge contacts -->
+    <rect x="6" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="18" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="30" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="42" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="54" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="66" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="78" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+    <rect x="90" y="106" width="8" height="6" fill="#fbbf24" rx="1"/>
+  </g>
+
+  <text x="109" y="194" text-anchor="middle" fill="#5b21b6" font-size="13" font-weight="bold">NVMe SSD</text>
+  <text x="109" y="212" text-anchor="middle" fill="#7c3aed" font-size="11">冷数据 · ~100μs</text>
+  <rect x="25" y="222" width="168" height="18" rx="9" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
+  <text x="109" y="235" text-anchor="middle" fill="#5b21b6" font-size="10" font-weight="bold">DAMOS_DEMOTION</text>
+  <rect x="25" y="244" width="168" height="18" rx="9" fill="#7c3aed"/>
+  <text x="109" y="257" text-anchor="middle" fill="white" font-size="10" font-weight="bold">超分比 ↑ 1.8×</text>
+</g>
+
+<!-- Timeline connector 5 -->
+<circle cx="1141" cy="400" r="16" fill="#7c3aed"/>
+<text x="1141" y="405" text-anchor="middle" fill="white" font-size="12" font-weight="bold">⑤</text>
+<line x1="1141" y1="352" x2="1141" y2="384" stroke="#7c3aed" stroke-width="2.5"/>
+
+<!-- Bottom summary -->
+<g transform="translate(20, 618)">
+  <rect width="1240" height="76" rx="14" fill="white" stroke="#e2e8f0" stroke-width="1.5" filter="url(#sh9)"/>
+  <text x="620" y="26" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="bold">流程总结</text>
+  <!-- 5 pills -->
+  <g transform="translate(16, 36)">
+    <rect width="210" height="28" rx="14" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <circle cx="16" cy="14" r="10" fill="#2563eb"/>
+    <text x="16" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">①</text>
+    <text x="113" y="18" text-anchor="middle" fill="#1e40af" font-size="11">用户触发浏览请求</text>
+  </g>
+  <g transform="translate(240, 36)">
+    <rect width="210" height="28" rx="14" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+    <circle cx="16" cy="14" r="10" fill="#ea580c"/>
+    <text x="16" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">②</text>
+    <text x="113" y="18" text-anchor="middle" fill="#9a3412" font-size="11">openclaw VM 执行渲染</text>
+  </g>
+  <g transform="translate(464, 36)">
+    <rect width="210" height="28" rx="14" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <circle cx="16" cy="14" r="10" fill="#3b82f6"/>
+    <text x="16" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">③</text>
+    <text x="113" y="18" text-anchor="middle" fill="#1e40af" font-size="11">L1 DRAM 热数据命中</text>
+  </g>
+  <g transform="translate(688, 36)">
+    <rect width="210" height="28" rx="14" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <circle cx="16" cy="14" r="10" fill="#16a34a"/>
+    <text x="16" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">④</text>
+    <text x="113" y="18" text-anchor="middle" fill="#065f46" font-size="11">L2 UB 借用温数据</text>
+  </g>
+  <g transform="translate(912, 36)">
+    <rect width="312" height="28" rx="14" fill="#faf5ff" stroke="#e9d5ff" stroke-width="2"/>
+    <circle cx="16" cy="14" r="10" fill="#7c3aed"/>
+    <text x="16" y="18" text-anchor="middle" fill="white" font-size="11" font-weight="bold">⑤</text>
+    <text x="164" y="18" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="bold">L3 NVMe 冷数据 · 超分 ↑1.8×  ★</text>
+  </g>
+</g>
+
+<!-- Footer -->
+<rect y="694" width="1280" height="26" fill="#1e293b"/>
+<text x="640" y="711" text-anchor="middle" fill="#94a3b8" font-size="11">openEuler OLK-6.6 · UB Stack · DAMOS_DEMOTION · 字节跳动火山 AI 服务平台</text>
+</svg>
+</body>
+</html>

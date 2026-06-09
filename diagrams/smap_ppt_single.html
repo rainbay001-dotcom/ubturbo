@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>openclaw SMAP 内存分层优化方案</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #e8edf2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    border-radius: 4px;
+  }
+
+  /* Header */
+  .header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 76px;
+    background: #1a3a6e;
+    display: flex;
+    align-items: center;
+    padding: 0 40px;
+    gap: 14px;
+  }
+  .header-logo {
+    width: 40px; height: 40px;
+    background: #f97316;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+  }
+  .header-title span { color: #fbbf24; }
+  .header-right {
+    margin-left: auto;
+    font-size: 12px;
+    color: #93b4d8;
+    text-align: right;
+    line-height: 1.7;
+  }
+
+  /* Two-panel layout */
+  .panels {
+    position: absolute;
+    top: 76px; left: 0; right: 0; bottom: 44px;
+    display: flex;
+  }
+  .panel {
+    flex: 1;
+    padding: 22px 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel-left { background: #f8f9fc; border-right: 1px solid #e2e8f0; }
+  .panel-right { background: #f0f7ff; }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    text-align: center;
+    letter-spacing: 0.5px;
+    align-self: center;
+  }
+  .panel-left .panel-title {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+  }
+  .panel-right .panel-title {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+  }
+
+  /* VM row */
+  .vm-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+
+  /* Individual VM card */
+  .vm-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 94px;
+  }
+  .vm-icon-wrap {
+    position: relative;
+    width: 68px; height: 60px;
+  }
+  .vm-label {
+    font-size: 10px;
+    color: #475569;
+    font-weight: 600;
+    text-align: center;
+  }
+  .vm-app {
+    font-size: 9px;
+    color: #f97316;
+    font-weight: 700;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 3px;
+    padding: 1px 5px;
+    text-align: center;
+    width: 100%;
+  }
+  .vm-card.disabled .vm-icon-wrap { opacity: 0.35; filter: grayscale(0.8); }
+  .vm-card.disabled .vm-label { color: #94a3b8; }
+  .vm-card.disabled .vm-app {
+    color: #94a3b8;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+  .vm-card.highlight .vm-icon-wrap { filter: drop-shadow(0 0 6px rgba(59,130,246,0.5)); }
+
+  /* Memory stack */
+  .mem-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mem-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1.5px solid #e2e8f0;
+  }
+  .mem-row.active { border-color: #93c5fd; background: #eff6ff; }
+  .mem-row.highlight-l3 { border-color: #a78bfa; background: #f5f3ff; }
+  .mem-row.highlight-l2 { border-color: #6ee7b7; background: #f0fdf4; }
+  .mem-label {
+    font-size: 11px;
+    font-weight: 700;
+    width: 90px;
+    flex-shrink: 0;
+    color: #1e293b;
+  }
+  .mem-sub {
+    font-size: 10px;
+    color: #64748b;
+    flex: 1;
+    line-height: 1.4;
+  }
+  .mem-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .badge-gray { background: #f1f5f9; color: #64748b; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+
+  /* Center arrow area */
+  .arrow-col {
+    width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #fff;
+    border-left: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+  .smap-badge {
+    background: #1a3a6e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 6px 14px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+  .arrow-svg { display: block; }
+
+  /* Footer */
+  .footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 44px;
+    background: #1a3a6e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+  }
+  .footer-tag {
+    font-size: 11px;
+    color: #93b4d8;
+    letter-spacing: 0.3px;
+  }
+  .footer-tag span { color: #60a5fa; font-weight: 700; }
+
+  /* Ratio bars */
+  .ratio-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px;
+  }
+  .ratio-label { font-size: 11px; color: #475569; width: 50px; font-weight: 600; }
+  .ratio-bar-wrap { flex: 1; height: 14px; background: #e2e8f0; border-radius: 7px; overflow: hidden; }
+  .ratio-bar { height: 100%; border-radius: 7px; }
+  .ratio-val { font-size: 11px; font-weight: 800; width: 38px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="slide">
+
+  <!-- Header -->
+  <div class="header">
+    <!-- openclaw icon: claw/browser glyph -->
+    <div class="header-logo">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+        <rect x="2" y="5" width="22" height="16" rx="2.5" fill="#fff" opacity="0.15"/>
+        <rect x="2" y="5" width="22" height="16" rx="2.5" stroke="#fff" stroke-width="1.5"/>
+        <line x1="2" y1="10" x2="24" y2="10" stroke="#fbbf24" stroke-width="1.5"/>
+        <circle cx="5.5" cy="7.5" r="1" fill="#ef4444"/>
+        <circle cx="9" cy="7.5" r="1" fill="#fbbf24"/>
+        <circle cx="12.5" cy="7.5" r="1" fill="#22c55e"/>
+        <!-- claw strokes -->
+        <path d="M9 15 Q11 12 13 15 Q15 18 17 15" stroke="#f97316" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="header-title"><span>openclaw</span> 业务场景 — SMAP 内存分层优化方案</div>
+    <div class="header-right">字节火山 AI 服务平台<br>汇报日期：2026-06</div>
+  </div>
+
+  <!-- Panels -->
+  <div class="panels">
+
+    <!-- LEFT: Current state -->
+    <div class="panel panel-left">
+      <div class="panel-title">▲ 当前现状</div>
+
+      <!-- VM row: 3 active, 2 disabled -->
+      <div class="vm-row">
+        <!-- VM icon repeated: active -->
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <!-- server box -->
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <!-- screen lines -->
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <!-- stand -->
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <!-- 2U4G label -->
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-01</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-02</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-03</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <!-- disabled VMs -->
+        <div class="vm-card disabled">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4,3"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#e2e8f0"/>
+              <text x="34" y="24" text-anchor="middle" font-size="18" fill="#94a3b8">×</text>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#e2e8f0"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#cbd5e1"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#94a3b8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-04（内存不足）</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card disabled">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4,3"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#e2e8f0"/>
+              <text x="34" y="24" text-anchor="middle" font-size="18" fill="#94a3b8">×</text>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#e2e8f0"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#cbd5e1"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#94a3b8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-05（内存不足）</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+      </div>
+
+      <!-- Memory: only L1 DRAM -->
+      <div class="mem-stack">
+        <div class="mem-row active">
+          <!-- DRAM chip icon -->
+          <svg width="28" height="28" viewBox="0 0 28 28" style="flex-shrink:0">
+            <rect x="3" y="6" width="22" height="16" rx="2" fill="#bfdbfe" stroke="#3b82f6" stroke-width="1.2"/>
+            <rect x="6" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <rect x="12" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <rect x="18" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <line x1="3" y1="14" x2="1" y2="14" stroke="#3b82f6" stroke-width="1.2"/>
+            <line x1="25" y1="14" x2="27" y2="14" stroke="#3b82f6" stroke-width="1.2"/>
+          </svg>
+          <div>
+            <div class="mem-label">L1 本地 DRAM</div>
+            <div class="mem-sub">热数据 · ~100ns · 单层内存</div>
+          </div>
+          <div class="mem-badge badge-blue">~100ns</div>
+        </div>
+        <div style="padding:6px 12px; background:#fff7ed; border-radius:8px; border:1.5px dashed #fbbf24; display:flex; align-items:center; gap:10px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" style="flex-shrink:0; opacity:0.4">
+            <!-- NVMe SSD placeholder (greyed) -->
+            <rect x="2" y="5" width="20" height="14" rx="2" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+            <rect x="5" y="8" width="6" height="8" rx="1" fill="#cbd5e1"/>
+            <circle cx="16" cy="12" r="3.5" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>
+            <circle cx="16" cy="12" r="1.5" fill="#cbd5e1"/>
+          </svg>
+          <div style="font-size:11px; color:#b45309; font-weight:600;">L2 UB借用 / L3 NVMe 未启用<br><span style="font-weight:400;color:#92400e;">→ 超分比受限，VM 无法扩展</span></div>
+          <div class="mem-badge badge-gray" style="margin-left:auto;">超分比 1×</div>
+        </div>
+      </div>
+
+      <!-- Ratio bar (before) -->
+      <div style="background:#fff; border-radius:8px; padding:10px 14px; border:1.5px solid #e2e8f0;">
+        <div style="font-size:11px; color:#64748b; margin-bottom:6px; font-weight:600;">整机超分比</div>
+        <div class="ratio-row">
+          <div class="ratio-label">当前</div>
+          <div class="ratio-bar-wrap"><div class="ratio-bar" style="width:40%; background:#ef4444;"></div></div>
+          <div class="ratio-val" style="color:#ef4444;">1.0×</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER arrow -->
+    <div class="arrow-col">
+      <div class="smap-badge">SMAP</div>
+      <svg class="arrow-svg" width="50" height="36" viewBox="0 0 50 36">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#1a3a6e"/>
+          </marker>
+        </defs>
+        <path d="M5,18 Q25,5 45,18" stroke="#1a3a6e" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+      </svg>
+      <div style="font-size:10px; color:#475569; text-align:center; line-height:1.5; padding:0 6px;">内存<br>分层<br>扩展</div>
+    </div>
+
+    <!-- RIGHT: Improved direction -->
+    <div class="panel panel-right">
+      <div class="panel-title">✓ 改进方向</div>
+
+      <!-- VM row: 6 active, last 3 highlighted -->
+      <div class="vm-row">
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-01</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-02</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#bfdbfe"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#60a5fa" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#93c5fd" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#93c5fd" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#93c5fd"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#60a5fa"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#1d4ed8" font-weight="700" font-family="monospace">2U4G</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-03</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <!-- Extended VMs - highlighted -->
+        <div class="vm-card highlight">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#d1fae5" stroke="#10b981" stroke-width="2"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#a7f3d0"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#34d399" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#6ee7b7" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#6ee7b7" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#6ee7b7"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#34d399"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700" font-family="monospace">2U4G</text>
+              <!-- star badge -->
+              <text x="56" y="13" font-size="12" fill="#f59e0b">★</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-04</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card highlight">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#d1fae5" stroke="#10b981" stroke-width="2"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#a7f3d0"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#34d399" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#6ee7b7" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#6ee7b7" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#6ee7b7"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#34d399"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700" font-family="monospace">2U4G</text>
+              <text x="56" y="13" font-size="12" fill="#f59e0b">★</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-05</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+        <div class="vm-card highlight">
+          <div class="vm-icon-wrap">
+            <svg width="68" height="60" viewBox="0 0 68 60">
+              <rect x="8" y="6" width="52" height="36" rx="5" fill="#d1fae5" stroke="#10b981" stroke-width="2"/>
+              <rect x="14" y="12" width="40" height="20" rx="2" fill="#a7f3d0"/>
+              <line x1="18" y1="16" x2="44" y2="16" stroke="#34d399" stroke-width="1.2"/>
+              <line x1="18" y1="19.5" x2="38" y2="19.5" stroke="#6ee7b7" stroke-width="1"/>
+              <line x1="18" y1="23" x2="41" y2="23" stroke="#6ee7b7" stroke-width="1"/>
+              <rect x="28" y="42" width="12" height="5" rx="1.5" fill="#6ee7b7"/>
+              <rect x="22" y="47" width="24" height="3.5" rx="1.5" fill="#34d399"/>
+              <text x="34" y="56.5" text-anchor="middle" font-size="8" fill="#065f46" font-weight="700" font-family="monospace">2U4G</text>
+              <text x="56" y="13" font-size="12" fill="#f59e0b">★</text>
+            </svg>
+          </div>
+          <div class="vm-label">VM-06</div>
+          <div class="vm-app">openclaw</div>
+        </div>
+      </div>
+
+      <!-- Memory stack: L1 + L2 + L3 -->
+      <div class="mem-stack">
+        <!-- L1 DRAM -->
+        <div class="mem-row active">
+          <svg width="28" height="28" viewBox="0 0 28 28" style="flex-shrink:0">
+            <rect x="3" y="6" width="22" height="16" rx="2" fill="#bfdbfe" stroke="#3b82f6" stroke-width="1.2"/>
+            <rect x="6" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <rect x="12" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <rect x="18" y="9" width="4" height="10" rx="1" fill="#60a5fa"/>
+            <line x1="3" y1="14" x2="1" y2="14" stroke="#3b82f6" stroke-width="1.2"/>
+            <line x1="25" y1="14" x2="27" y2="14" stroke="#3b82f6" stroke-width="1.2"/>
+          </svg>
+          <div>
+            <div class="mem-label">L1 本地 DRAM</div>
+            <div class="mem-sub">热数据 · ~100ns</div>
+          </div>
+          <div class="mem-badge badge-blue">~100ns</div>
+        </div>
+        <!-- L2 UB -->
+        <div class="mem-row highlight-l2">
+          <!-- UB/network memory icon -->
+          <svg width="28" height="28" viewBox="0 0 28 28" style="flex-shrink:0">
+            <!-- interconnect / fabric icon -->
+            <rect x="2" y="8" width="10" height="12" rx="2" fill="#a7f3d0" stroke="#10b981" stroke-width="1.2"/>
+            <rect x="16" y="8" width="10" height="12" rx="2" fill="#a7f3d0" stroke="#10b981" stroke-width="1.2"/>
+            <line x1="12" y1="14" x2="16" y2="14" stroke="#10b981" stroke-width="1.5"/>
+            <circle cx="14" cy="14" r="2" fill="#6ee7b7" stroke="#10b981" stroke-width="1"/>
+            <text x="7" y="16.5" text-anchor="middle" font-size="6" fill="#065f46" font-weight="800">M</text>
+            <text x="21" y="16.5" text-anchor="middle" font-size="6" fill="#065f46" font-weight="800">M</text>
+          </svg>
+          <div>
+            <div class="mem-label" style="color:#065f46;">L2 UB借用内存</div>
+            <div class="mem-sub">温数据 · ~1μs · openEuler UB Stack</div>
+          </div>
+          <div class="mem-badge badge-green">~1μs</div>
+        </div>
+        <!-- L3 NVMe -->
+        <div class="mem-row highlight-l3" style="border-width:2px; box-shadow:0 0 8px rgba(139,92,246,0.2);">
+          <!-- NVMe SSD icon -->
+          <svg width="28" height="28" viewBox="0 0 28 28" style="flex-shrink:0">
+            <rect x="2" y="5" width="24" height="18" rx="2.5" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.4"/>
+            <rect x="5" y="8" width="8" height="12" rx="1.5" fill="#c4b5fd"/>
+            <circle cx="19" cy="14" r="4.5" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.2"/>
+            <circle cx="19" cy="14" r="2" fill="#c4b5fd"/>
+            <line x1="13" y1="14" x2="14.5" y2="14" stroke="#7c3aed" stroke-width="1"/>
+            <!-- flash indicator -->
+            <path d="M7 10 L6 13.5 L8 13.5 L7 17" stroke="#7c3aed" stroke-width="1" fill="none" stroke-linejoin="round"/>
+          </svg>
+          <div>
+            <div class="mem-label" style="color:#5b21b6;">L3 NVMe SSD <span style="font-size:10px; background:#7c3aed; color:#fff; padding:1px 5px; border-radius:3px; margin-left:2px;">核心</span></div>
+            <div class="mem-sub">冷数据 · ~100μs · DAMOS_DEMOTION</div>
+          </div>
+          <div class="mem-badge badge-purple">~100μs</div>
+        </div>
+      </div>
+
+      <!-- Ratio bar (after) -->
+      <div style="background:#fff; border-radius:8px; padding:10px 14px; border:1.5px solid #a7f3d0;">
+        <div style="font-size:11px; color:#065f46; margin-bottom:6px; font-weight:600;">整机超分比（预期）</div>
+        <div class="ratio-row">
+          <div class="ratio-label" style="color:#065f46;">目标</div>
+          <div class="ratio-bar-wrap"><div class="ratio-bar" style="width:72%; background: linear-gradient(90deg, #10b981, #34d399);"></div></div>
+          <div class="ratio-val" style="color:#10b981;">↑ 1.8×</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-tag">openEuler <span>OLK-6.6</span></div>
+    <div class="footer-tag">·</div>
+    <div class="footer-tag">UB Stack <span>借用内存</span></div>
+    <div class="footer-tag">·</div>
+    <div class="footer-tag">DAMOS_DEMOTION <span>智能降冷</span></div>
+    <div class="footer-tag">·</div>
+    <div class="footer-tag">字节 <span>火山AI平台</span></div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="SlateTheme">
+  <a:themeElements>
+    <a:clrScheme name="Slate">
+      <a:dk1><a:srgbClr val="2E3D4A"/></a:dk1>
+      <a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+      <a:dk2><a:srgbClr val="3E5264"/></a:dk2>
+      <a:lt2><a:srgbClr val="F0F2F4"/></a:lt2>
+      <a:accent1><a:srgbClr val="C86010"/></a:accent1>
+      <a:accent2><a:srgbClr val="2E528A"/></a:accent2>
+      <a:accent3><a:srgbClr val="144E6A"/></a:accent3>
+      <a:accent4><a:srgbClr val="1A6A30"/></a:accent4>
+      <a:accent5><a:srgbClr val="888888"/></a:accent5>
+      <a:accent6><a:srgbClr val="444444"/></a:accent6>
+      <a:hlink><a:srgbClr val="C86010"/></a:hlink>
+      <a:folHlink><a:srgbClr val="2E528A"/></a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="Slate">
+      <a:majorFont><a:latin typeface="Calibri"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface=""/></a:majorFont>
+      <a:minorFont><a:latin typeface="Calibri"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface=""/></a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="Slate">
+      <a:fillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+        <a:ln w="25400"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+        <a:ln w="38100"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+</a:theme>

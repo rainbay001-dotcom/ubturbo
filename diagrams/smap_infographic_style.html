@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMAP 场景示意图 — 信息图风格</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(135deg, #1a0533 0%, #0d1b4e 40%, #0a3050 100%);
+      font-family: 'Nunito', -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 48px 24px 64px;
+      color: #fff;
+    }
+
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 52px;
+    }
+    .header .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 6px 18px;
+      border-radius: 30px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #a78bfa;
+      margin-bottom: 20px;
+    }
+    .header .dot-live {
+      width: 6px; height: 6px;
+      background: #34d399;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .header h1 {
+      font-size: 48px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      line-height: 1.1;
+    }
+    .header p {
+      font-size: 15px;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.5px;
+    }
+
+    /* Hero metrics */
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 48px;
+    }
+    .hero-metric {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 24px 20px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s;
+    }
+    .hero-metric:hover { transform: translateY(-3px); }
+    .hero-metric .num {
+      font-size: 40px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .hero-metric .desc {
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .hero-metric.purple .num { color: #c084fc; }
+    .hero-metric.green .num { color: #34d399; }
+    .hero-metric.blue .num { color: #60a5fa; }
+    .hero-metric.amber .num { color: #fbbf24; }
+
+    /* Section heading */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .section-heading .icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .section-heading h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .section-heading p {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    /* Architecture flow */
+    .arch-flow {
+      margin-bottom: 48px;
+    }
+
+    .flow-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Memory tiers */
+    .tiers-section {
+      margin-bottom: 48px;
+    }
+    .tiers-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .tier-block {
+      border-radius: 24px;
+      padding: 30px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .tier-block::after {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      opacity: 0.08;
+    }
+    .tier-block.l1 {
+      background: linear-gradient(140deg, #312e81, #1e1b4b);
+      border: 1px solid #4c1d95;
+    }
+    .tier-block.l1::after { background: #818cf8; }
+    .tier-block.l2 {
+      background: linear-gradient(140deg, #064e3b, #022c22);
+      border: 1px solid #065f46;
+    }
+    .tier-block.l2::after { background: #34d399; }
+    .tier-block.l3 {
+      background: linear-gradient(140deg, #451a03, #1c0a00);
+      border: 1px solid #92400e;
+    }
+    .tier-block.l3::after { background: #fbbf24; }
+
+    .tier-level {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 3px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+    .tier-block.l1 .tier-level { background: rgba(129,140,248,0.2); color: #a5b4fc; }
+    .tier-block.l2 .tier-level { background: rgba(52,211,153,0.2); color: #6ee7b7; }
+    .tier-block.l3 .tier-level { background: rgba(251,191,36,0.2); color: #fcd34d; }
+
+    .tier-title {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .tier-block.l1 .tier-title { color: #c7d2fe; }
+    .tier-block.l2 .tier-title { color: #a7f3d0; }
+    .tier-block.l3 .tier-title { color: #fde68a; }
+
+    .tier-sub {
+      font-size: 12px;
+      margin-bottom: 20px;
+      opacity: 0.6;
+    }
+
+    .tier-metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .tier-metric-item {
+      background: rgba(0,0,0,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .tier-metric-item .mv {
+      font-size: 16px;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 2px;
+    }
+    .tier-metric-item .ml {
+      font-size: 10px;
+      opacity: 0.55;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tier-block.l1 .mv { color: #818cf8; }
+    .tier-block.l2 .mv { color: #34d399; }
+    .tier-block.l3 .mv { color: #fbbf24; }
+
+    .tier-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.7;
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+    }
+
+    /* Before / After comparison */
+    .compare-section {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 28px;
+      padding: 36px;
+      margin-bottom: 48px;
+    }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+    .compare-box {
+      background: rgba(0,0,0,0.2);
+      border-radius: 20px;
+      padding: 28px;
+    }
+    .compare-box.before { border: 1px solid rgba(255,255,255,0.08); }
+    .compare-box.after { border: 1px solid rgba(52,211,153,0.3); }
+
+    .compare-box .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .compare-box.before .label { color: rgba(255,255,255,0.35); }
+    .compare-box.after .label { color: #34d399; }
+
+    .compare-vm-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .vm-pill {
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .vm-pill.normal {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .vm-pill.new {
+      background: rgba(52,211,153,0.15);
+      color: #34d399;
+      border: 1px solid rgba(52,211,153,0.3);
+    }
+
+    .compare-stat {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 28px;
+      font-weight: 900;
+    }
+    .compare-box.before .compare-stat { color: rgba(255,255,255,0.4); }
+    .compare-box.after .compare-stat { color: #34d399; }
+    .compare-stat-label {
+      font-size: 11px;
+      opacity: 0.45;
+      font-weight: 600;
+    }
+
+    .compare-arrow {
+      text-align: center;
+    }
+    .compare-arrow .arrow-circle {
+      width: 60px; height: 60px;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin: 0 auto;
+      box-shadow: 0 0 30px rgba(124,58,237,0.4);
+    }
+    .compare-arrow .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.4);
+      margin-top: 8px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* App description box */
+    .app-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+    .app-icon {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, #059669, #34d399);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+    .app-info h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .app-info p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+    }
+    .app-tags {
+      margin-left: auto;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .app-tag-pill {
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+      color: #6ee7b7;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 20px;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="eyebrow">
+      <div class="dot-live"></div>
+      SMAP · 内存分层超分方案
+    </div>
+    <h1>提升整机超分比</h1>
+    <p>字节火山 AI 服务平台 · 2vCPU/4G VM · openclaw browser · UB借用 + NVMe 三级内存</p>
+  </div>
+
+  <!-- Hero Metrics -->
+  <div class="hero-metrics">
+    <div class="hero-metric purple">
+      <div class="num">6+</div>
+      <div class="desc">VM 实例 / 宿主机</div>
+    </div>
+    <div class="hero-metric green">
+      <div class="num">↑1.8×</div>
+      <div class="desc">超分比提升倍数</div>
+    </div>
+    <div class="hero-metric blue">
+      <div class="num">3层</div>
+      <div class="desc">内存分层架构</div>
+    </div>
+    <div class="hero-metric amber">
+      <div class="num">4TB+</div>
+      <div class="desc">NVMe 扩展容量</div>
+    </div>
+  </div>
+
+  <!-- Business App -->
+  <div class="app-box">
+    <div class="app-icon">🌐</div>
+    <div class="app-info">
+      <h3>业务应用负载：openclaw browser</h3>
+      <p>运行于 2vCPU / 4GB 虚机内，属于内存弹性型业务，适合 SMAP 内存分层调度</p>
+    </div>
+    <div class="app-tags">
+      <div class="app-tag-pill">2vCPU</div>
+      <div class="app-tag-pill">4G vRAM</div>
+      <div class="app-tag-pill">内存弹性型</div>
+      <div class="app-tag-pill">SMAP 托管</div>
+    </div>
+  </div>
+
+  <!-- Architecture Flow SVG -->
+  <div class="arch-flow">
+    <div class="section-heading">
+      <div class="icon" style="background:rgba(124,58,237,0.2);">🏗</div>
+      <div>
+        <h2>系统架构流向</h2>
+        <p>从业务请求到内存分层调度的完整链路</p>
+      </div>
+    </div>
+
+    <svg class="flow-svg" viewBox="0 0 1040 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="volcano-bg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#312e81"/>
+          <stop offset="100%" stop-color="#1e1b4b"/>
+        </linearGradient>
+        <linearGradient id="vm-bg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#064e3b"/>
+          <stop offset="100%" stop-color="#022c22"/>
+        </linearGradient>
+        <linearGradient id="smap-bg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#7c3aed"/>
+          <stop offset="100%" stop-color="#4f46e5"/>
+        </linearGradient>
+        <linearGradient id="mem-bg" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#0369a1"/>
+          <stop offset="100%" stop-color="#075985"/>
+        </linearGradient>
+        <marker id="farrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.4)"/>
+        </marker>
+        <filter id="glow2">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background -->
+      <rect width="1040" height="320" fill="rgba(255,255,255,0.02)" rx="20"/>
+
+      <!-- Node 1: Volcano Platform -->
+      <rect x="20" y="110" width="170" height="100" rx="16" fill="url(#volcano-bg)" stroke="rgba(167,139,250,0.4)" stroke-width="1.5"/>
+      <text x="105" y="145" text-anchor="middle" fill="#a78bfa" font-size="11" font-family="'Nunito',sans-serif"
+            font-weight="800" letter-spacing="1">火山 AI 平台</text>
+      <text x="105" y="163" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="10">Volcano Engine</text>
+      <text x="105" y="181" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">物理宿主机</text>
+      <text x="105" y="198" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">高密度计算集群</text>
+
+      <!-- Arrow 1→2 -->
+      <line x1="192" y1="160" x2="248" y2="160" stroke="rgba(255,255,255,0.25)" stroke-width="2"
+            stroke-dasharray="6,4" marker-end="url(#farrow)"/>
+      <text x="220" y="152" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">调度</text>
+
+      <!-- Node 2: VM group -->
+      <rect x="250" y="80" width="200" height="160" rx="16" fill="url(#vm-bg)" stroke="rgba(52,211,153,0.35)" stroke-width="1.5"/>
+      <text x="350" y="112" text-anchor="middle" fill="#34d399" font-size="11" font-family="'Nunito',sans-serif"
+            font-weight="800" letter-spacing="1">虚机 (×6)</text>
+      <text x="350" y="130" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9">2vCPU · 4G vRAM</text>
+      <!-- mini vm boxes -->
+      <rect x="268" y="140" width="52" height="30" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
+      <text x="294" y="158" text-anchor="middle" fill="#6ee7b7" font-size="8">VM-01</text>
+      <rect x="326" y="140" width="52" height="30" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
+      <text x="352" y="158" text-anchor="middle" fill="#6ee7b7" font-size="8">VM-02</text>
+      <rect x="384" y="140" width="52" height="30" rx="6" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.2)" stroke-width="1"/>
+      <text x="410" y="158" text-anchor="middle" fill="#6ee7b7" font-size="8">VM-03</text>
+      <rect x="268" y="178" width="52" height="30" rx="6" fill="rgba(52,211,153,0.2)" stroke="rgba(52,211,153,0.4)" stroke-width="1"/>
+      <text x="294" y="196" text-anchor="middle" fill="#34d399" font-size="8">VM-04★</text>
+      <rect x="326" y="178" width="52" height="30" rx="6" fill="rgba(52,211,153,0.2)" stroke="rgba(52,211,153,0.4)" stroke-width="1"/>
+      <text x="352" y="196" text-anchor="middle" fill="#34d399" font-size="8">VM-05★</text>
+      <rect x="384" y="178" width="52" height="30" rx="6" fill="rgba(52,211,153,0.2)" stroke="rgba(52,211,153,0.4)" stroke-width="1"/>
+      <text x="410" y="196" text-anchor="middle" fill="#34d399" font-size="8">VM-06★</text>
+
+      <!-- Arrow 2→3 -->
+      <line x1="452" y1="160" x2="508" y2="160" stroke="rgba(255,255,255,0.25)" stroke-width="2"
+            stroke-dasharray="6,4" marker-end="url(#farrow)"/>
+      <text x="480" y="152" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">内存请求</text>
+
+      <!-- Node 3: SMAP engine -->
+      <rect x="510" y="100" width="170" height="120" rx="16" fill="url(#smap-bg)" stroke="rgba(167,139,250,0.4)" stroke-width="1.5" filter="url(#glow2)"/>
+      <text x="595" y="135" text-anchor="middle" fill="#fff" font-size="12" font-family="'Nunito',sans-serif"
+            font-weight="800" letter-spacing="0.5">SMAP 引擎</text>
+      <text x="595" y="153" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">Smart Memory</text>
+      <text x="595" y="168" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">Allocation &amp; Paging</text>
+      <text x="595" y="186" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="9">热/温/冷 分层调度</text>
+      <text x="595" y="201" text-anchor="middle" fill="#c4b5fd" font-size="8">openEuler OLK-6.6</text>
+
+      <!-- Arrow 3→4 -->
+      <line x1="682" y1="160" x2="738" y2="160" stroke="rgba(255,255,255,0.25)" stroke-width="2"
+            stroke-dasharray="6,4" marker-end="url(#farrow)"/>
+      <text x="710" y="152" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="9">分层映射</text>
+
+      <!-- Node 4: Memory Tiers -->
+      <rect x="740" y="60" width="280" height="240" rx="16" fill="url(#mem-bg)" stroke="rgba(96,165,250,0.3)" stroke-width="1.5"/>
+      <text x="880" y="90" text-anchor="middle" fill="#60a5fa" font-size="11" font-family="'Nunito',sans-serif"
+            font-weight="800" letter-spacing="1">三级内存层次</text>
+
+      <!-- L1 -->
+      <rect x="760" y="102" width="240" height="46" rx="10" fill="rgba(129,140,248,0.15)" stroke="rgba(129,140,248,0.3)" stroke-width="1"/>
+      <text x="775" y="120" fill="#a5b4fc" font-size="10" font-weight="800">L1 · 本地 DRAM</text>
+      <text x="775" y="136" fill="rgba(255,255,255,0.4)" font-size="9">~100ns · 50GB/s · 热数据</text>
+      <text x="984" y="126" text-anchor="end" fill="rgba(129,140,248,0.6)" font-size="8">DDR5</text>
+
+      <!-- L2 -->
+      <rect x="760" y="158" width="240" height="46" rx="10" fill="rgba(52,211,153,0.12)" stroke="rgba(52,211,153,0.25)" stroke-width="1"/>
+      <text x="775" y="176" fill="#6ee7b7" font-size="10" font-weight="800">L2 · UB 借用内存</text>
+      <text x="775" y="192" fill="rgba(255,255,255,0.4)" font-size="9">~1μs · 20GB/s · 温数据</text>
+      <text x="984" y="182" text-anchor="end" fill="rgba(52,211,153,0.5)" font-size="8">UB协议</text>
+
+      <!-- L3 -->
+      <rect x="760" y="214" width="240" height="46" rx="10" fill="rgba(251,191,36,0.1)" stroke="rgba(251,191,36,0.2)" stroke-width="1"/>
+      <text x="775" y="232" fill="#fcd34d" font-size="10" font-weight="800">L3 · NVMe SSD</text>
+      <text x="775" y="248" fill="rgba(255,255,255,0.4)" font-size="9">~100μs · 7GB/s · 冷数据</text>
+      <text x="984" y="238" text-anchor="end" fill="rgba(251,191,36,0.5)" font-size="8">PCIe4</text>
+
+      <!-- Labels on left side -->
+      <text x="10" y="76" fill="rgba(255,255,255,0.2)" font-size="9" font-family="monospace" transform="rotate(-90 10 76)">基础设施层</text>
+    </svg>
+  </div>
+
+  <!-- Memory Tier Detail -->
+  <div class="tiers-section">
+    <div class="section-heading">
+      <div class="icon" style="background:rgba(96,165,250,0.2);">💾</div>
+      <div>
+        <h2>三级内存分层详解</h2>
+        <p>SMAP 智能调度引擎驱动的热-温-冷数据分层</p>
+      </div>
+    </div>
+    <div class="tiers-grid">
+      <!-- L1 -->
+      <div class="tier-block l1">
+        <div class="tier-level">L1 · 第一层</div>
+        <div class="tier-title">本地 DRAM</div>
+        <div class="tier-sub">物理内存 · 热数据 · 直接映射</div>
+        <div class="tier-metrics-grid">
+          <div class="tier-metric-item">
+            <div class="mv">~100ns</div>
+            <div class="ml">访问延迟</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">50 GB/s</div>
+            <div class="ml">峰值带宽</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">DDR5</div>
+            <div class="ml">规格</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">128G+</div>
+            <div class="ml">容量</div>
+          </div>
+        </div>
+        <div class="tier-tag">⚡ 零开销直接映射</div>
+      </div>
+
+      <!-- L2 -->
+      <div class="tier-block l2">
+        <div class="tier-level">L2 · 第二层</div>
+        <div class="tier-title">UB 借用内存</div>
+        <div class="tier-sub">UB协议栈 · 温数据 · 跨节点借用</div>
+        <div class="tier-metrics-grid">
+          <div class="tier-metric-item">
+            <div class="mv">~1μs</div>
+            <div class="ml">访问延迟</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">20 GB/s</div>
+            <div class="ml">网络带宽</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">UB协议</div>
+            <div class="ml">传输</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">动态</div>
+            <div class="ml">容量伸缩</div>
+          </div>
+        </div>
+        <div class="tier-tag">🔗 openEuler UB Stack · CONFIG_UB_BORROW_MEM</div>
+      </div>
+
+      <!-- L3 -->
+      <div class="tier-block l3">
+        <div class="tier-level">L3 · 第三层</div>
+        <div class="tier-title">NVMe SSD</div>
+        <div class="tier-sub">高速存储 · 冷数据 · 大容量扩展</div>
+        <div class="tier-metrics-grid">
+          <div class="tier-metric-item">
+            <div class="mv">~100μs</div>
+            <div class="ml">访问延迟</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">7 GB/s</div>
+            <div class="ml">读取带宽</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">PCIe 4</div>
+            <div class="ml">接口</div>
+          </div>
+          <div class="tier-metric-item">
+            <div class="mv">4TB+</div>
+            <div class="ml">容量</div>
+          </div>
+        </div>
+        <div class="tier-tag">💿 DAMOS_DEMOTION · NVMe Swap</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Before / After -->
+  <div class="compare-section">
+    <div class="section-heading" style="margin-bottom:28px;">
+      <div class="icon" style="background:rgba(52,211,153,0.2);">📊</div>
+      <div>
+        <h2>超分比对比：启用 SMAP 前后</h2>
+        <p>同一物理宿主机上可承载的 VM 实例数量对比</p>
+      </div>
+    </div>
+    <div class="compare-grid">
+      <!-- Before -->
+      <div class="compare-box before">
+        <div class="label">❌ 未启用 SMAP</div>
+        <div class="compare-vm-row">
+          <div class="vm-pill normal">VM-01</div>
+          <div class="vm-pill normal">VM-02</div>
+          <div class="vm-pill normal">VM-03</div>
+        </div>
+        <div style="font-size:12px; color:rgba(255,255,255,0.3); margin-bottom:8px;">
+          仅依赖物理 DRAM，内存紧张后无法新增 VM
+        </div>
+        <div style="display:flex; gap:8px; font-size:11px; color:rgba(255,255,255,0.25);">
+          <span>L1 DRAM 100%</span>
+          <span>·</span>
+          <span>L2/L3 闲置</span>
+        </div>
+        <div class="compare-stat">3 VMs</div>
+        <div class="compare-stat-label">超分比基准 = 1×</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="compare-arrow">
+        <div class="arrow-circle">→</div>
+        <div class="label">SMAP<br>启用</div>
+      </div>
+
+      <!-- After -->
+      <div class="compare-box after">
+        <div class="label">✅ 启用 SMAP L2+L3</div>
+        <div class="compare-vm-row">
+          <div class="vm-pill normal">VM-01</div>
+          <div class="vm-pill normal">VM-02</div>
+          <div class="vm-pill normal">VM-03</div>
+          <div class="vm-pill new">VM-04 ★</div>
+          <div class="vm-pill new">VM-05 ★</div>
+          <div class="vm-pill new">VM-06 ★</div>
+        </div>
+        <div style="font-size:12px; color:rgba(52,211,153,0.6); margin-bottom:8px;">
+          UB借用 + NVMe 扩展虚拟内存，可新增 3 个超分 VM
+        </div>
+        <div style="display:flex; gap:8px; font-size:11px; color:rgba(52,211,153,0.45);">
+          <span>L1 主力</span>
+          <span>·</span>
+          <span>L2 温补</span>
+          <span>·</span>
+          <span>L3 冷扩</span>
+        </div>
+        <div class="compare-stat">6 VMs</div>
+        <div class="compare-stat-label">超分比提升 ≈ 1.8×</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SMAP 内存分层超分架构图 · 信息图风格 · 字节火山 AI 服务平台 · Infographic Edition v1.0
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMAP 场景示意图 — 蓝图风格</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #050a18;
+      color: #c8e0ff;
+      font-family: 'Rajdhani', 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,168,255,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,168,255,0.06) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1100px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #00d4ff;
+      text-shadow: 0 0 20px rgba(0,212,255,0.6);
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: #4a90b8;
+      margin-bottom: 40px;
+      text-transform: uppercase;
+    }
+
+    /* Main SVG diagram */
+    .diagram-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Legend */
+    .legend {
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #7aa8c8;
+      letter-spacing: 1px;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid;
+    }
+
+    .footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #2a4a6a;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>SMAP 内存分层场景</h1>
+  <div class="subtitle">字节火山 AI 服务平台 · 超分比提升方案 · Blueprint Edition</div>
+
+  <svg class="diagram-svg" viewBox="0 0 1060 760" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Glow filter -->
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="glow-strong" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="6" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <!-- Arrow markers -->
+      <marker id="arrow-cyan" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#00d4ff"/>
+      </marker>
+      <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#4a90e2"/>
+      </marker>
+      <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" fill="#00ff88"/>
+      </marker>
+      <!-- Gradient fills -->
+      <linearGradient id="host-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0a1a35"/>
+        <stop offset="100%" stop-color="#061228"/>
+      </linearGradient>
+      <linearGradient id="vm-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0d2244"/>
+        <stop offset="100%" stop-color="#091830"/>
+      </linearGradient>
+      <linearGradient id="l1-grad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#002a5c"/>
+        <stop offset="100%" stop-color="#003870"/>
+      </linearGradient>
+      <linearGradient id="l2-grad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#003a30"/>
+        <stop offset="100%" stop-color="#005040"/>
+      </linearGradient>
+      <linearGradient id="l3-grad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#2a1a00"/>
+        <stop offset="100%" stop-color="#3a2400"/>
+      </linearGradient>
+    </defs>
+
+    <!-- ── Background panels ── -->
+
+    <!-- Outer host box -->
+    <rect x="20" y="20" width="1020" height="720" rx="8" ry="8"
+          fill="url(#host-grad)" stroke="#1a4a7a" stroke-width="1.5"/>
+    <!-- Corner decorations -->
+    <path d="M20,50 L20,20 L50,20" stroke="#00d4ff" stroke-width="2" fill="none" filter="url(#glow)"/>
+    <path d="M1040,50 L1040,20 L1010,20" stroke="#00d4ff" stroke-width="2" fill="none" filter="url(#glow)"/>
+    <path d="M20,710 L20,740 L50,740" stroke="#00d4ff" stroke-width="2" fill="none" filter="url(#glow)"/>
+    <path d="M1040,710 L1040,740 L1010,740" stroke="#00d4ff" stroke-width="2" fill="none" filter="url(#glow)"/>
+
+    <!-- Title bar -->
+    <rect x="20" y="20" width="1020" height="44" rx="8" ry="8" fill="#071428" opacity="0.9"/>
+    <rect x="20" y="52" width="1020" height="2" fill="#1a4a7a"/>
+    <text x="530" y="46" text-anchor="middle" fill="#00d4ff" font-size="16" font-family="'Rajdhani',monospace"
+          font-weight="700" letter-spacing="3" filter="url(#glow)">
+      火山 AI 服务平台 · 物理宿主机
+    </text>
+    <!-- Status indicators -->
+    <circle cx="45" cy="42" r="5" fill="#00ff88" filter="url(#glow)"/>
+    <circle cx="62" cy="42" r="5" fill="#00d4ff" filter="url(#glow)"/>
+    <circle cx="79" cy="42" r="5" fill="#ffaa00" filter="url(#glow)"/>
+
+    <!-- ── VM Section label ── -->
+    <text x="40" y="90" fill="#4a90b8" font-size="11" font-family="monospace" letter-spacing="2">
+      VIRTUAL MACHINES [ 2vCPU / 4G RAM ] × 6
+    </text>
+    <line x1="40" y1="95" x2="620" y2="95" stroke="#1a3a5a" stroke-width="1" stroke-dasharray="4,3"/>
+
+    <!-- VM boxes — 3 top row -->
+    <!-- VM 1 -->
+    <rect x="40" y="105" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#2a6a9a" stroke-width="1.5"/>
+    <rect x="40" y="105" width="180" height="28" rx="6" fill="#0d2a4a" opacity="0.9"/>
+    <rect x="40" y="121" width="180" height="12" fill="#0d2a4a" opacity="0.9"/>
+    <text x="130" y="122" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" letter-spacing="1">VM-01</text>
+    <!-- CPU bars -->
+    <text x="55" y="150" fill="#7aa8c8" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="55" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="55" y="154" width="42" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <rect x="120" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="120" y="154" width="38" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <!-- Memory bar -->
+    <text x="55" y="175" fill="#7aa8c8" font-size="9" font-family="monospace">MEM  4G</text>
+    <rect x="55" y="179" width="145" height="8" rx="3" fill="#0a2040"/>
+    <rect x="55" y="179" width="98" height="8" rx="3" fill="#0055cc" opacity="0.8"/>
+    <!-- App label -->
+    <rect x="55" y="198" width="150" height="22" rx="4" fill="#091830" stroke="#1a4a7a" stroke-width="1"/>
+    <text x="130" y="213" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <!-- SMAP badge -->
+    <rect x="55" y="228" width="150" height="10" rx="3" fill="#002244"/>
+    <text x="130" y="236" text-anchor="middle" fill="#4a90b8" font-size="8" font-family="monospace"
+          letter-spacing="1">SMAP MANAGED</text>
+
+    <!-- VM 2 -->
+    <rect x="240" y="105" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#2a6a9a" stroke-width="1.5"/>
+    <rect x="240" y="105" width="180" height="28" rx="6" fill="#0d2a4a" opacity="0.9"/>
+    <rect x="240" y="121" width="180" height="12" fill="#0d2a4a" opacity="0.9"/>
+    <text x="330" y="122" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" letter-spacing="1">VM-02</text>
+    <text x="255" y="150" fill="#7aa8c8" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="255" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="255" y="154" width="48" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <rect x="320" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="320" y="154" width="30" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <text x="255" y="175" fill="#7aa8c8" font-size="9" font-family="monospace">MEM  4G</text>
+    <rect x="255" y="179" width="145" height="8" rx="3" fill="#0a2040"/>
+    <rect x="255" y="179" width="115" height="8" rx="3" fill="#0055cc" opacity="0.8"/>
+    <rect x="255" y="198" width="150" height="22" rx="4" fill="#091830" stroke="#1a4a7a" stroke-width="1"/>
+    <text x="330" y="213" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <rect x="255" y="228" width="150" height="10" rx="3" fill="#002244"/>
+    <text x="330" y="236" text-anchor="middle" fill="#4a90b8" font-size="8" font-family="monospace"
+          letter-spacing="1">SMAP MANAGED</text>
+
+    <!-- VM 3 -->
+    <rect x="440" y="105" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#2a6a9a" stroke-width="1.5"/>
+    <rect x="440" y="105" width="180" height="28" rx="6" fill="#0d2a4a" opacity="0.9"/>
+    <rect x="440" y="121" width="180" height="12" fill="#0d2a4a" opacity="0.9"/>
+    <text x="530" y="122" text-anchor="middle" fill="#00d4ff" font-size="11" font-family="monospace" letter-spacing="1">VM-03</text>
+    <text x="455" y="150" fill="#7aa8c8" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="455" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="455" y="154" width="35" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <rect x="520" y="154" width="60" height="6" rx="2" fill="#0a2040"/>
+    <rect x="520" y="154" width="50" height="6" rx="2" fill="#00aaff" opacity="0.8"/>
+    <text x="455" y="175" fill="#7aa8c8" font-size="9" font-family="monospace">MEM  4G</text>
+    <rect x="455" y="179" width="145" height="8" rx="3" fill="#0a2040"/>
+    <rect x="455" y="179" width="88" height="8" rx="3" fill="#0055cc" opacity="0.8"/>
+    <rect x="455" y="198" width="150" height="22" rx="4" fill="#091830" stroke="#1a4a7a" stroke-width="1"/>
+    <text x="530" y="213" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <rect x="455" y="228" width="150" height="10" rx="3" fill="#002244"/>
+    <text x="530" y="236" text-anchor="middle" fill="#4a90b8" font-size="8" font-family="monospace"
+          letter-spacing="1">SMAP MANAGED</text>
+
+    <!-- VM 4,5,6 — second row (slightly faded = additional capacity gained by smap) -->
+    <rect x="40" y="260" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#1a5a3a" stroke-width="1.5"
+          opacity="0.85"/>
+    <rect x="40" y="260" width="180" height="28" rx="6" fill="#0d2a1a" opacity="0.9"/>
+    <rect x="40" y="276" width="180" height="12" fill="#0d2a1a" opacity="0.9"/>
+    <text x="130" y="277" text-anchor="middle" fill="#00ff88" font-size="11" font-family="monospace" letter-spacing="1"
+          filter="url(#glow)">VM-04 ★</text>
+    <text x="55" y="305" fill="#5a9878" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="55" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="55" y="309" width="30" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <rect x="120" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="120" y="309" width="45" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <text x="55" y="330" fill="#5a9878" font-size="9" font-family="monospace">MEM  4G (L2+L3)</text>
+    <rect x="55" y="334" width="145" height="8" rx="3" fill="#0a2018"/>
+    <rect x="55" y="334" width="60" height="8" rx="3" fill="#0088aa" opacity="0.8"/>
+    <rect x="115" y="334" width="45" height="8" rx="3" fill="#006633" opacity="0.8"/>
+    <rect x="160" y="334" width="40" height="8" rx="3" fill="#664400" opacity="0.8"/>
+    <rect x="55" y="353" width="150" height="22" rx="4" fill="#091828" stroke="#1a5a2a" stroke-width="1"/>
+    <text x="130" y="368" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <rect x="55" y="383" width="150" height="10" rx="3" fill="#002214"/>
+    <text x="130" y="391" text-anchor="middle" fill="#00aa66" font-size="8" font-family="monospace"
+          letter-spacing="1">超分扩展 VM</text>
+
+    <!-- VM 5 -->
+    <rect x="240" y="260" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#1a5a3a" stroke-width="1.5"
+          opacity="0.85"/>
+    <rect x="240" y="260" width="180" height="28" rx="6" fill="#0d2a1a" opacity="0.9"/>
+    <rect x="240" y="276" width="180" height="12" fill="#0d2a1a" opacity="0.9"/>
+    <text x="330" y="277" text-anchor="middle" fill="#00ff88" font-size="11" font-family="monospace" letter-spacing="1"
+          filter="url(#glow)">VM-05 ★</text>
+    <text x="255" y="305" fill="#5a9878" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="255" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="255" y="309" width="50" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <rect x="320" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="320" y="309" width="20" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <text x="255" y="330" fill="#5a9878" font-size="9" font-family="monospace">MEM  4G (L2+L3)</text>
+    <rect x="255" y="334" width="145" height="8" rx="3" fill="#0a2018"/>
+    <rect x="255" y="334" width="50" height="8" rx="3" fill="#0088aa" opacity="0.8"/>
+    <rect x="305" y="334" width="55" height="8" rx="3" fill="#006633" opacity="0.8"/>
+    <rect x="360" y="334" width="40" height="8" rx="3" fill="#664400" opacity="0.8"/>
+    <rect x="255" y="353" width="150" height="22" rx="4" fill="#091828" stroke="#1a5a2a" stroke-width="1"/>
+    <text x="330" y="368" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <rect x="255" y="383" width="150" height="10" rx="3" fill="#002214"/>
+    <text x="330" y="391" text-anchor="middle" fill="#00aa66" font-size="8" font-family="monospace"
+          letter-spacing="1">超分扩展 VM</text>
+
+    <!-- VM 6 -->
+    <rect x="440" y="260" width="180" height="140" rx="6" fill="url(#vm-grad)" stroke="#1a5a3a" stroke-width="1.5"
+          opacity="0.85"/>
+    <rect x="440" y="260" width="180" height="28" rx="6" fill="#0d2a1a" opacity="0.9"/>
+    <rect x="440" y="276" width="180" height="12" fill="#0d2a1a" opacity="0.9"/>
+    <text x="530" y="277" text-anchor="middle" fill="#00ff88" font-size="11" font-family="monospace" letter-spacing="1"
+          filter="url(#glow)">VM-06 ★</text>
+    <text x="455" y="305" fill="#5a9878" font-size="9" font-family="monospace">vCPU ×2</text>
+    <rect x="455" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="455" y="309" width="40" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <rect x="520" y="309" width="60" height="6" rx="2" fill="#0a2018"/>
+    <rect x="520" y="309" width="55" height="6" rx="2" fill="#00cc88" opacity="0.8"/>
+    <text x="455" y="330" fill="#5a9878" font-size="9" font-family="monospace">MEM  4G (L2+L3)</text>
+    <rect x="455" y="334" width="145" height="8" rx="3" fill="#0a2018"/>
+    <rect x="455" y="334" width="55" height="8" rx="3" fill="#0088aa" opacity="0.8"/>
+    <rect x="510" y="334" width="40" height="8" rx="3" fill="#006633" opacity="0.8"/>
+    <rect x="550" y="334" width="50" height="8" rx="3" fill="#664400" opacity="0.8"/>
+    <rect x="455" y="353" width="150" height="22" rx="4" fill="#091828" stroke="#1a5a2a" stroke-width="1"/>
+    <text x="530" y="368" text-anchor="middle" fill="#00ff88" font-size="10" font-family="monospace"
+          filter="url(#glow)">openclaw browser</text>
+    <rect x="455" y="383" width="150" height="10" rx="3" fill="#002214"/>
+    <text x="530" y="391" text-anchor="middle" fill="#00aa66" font-size="8" font-family="monospace"
+          letter-spacing="1">超分扩展 VM</text>
+
+    <!-- ── SMAP engine panel ── -->
+    <rect x="650" y="68" width="360" height="460" rx="6" fill="#040c20" stroke="#0066aa" stroke-width="1.5"/>
+    <rect x="650" y="68" width="360" height="30" rx="6" fill="#061628"/>
+    <rect x="650" y="86" width="360" height="12" fill="#061628"/>
+    <text x="830" y="87" text-anchor="middle" fill="#00d4ff" font-size="13" font-family="monospace" letter-spacing="2"
+          font-weight="700" filter="url(#glow)">SMAP 内存分层引擎</text>
+
+    <!-- L1 DRAM -->
+    <rect x="668" y="112" width="324" height="80" rx="5" fill="url(#l1-grad)" stroke="#0066cc" stroke-width="1.5"/>
+    <text x="678" y="132" fill="#00aaff" font-size="12" font-family="monospace" font-weight="700" letter-spacing="1">L1 · 本地 DRAM</text>
+    <text x="678" y="148" fill="#4a80b8" font-size="10" font-family="monospace">延迟: ~100ns    带宽: ~50 GB/s</text>
+    <!-- mini bar chart -->
+    <rect x="678" y="158" width="290" height="12" rx="3" fill="#001a3a"/>
+    <rect x="678" y="158" width="160" height="12" rx="3" fill="#0066ff" opacity="0.9"/>
+    <text x="846" y="167" fill="#4a80b8" font-size="9" font-family="monospace">热数据 (Hot)</text>
+    <text x="978" y="167" text-anchor="end" fill="#4a80b8" font-size="9" font-family="monospace">物理DRAM</text>
+
+    <!-- Arrow down -->
+    <line x1="830" y1="196" x2="830" y2="214" stroke="#00d4ff" stroke-width="1.5"
+          stroke-dasharray="4,3" marker-end="url(#arrow-cyan)"/>
+
+    <!-- L2 UB borrowed memory -->
+    <rect x="668" y="216" width="324" height="88" rx="5" fill="url(#l2-grad)" stroke="#008866" stroke-width="1.5"/>
+    <text x="678" y="236" fill="#00ff88" font-size="12" font-family="monospace" font-weight="700" letter-spacing="1">L2 · UB 借用内存</text>
+    <text x="678" y="252" fill="#4a9878" font-size="10" font-family="monospace">延迟: ~1μs     带宽: ~20 GB/s</text>
+    <rect x="678" y="258" width="290" height="12" rx="3" fill="#001a10"/>
+    <rect x="678" y="258" width="200" height="12" rx="3" fill="#00aa66" opacity="0.85"/>
+    <text x="886" y="267" fill="#4a9878" font-size="9" font-family="monospace">温数据 (Warm)</text>
+    <text x="978" y="267" text-anchor="end" fill="#4a9878" font-size="9" font-family="monospace">UB协议借用</text>
+    <!-- Sub-label -->
+    <rect x="678" y="274" width="290" height="18" rx="3" fill="#001a10" stroke="#006644" stroke-width="0.5"/>
+    <text x="823" y="285" text-anchor="middle" fill="#00cc88" font-size="9" font-family="monospace"
+          letter-spacing="1">openEuler UB Stack · CONFIG_UB_BORROW_MEM</text>
+
+    <!-- Arrow down -->
+    <line x1="830" y1="308" x2="830" y2="326" stroke="#00d4ff" stroke-width="1.5"
+          stroke-dasharray="4,3" marker-end="url(#arrow-cyan)"/>
+
+    <!-- L3 NVMe -->
+    <rect x="668" y="328" width="324" height="88" rx="5" fill="url(#l3-grad)" stroke="#886600" stroke-width="1.5"/>
+    <text x="678" y="348" fill="#ffcc00" font-size="12" font-family="monospace" font-weight="700" letter-spacing="1">L3 · NVMe SSD</text>
+    <text x="678" y="364" fill="#aa8800" font-size="10" font-family="monospace">延迟: ~100μs   带宽: ~7 GB/s</text>
+    <rect x="678" y="370" width="290" height="12" rx="3" fill="#1a0a00"/>
+    <rect x="678" y="370" width="240" height="12" rx="3" fill="#cc8800" opacity="0.8"/>
+    <text x="926" y="379" fill="#aa8800" font-size="9" font-family="monospace">冷数据 (Cold)</text>
+    <text x="978" y="379" text-anchor="end" fill="#aa8800" font-size="9" font-family="monospace">NVMe SSD</text>
+    <rect x="678" y="386" width="290" height="18" rx="3" fill="#1a0a00" stroke="#664400" stroke-width="0.5"/>
+    <text x="823" y="397" text-anchor="middle" fill="#cc9900" font-size="9" font-family="monospace"
+          letter-spacing="1">内核 swap-over-NVMe · DAMOS_DEMOTION</text>
+
+    <!-- ── Superscription ratio stats ── -->
+    <rect x="668" y="430" width="324" height="80" rx="5" fill="#040c20" stroke="#2a4a6a" stroke-width="1"
+          stroke-dasharray="4,2"/>
+    <text x="830" y="450" text-anchor="middle" fill="#7aa8c8" font-size="11" font-family="monospace"
+          letter-spacing="2">超分比对比</text>
+    <!-- Before bar -->
+    <text x="678" y="468" fill="#4a70a8" font-size="10" font-family="monospace">Without SMAP</text>
+    <rect x="678" y="470" width="120" height="10" rx="2" fill="#001a3a"/>
+    <rect x="678" y="470" width="60" height="10" rx="2" fill="#0055cc" opacity="0.8"/>
+    <text x="802" y="479" fill="#4a70a8" font-size="9" font-family="monospace">1x</text>
+    <!-- After bar -->
+    <text x="678" y="495" fill="#00ff88" font-size="10" font-family="monospace">With SMAP (L2+L3)</text>
+    <rect x="678" y="497" width="120" height="10" rx="2" fill="#001a10"/>
+    <rect x="678" y="497" width="108" height="10" rx="2" fill="#00aa66" opacity="0.9" filter="url(#glow)"/>
+    <text x="802" y="506" fill="#00ff88" font-size="9" font-family="monospace" filter="url(#glow)">↑ 1.8x</text>
+
+    <!-- ── Hardware layer ── -->
+    <rect x="20" y="550" width="620" height="100" rx="6" fill="#040c18" stroke="#1a3a5a" stroke-width="1.5"/>
+    <text x="330" y="572" text-anchor="middle" fill="#4a7aaa" font-size="11" font-family="monospace" letter-spacing="2">
+      PHYSICAL HARDWARE LAYER
+    </text>
+    <!-- CPU block -->
+    <rect x="40" y="578" width="140" height="56" rx="4" fill="#081428" stroke="#2a5a8a" stroke-width="1"/>
+    <text x="110" y="594" text-anchor="middle" fill="#00aaff" font-size="10" font-family="monospace">CPU</text>
+    <text x="110" y="610" text-anchor="middle" fill="#4a7aaa" font-size="9" font-family="monospace">多核 · 高主频</text>
+    <text x="110" y="626" text-anchor="middle" fill="#2a5a8a" font-size="8" font-family="monospace">Intel/AMD Xeon</text>
+    <!-- DRAM block -->
+    <rect x="196" y="578" width="140" height="56" rx="4" fill="#081428" stroke="#1a6a9a" stroke-width="1"/>
+    <text x="266" y="594" text-anchor="middle" fill="#0099cc" font-size="10" font-family="monospace">DRAM</text>
+    <text x="266" y="610" text-anchor="middle" fill="#4a7a9a" font-size="9" font-family="monospace">DDR5 · 128G+</text>
+    <text x="266" y="626" text-anchor="middle" fill="#2a5a7a" font-size="8" font-family="monospace">物理内存</text>
+    <!-- NVMe block -->
+    <rect x="352" y="578" width="140" height="56" rx="4" fill="#141008" stroke="#6a5800" stroke-width="1"/>
+    <text x="422" y="594" text-anchor="middle" fill="#ccaa00" font-size="10" font-family="monospace">NVMe</text>
+    <text x="422" y="610" text-anchor="middle" fill="#8a7830" font-size="9" font-family="monospace">PCIe Gen4 · 4TB</text>
+    <text x="422" y="626" text-anchor="middle" fill="#6a5820" font-size="8" font-family="monospace">高速存储</text>
+    <!-- UB block -->
+    <rect x="508" y="578" width="112" height="56" rx="4" fill="#081420" stroke="#006688" stroke-width="1"/>
+    <text x="564" y="594" text-anchor="middle" fill="#00bbdd" font-size="10" font-family="monospace">UB NET</text>
+    <text x="564" y="610" text-anchor="middle" fill="#4a7888" font-size="9" font-family="monospace">25G/100G</text>
+    <text x="564" y="626" text-anchor="middle" fill="#2a5868" font-size="8" font-family="monospace">UB协议栈</text>
+
+    <!-- ── SMAP orchestration arrows ── -->
+    <!-- VM section → SMAP engine -->
+    <line x1="638" y1="248" x2="650" y2="248" stroke="#00d4ff" stroke-width="1.5"
+          marker-end="url(#arrow-cyan)" filter="url(#glow)"/>
+    <text x="640" y="244" fill="#00d4ff" font-size="8" font-family="monospace" filter="url(#glow)">管控</text>
+
+    <!-- SMAP engine → hardware arrows -->
+    <line x1="830" y1="534" x2="830" y2="560" stroke="#1a4a7a" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="830" y1="560" x2="266" y2="560" stroke="#1a4a7a" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="266" y1="560" x2="266" y2="578" stroke="#1a4a7a" stroke-width="1"
+          stroke-dasharray="4,3" marker-end="url(#arrow-blue)"/>
+
+    <!-- ── Vertical annotation: oversubscription ── -->
+    <rect x="660" y="540" width="340" height="36" rx="4" fill="#051020" stroke="#0a3a6a" stroke-width="1"/>
+    <text x="830" y="555" text-anchor="middle" fill="#00d4ff" font-size="12" font-family="monospace"
+          letter-spacing="1" filter="url(#glow)">SMAP 超分架构</text>
+    <text x="830" y="570" text-anchor="middle" fill="#4a80a8" font-size="9" font-family="monospace"
+          letter-spacing="1">Smart Memory Allocation &amp; Paging</text>
+
+    <!-- ── Bottom stats bar ── -->
+    <rect x="20" y="668" width="1020" height="52" rx="6" fill="#040c18" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="530" y="686" text-anchor="middle" fill="#2a5a8a" font-size="10" font-family="monospace"
+          letter-spacing="2">SYSTEM METRICS</text>
+    <!-- metric items -->
+    <text x="90" y="708" text-anchor="middle" fill="#00d4ff" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">6</text>
+    <text x="90" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">VM 实例数</text>
+    <line x1="155" y1="676" x2="155" y2="714" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="220" y="708" text-anchor="middle" fill="#00ff88" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">1.8×</text>
+    <text x="220" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">超分比提升</text>
+    <line x1="290" y1="676" x2="290" y2="714" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="370" y="708" text-anchor="middle" fill="#00aaff" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">L1+L2+L3</text>
+    <text x="370" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">三级内存层次</text>
+    <line x1="460" y1="676" x2="460" y2="714" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="560" y="708" text-anchor="middle" fill="#ffcc00" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">openclaw</text>
+    <text x="560" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">业务负载类型</text>
+    <line x1="660" y1="676" x2="660" y2="714" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="760" y="708" text-anchor="middle" fill="#00bbdd" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">UB Stack</text>
+    <text x="760" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">借用内存协议</text>
+    <line x1="860" y1="676" x2="860" y2="714" stroke="#1a3a5a" stroke-width="1"/>
+    <text x="960" y="708" text-anchor="middle" fill="#cc8800" font-size="13" font-family="monospace"
+          font-weight="700" filter="url(#glow)">NVMe</text>
+    <text x="960" y="720" text-anchor="middle" fill="#4a7aa8" font-size="8" font-family="monospace">冷数据存储层</text>
+  </svg>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#0055cc; border-color:#00aaff;"></div>
+      VM-01~03 (基础承载，L1 DRAM)
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#006633; border-color:#00ff88;"></div>
+      VM-04~06 (超分扩展，L2+L3)
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#886600; border-color:#ffcc00;"></div>
+      L3 NVMe 冷数据
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:#005040; border-color:#00ff88;"></div>
+      L2 UB 借用内存
+    </div>
+  </div>
+
+  <div class="footer">
+    SMAP · SMART MEMORY ALLOCATION &amp; PAGING · 字节火山AI服务平台 · BLUEPRINT EDITION v1.0
+  </div>
+</div>
+</body>
+</html>

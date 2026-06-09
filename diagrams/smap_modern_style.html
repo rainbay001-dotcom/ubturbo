@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMAP 场景示意图 — 现代简约风格</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f0f4f8;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 40px 20px 60px;
+    }
+
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .header .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: 36px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      font-size: 15px;
+      color: #718096;
+    }
+
+    /* Platform banner */
+    .platform-banner {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      border-radius: 20px;
+      padding: 24px 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .platform-banner .info h2 {
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .platform-banner .info p {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .platform-badge {
+      display: flex;
+      gap: 12px;
+    }
+    .platform-badge .chip {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #e2e8f0;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Main grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 28px;
+      margin-bottom: 28px;
+    }
+
+    /* VM grid */
+    .vm-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .vm-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .vm-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .vm-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      border: 1.5px solid #e2e8f0;
+      transition: transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .vm-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .vm-card.primary::before { background: linear-gradient(90deg, #667eea, #764ba2); }
+    .vm-card.extended::before { background: linear-gradient(90deg, #11998e, #38ef7d); }
+
+    .vm-card .vm-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .vm-card .vm-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .vm-card .vm-name .star {
+      color: #11998e;
+      font-size: 12px;
+    }
+
+    .vm-spec {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .vm-spec-item {
+      flex: 1;
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .vm-spec-item .val {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .vm-spec-item .lbl {
+      font-size: 9px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .vm-mem-bar {
+      margin-bottom: 10px;
+    }
+    .vm-mem-bar .bar-label {
+      font-size: 10px;
+      color: #64748b;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .vm-mem-bar .bar-track {
+      height: 8px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      display: flex;
+      overflow: hidden;
+    }
+    .bar-l1 { background: #667eea; }
+    .bar-l2 { background: #11998e; }
+    .bar-l3 { background: #f6ad55; }
+
+    .app-tag {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #15803d;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    .vm-card.extended .app-tag {
+      background: #f0fdfa;
+      border-color: #a7f3d0;
+      color: #047857;
+    }
+
+    .smap-tag {
+      margin-top: 8px;
+      font-size: 9px;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .smap-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #11998e;
+      flex-shrink: 0;
+    }
+
+    /* SMAP panel */
+    .smap-panel {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      border: 1.5px solid #e2e8f0;
+    }
+    .smap-panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+    .smap-panel-sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .tier-card {
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .tier-card.l1 {
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      border: 1px solid #c4b5fd;
+    }
+    .tier-card.l2 {
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      border: 1px solid #6ee7b7;
+    }
+    .tier-card.l3 {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border: 1px solid #fcd34d;
+    }
+
+    .tier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .tier-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .tier-card.l1 .tier-name { color: #4c1d95; }
+    .tier-card.l2 .tier-name { color: #064e3b; }
+    .tier-card.l3 .tier-name { color: #78350f; }
+
+    .tier-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 10px;
+    }
+    .tier-card.l1 .tier-badge { background: #7c3aed; color: #fff; }
+    .tier-card.l2 .tier-badge { background: #059669; color: #fff; }
+    .tier-card.l3 .tier-badge { background: #d97706; color: #fff; }
+
+    .tier-stats {
+      display: flex;
+      gap: 14px;
+    }
+    .tier-stat {
+      flex: 1;
+    }
+    .tier-stat .v {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tier-stat .l {
+      font-size: 9px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tier-card.l1 .v { color: #5b21b6; }
+    .tier-card.l2 .v { color: #065f46; }
+    .tier-card.l3 .v { color: #92400e; }
+
+    .tier-tech {
+      margin-top: 8px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.7;
+    }
+    .tier-card.l1 .tier-tech { color: #4c1d95; }
+    .tier-card.l2 .tier-tech { color: #065f46; }
+    .tier-card.l3 .tier-tech { color: #78350f; }
+
+    .tier-arrow {
+      text-align: center;
+      margin: -4px 0;
+      font-size: 16px;
+      color: #94a3b8;
+    }
+
+    /* Stats bar */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 22px 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      border: 1.5px solid #e2e8f0;
+      text-align: center;
+    }
+    .stat-card .val {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 4px;
+    }
+    .stat-card .lbl {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .stat-card.purple .val { color: #7c3aed; }
+    .stat-card.green .val { color: #059669; }
+    .stat-card.blue .val { color: #2563eb; }
+    .stat-card.amber .val { color: #d97706; }
+
+    /* Comparison chart */
+    .compare-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      border: 1.5px solid #e2e8f0;
+    }
+    .compare-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 20px;
+    }
+    .compare-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .compare-label {
+      width: 120px;
+      font-size: 12px;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+    .compare-bar-wrap {
+      flex: 1;
+      height: 28px;
+      background: #f8fafc;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    .compare-bar {
+      height: 100%;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      transition: width 0.4s ease;
+    }
+    .compare-val {
+      width: 50px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">SMAP · Smart Memory Allocation &amp; Paging</div>
+    <h1>超分比提升方案架构图</h1>
+    <p>字节火山 AI 服务平台 · 2vCPU/4G VM · openclaw browser · L2/L3 内存分层</p>
+  </div>
+
+  <!-- Platform Banner -->
+  <div class="platform-banner">
+    <div class="info">
+      <h2>字节跳动火山引擎 AI 服务平台</h2>
+      <p>Volcano Engine AI Infrastructure · 弹性计算服务 ECS · 高密度虚机部署</p>
+    </div>
+    <div class="platform-badge">
+      <div class="chip">物理宿主机</div>
+      <div class="chip">高密度超分</div>
+      <div class="chip">openEuler OLK-6.6</div>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card purple">
+      <div class="val">6</div>
+      <div class="lbl">VM 实例数</div>
+    </div>
+    <div class="stat-card green">
+      <div class="val">↑1.8×</div>
+      <div class="lbl">超分比提升</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="val">3</div>
+      <div class="lbl">内存分层数</div>
+    </div>
+    <div class="stat-card amber">
+      <div class="val">NVMe</div>
+      <div class="lbl">冷数据扩展层</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+    <!-- VMs -->
+    <div>
+      <div class="vm-section-title">基础承载 VM (L1 DRAM 主力)</div>
+      <div class="vm-grid">
+        <!-- VM 01 -->
+        <div class="vm-card primary">
+          <div class="vm-id">Instance / VM-01</div>
+          <div class="vm-name">虚机 01</div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L1 主力</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:75%"></div>
+              <div class="bar-l2" style="width:15%"></div>
+              <div class="bar-l3" style="width:10%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>SMAP 管控中</div>
+        </div>
+        <!-- VM 02 -->
+        <div class="vm-card primary">
+          <div class="vm-id">Instance / VM-02</div>
+          <div class="vm-name">虚机 02</div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L1 主力</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:80%"></div>
+              <div class="bar-l2" style="width:12%"></div>
+              <div class="bar-l3" style="width:8%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>SMAP 管控中</div>
+        </div>
+        <!-- VM 03 -->
+        <div class="vm-card primary">
+          <div class="vm-id">Instance / VM-03</div>
+          <div class="vm-name">虚机 03</div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L1 主力</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:70%"></div>
+              <div class="bar-l2" style="width:18%"></div>
+              <div class="bar-l3" style="width:12%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>SMAP 管控中</div>
+        </div>
+      </div>
+
+      <div class="vm-section-title" style="margin-top:8px;">超分扩展 VM (L2+L3 驱动 ★)</div>
+      <div class="vm-grid">
+        <!-- VM 04 -->
+        <div class="vm-card extended">
+          <div class="vm-id">Instance / VM-04 ★</div>
+          <div class="vm-name">虚机 04 <span class="star">★ 超分</span></div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">虚拟RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L2+L3 扩展</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:30%"></div>
+              <div class="bar-l2" style="width:40%"></div>
+              <div class="bar-l3" style="width:30%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>UB借用 + NVMe Swap</div>
+        </div>
+        <!-- VM 05 -->
+        <div class="vm-card extended">
+          <div class="vm-id">Instance / VM-05 ★</div>
+          <div class="vm-name">虚机 05 <span class="star">★ 超分</span></div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">虚拟RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L2+L3 扩展</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:25%"></div>
+              <div class="bar-l2" style="width:45%"></div>
+              <div class="bar-l3" style="width:30%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>UB借用 + NVMe Swap</div>
+        </div>
+        <!-- VM 06 -->
+        <div class="vm-card extended">
+          <div class="vm-id">Instance / VM-06 ★</div>
+          <div class="vm-name">虚机 06 <span class="star">★ 超分</span></div>
+          <div class="vm-spec">
+            <div class="vm-spec-item">
+              <div class="val">2</div>
+              <div class="lbl">vCPU</div>
+            </div>
+            <div class="vm-spec-item">
+              <div class="val">4G</div>
+              <div class="lbl">虚拟RAM</div>
+            </div>
+          </div>
+          <div class="vm-mem-bar">
+            <div class="bar-label"><span>内存分布</span><span>L2+L3 扩展</span></div>
+            <div class="bar-track">
+              <div class="bar-l1" style="width:35%"></div>
+              <div class="bar-l2" style="width="35%"></div>
+              <div class="bar-l3" style="width:30%"></div>
+            </div>
+          </div>
+          <span class="app-tag">openclaw browser</span>
+          <div class="smap-tag"><div class="smap-dot"></div>UB借用 + NVMe Swap</div>
+        </div>
+      </div>
+
+      <!-- Comparison Chart -->
+      <div class="compare-section">
+        <div class="compare-title">超分比对比</div>
+        <div class="compare-row">
+          <div class="compare-label">无 SMAP (基准)</div>
+          <div class="compare-bar-wrap">
+            <div class="compare-bar" style="width:45%; background: linear-gradient(90deg,#94a3b8,#64748b);">
+              3 VMs / 宿主机
+            </div>
+          </div>
+          <div class="compare-val" style="color:#64748b;">1×</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-label">SMAP L2 (UB)</div>
+          <div class="compare-bar-wrap">
+            <div class="compare-bar" style="width:65%; background: linear-gradient(90deg,#059669,#10b981);">
+              4–5 VMs / 宿主机
+            </div>
+          </div>
+          <div class="compare-val" style="color:#059669;">~1.5×</div>
+        </div>
+        <div class="compare-row">
+          <div class="compare-label">SMAP L2+L3</div>
+          <div class="compare-bar-wrap">
+            <div class="compare-bar" style="width:90%; background: linear-gradient(90deg,#7c3aed,#a78bfa);">
+              6+ VMs / 宿主机
+            </div>
+          </div>
+          <div class="compare-val" style="color:#7c3aed;">↑1.8×</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMAP Panel -->
+    <div>
+      <div class="smap-panel">
+        <div class="smap-panel-title">SMAP 内存分层引擎</div>
+        <div class="smap-panel-sub">Smart Memory Allocation &amp; Paging</div>
+
+        <!-- L1 -->
+        <div class="tier-card l1">
+          <div class="tier-header">
+            <div class="tier-name">L1 · 本地 DRAM</div>
+            <div class="tier-badge">热数据</div>
+          </div>
+          <div class="tier-stats">
+            <div class="tier-stat">
+              <div class="v">~100ns</div>
+              <div class="l">访问延迟</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">50 GB/s</div>
+              <div class="l">带宽</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">DDR5</div>
+              <div class="l">类型</div>
+            </div>
+          </div>
+          <div class="tier-tech">物理 DRAM · 直接映射 · 零开销</div>
+        </div>
+
+        <div class="tier-arrow">↓</div>
+
+        <!-- L2 -->
+        <div class="tier-card l2">
+          <div class="tier-header">
+            <div class="tier-name">L2 · UB 借用内存</div>
+            <div class="tier-badge">温数据</div>
+          </div>
+          <div class="tier-stats">
+            <div class="tier-stat">
+              <div class="v">~1μs</div>
+              <div class="l">访问延迟</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">20 GB/s</div>
+              <div class="l">带宽</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">UB协议</div>
+              <div class="l">传输</div>
+            </div>
+          </div>
+          <div class="tier-tech">openEuler UB Stack · CONFIG_UB_BORROW_MEM</div>
+        </div>
+
+        <div class="tier-arrow">↓</div>
+
+        <!-- L3 -->
+        <div class="tier-card l3">
+          <div class="tier-header">
+            <div class="tier-name">L3 · NVMe SSD</div>
+            <div class="tier-badge">冷数据</div>
+          </div>
+          <div class="tier-stats">
+            <div class="tier-stat">
+              <div class="v">~100μs</div>
+              <div class="l">访问延迟</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">7 GB/s</div>
+              <div class="l">带宽</div>
+            </div>
+            <div class="tier-stat">
+              <div class="v">PCIe4</div>
+              <div class="l">接口</div>
+            </div>
+          </div>
+          <div class="tier-tech">DAMOS_DEMOTION · NVMe Swap · 大容量</div>
+        </div>
+
+        <!-- Color legend -->
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <div style="font-size:11px; font-weight:600; color:#64748b; margin-bottom:10px; letter-spacing:1px; text-transform:uppercase;">
+            内存条分布图例
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; font-size:11px; color:#64748b;">
+            <div style="width:16px;height:10px;border-radius:3px;background:#667eea;flex-shrink:0;"></div>
+            <span>L1 本地DRAM</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; font-size:11px; color:#64748b; margin-top:6px;">
+            <div style="width:16px;height:10px;border-radius:3px;background:#11998e;flex-shrink:0;"></div>
+            <span>L2 UB 借用内存</span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; font-size:11px; color:#64748b; margin-top:6px;">
+            <div style="width:16px;height:10px;border-radius:3px;background:#f6ad55;flex-shrink:0;"></div>
+            <span>L3 NVMe 扩展</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SMAP 内存分层超分架构图 · 现代简约风格 · 字节火山 AI 服务平台 · Modern Edition v1.0
+  </div>
+</div>
+</body>
+</html>

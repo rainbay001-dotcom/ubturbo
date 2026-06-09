@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>openclaw SMAP 内存分层优化方案</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    background: linear-gradient(135deg, #0d1b3e 0%, #1a2a5e 60%, #0d2240 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+
+  /* Background grid */
+  .slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(64,120,220,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(64,120,220,0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Header bar */
+  .header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 90px;
+    background: linear-gradient(90deg, #0a2060 0%, #1a3a80 50%, #0a2060 100%);
+    border-bottom: 2px solid #3a7bd5;
+    display: flex;
+    align-items: center;
+    padding: 0 48px;
+    gap: 16px;
+  }
+  .header-logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900; color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 18px rgba(249,115,22,0.5);
+  }
+  .header-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  .header-title span {
+    color: #f97316;
+  }
+  .header-subtitle {
+    margin-left: auto;
+    font-size: 13px;
+    color: #93b4e8;
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  /* Main content area */
+  .content {
+    position: absolute;
+    top: 104px; left: 0; right: 0; bottom: 0;
+    display: flex;
+    gap: 0;
+  }
+
+  /* Divider arrow */
+  .divider {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .arrow-label {
+    background: linear-gradient(135deg, #3a7bd5, #1e50a0);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    letter-spacing: 1px;
+    border: 1px solid #5a9bf0;
+  }
+  .arrow-icon {
+    font-size: 28px;
+    color: #f97316;
+    text-shadow: 0 0 12px rgba(249,115,22,0.6);
+    line-height: 1;
+  }
+
+  /* Left / Right panels */
+  .panel {
+    flex: 1;
+    padding: 22px 36px;
+    position: relative;
+  }
+  .panel-left { border-right: 1px solid rgba(58,123,213,0.3); }
+  .panel-right { }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .panel-tag {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 20px;
+    letter-spacing: 1.5px;
+  }
+  .tag-now {
+    background: rgba(239,68,68,0.15);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.4);
+  }
+  .tag-next {
+    background: rgba(34,197,94,0.15);
+    color: #4ade80;
+    border: 1px solid rgba(34,197,94,0.4);
+  }
+  .panel-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #e2eaf8;
+  }
+
+  /* Host box */
+  .host-box {
+    border: 1.5px solid rgba(58,123,213,0.5);
+    border-radius: 12px;
+    padding: 14px 16px 12px;
+    background: rgba(10,30,80,0.5);
+    position: relative;
+    margin-bottom: 14px;
+  }
+  .host-label {
+    position: absolute;
+    top: -10px; left: 14px;
+    background: #1a2a5e;
+    padding: 1px 10px;
+    font-size: 11px;
+    color: #93b4e8;
+    border: 1px solid rgba(58,123,213,0.4);
+    border-radius: 6px;
+  }
+
+  /* VM row */
+  .vm-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .vm {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .vm-box {
+    width: 72px; height: 58px;
+    border-radius: 8px;
+    border: 1.5px solid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    position: relative;
+  }
+  .vm-normal {
+    border-color: rgba(58,123,213,0.6);
+    background: rgba(20,50,120,0.5);
+    color: #93b4e8;
+  }
+  .vm-extra {
+    border-color: rgba(249,115,22,0.7);
+    background: rgba(80,30,5,0.4);
+    color: #fdba74;
+  }
+  .vm-icon { font-size: 18px; }
+  .vm-name { font-size: 9px; letter-spacing: 0.3px; }
+
+  /* openclaw badge inside vm */
+  .oc-badge {
+    background: linear-gradient(135deg, #f97316, #dc6010);
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Memory tier stack */
+  .mem-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .mem-tier {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 8px;
+    padding: 7px 12px;
+    border: 1px solid;
+  }
+  .tier-l1 {
+    background: rgba(34,197,94,0.1);
+    border-color: rgba(34,197,94,0.35);
+  }
+  .tier-l2 {
+    background: rgba(59,130,246,0.1);
+    border-color: rgba(59,130,246,0.35);
+  }
+  .tier-l3 {
+    background: rgba(168,85,247,0.12);
+    border-color: rgba(168,85,247,0.45);
+  }
+  .tier-l3-highlight {
+    background: rgba(168,85,247,0.18);
+    border-color: rgba(168,85,247,0.7);
+    box-shadow: 0 0 10px rgba(168,85,247,0.25);
+  }
+  .tier-dram-only {
+    background: rgba(239,68,68,0.08);
+    border-color: rgba(239,68,68,0.3);
+  }
+  .tier-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-green { background: #4ade80; }
+  .dot-blue  { background: #60a5fa; }
+  .dot-purple{ background: #c084fc; }
+  .dot-red   { background: #f87171; }
+
+  .tier-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e2eaf8;
+    min-width: 90px;
+  }
+  .tier-desc {
+    font-size: 11px;
+    color: #93b4e8;
+    flex: 1;
+  }
+  .tier-latency {
+    font-size: 11px;
+    color: #64748b;
+    font-family: monospace;
+  }
+
+  /* Bottleneck / benefit badges */
+  .badge-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+  .badge-red {
+    background: rgba(239,68,68,0.1);
+    color: #fca5a5;
+    border-color: rgba(239,68,68,0.35);
+  }
+  .badge-green {
+    background: rgba(34,197,94,0.1);
+    color: #86efac;
+    border-color: rgba(34,197,94,0.35);
+  }
+  .badge-orange {
+    background: rgba(249,115,22,0.12);
+    color: #fdba74;
+    border-color: rgba(249,115,22,0.4);
+  }
+
+  /* Ratio box */
+  .ratio-box {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    background: rgba(10,20,60,0.6);
+    border: 1.5px solid;
+    border-radius: 10px;
+    padding: 6px 14px;
+    margin-bottom: 12px;
+  }
+  .ratio-num {
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .ratio-unit {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .ratio-bad  { border-color: rgba(239,68,68,0.5); }
+  .ratio-bad .ratio-num  { color: #f87171; }
+  .ratio-bad .ratio-unit { color: #f87171; }
+  .ratio-good { border-color: rgba(34,197,94,0.5); }
+  .ratio-good .ratio-num  { color: #4ade80; }
+  .ratio-good .ratio-unit { color: #4ade80; }
+
+  /* Section label */
+  .sec-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    margin-top: 12px;
+  }
+
+  /* Footer */
+  .footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 32px;
+    background: rgba(10,20,60,0.7);
+    border-top: 1px solid rgba(58,123,213,0.25);
+    display: flex;
+    align-items: center;
+    padding: 0 48px;
+    justify-content: space-between;
+  }
+  .footer-left {
+    font-size: 11px;
+    color: #475569;
+  }
+  .footer-right {
+    font-size: 11px;
+    color: #475569;
+  }
+
+  /* Connector lines */
+  .connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3a7bd5;
+    font-size: 16px;
+    margin: 4px 0;
+  }
+
+  /* New VM highlight label */
+  .vm-new-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: #f97316;
+    letter-spacing: 0.5px;
+  }
+
+  /* L3 highlight box */
+  .l3-highlight {
+    position: absolute;
+    right: -4px; top: -4px;
+    background: #a855f7;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
+  .vm-spec {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">OC</div>
+    <div class="header-title">
+      <span>openclaw</span> 业务场景 — SMAP 内存分层优化方案
+    </div>
+    <div class="header-subtitle">
+      字节火山 AI 服务平台 · 商业现状与改进方向<br>
+      内存超分 · L2/L3 分层 · 超分比提升
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="content">
+
+    <!-- LEFT: Current state -->
+    <div class="panel panel-left">
+      <div class="panel-header">
+        <div class="panel-tag tag-now">当前现状</div>
+        <div class="panel-title">内存资源受限，VM 承载量不足</div>
+      </div>
+
+      <!-- Host box -->
+      <div class="host-box">
+        <div class="host-label">火山AI宿主机（物理服务器）</div>
+        <div class="vm-row" style="margin-top:10px;">
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm" style="opacity:0.35; filter:grayscale(1);">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🚫</div>
+              <div class="vm-name">内存不足</div>
+            </div>
+          </div>
+          <div class="vm" style="opacity:0.35; filter:grayscale(1);">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🚫</div>
+              <div class="vm-name">内存不足</div>
+            </div>
+          </div>
+        </div>
+        <div class="vm-spec" style="margin-top:8px; padding-left:2px; color:#475569;">
+          每台 VM 独占 DRAM 内存，无共享/借用机制 · 部分 VM 槽位无法分配
+        </div>
+      </div>
+
+      <!-- Memory -->
+      <div class="sec-label">内存架构</div>
+      <div class="mem-stack">
+        <div class="mem-tier tier-dram-only">
+          <div class="tier-dot dot-red"></div>
+          <div class="tier-name">本地 DRAM</div>
+          <div class="tier-desc">全部数据仅驻留本机内存 · 无扩展层</div>
+          <div class="tier-latency">~100 ns</div>
+        </div>
+      </div>
+
+      <!-- Ratio -->
+      <div class="sec-label">整机超分比</div>
+      <div class="ratio-box ratio-bad">
+        <div class="ratio-num">1×</div>
+        <div class="ratio-unit">基准线</div>
+      </div>
+
+      <!-- Pain points -->
+      <div class="sec-label">业务瓶颈</div>
+      <div class="badge-row">
+        <div class="badge badge-red">内存容量瓶颈</div>
+        <div class="badge badge-red">openclaw 实例数受限</div>
+        <div class="badge badge-red">GPU/CPU 资源闲置</div>
+      </div>
+    </div>
+
+    <!-- Divider arrow -->
+    <div class="divider">
+      <div class="arrow-label">SMAP</div>
+      <div class="arrow-icon">▶</div>
+    </div>
+
+    <!-- RIGHT: Improvement -->
+    <div class="panel panel-right">
+      <div class="panel-header">
+        <div class="panel-tag tag-next">改进方向</div>
+        <div class="panel-title">SMAP 分层扩展，提升超分比与实例密度</div>
+      </div>
+
+      <!-- Host box -->
+      <div class="host-box">
+        <div class="host-label">火山AI宿主机（物理服务器） + SMAP</div>
+        <div class="vm-row" style="margin-top:10px;">
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-normal">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-extra">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+            <div class="vm-new-label">★ 扩展</div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-extra">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+            <div class="vm-new-label">★ 扩展</div>
+          </div>
+          <div class="vm">
+            <div class="vm-box vm-extra">
+              <div class="vm-icon">🖥</div>
+              <div class="oc-badge">openclaw</div>
+              <div class="vm-name">2vCPU / 4G</div>
+            </div>
+            <div class="vm-new-label">★ 扩展</div>
+          </div>
+        </div>
+        <div class="vm-spec" style="margin-top:8px; padding-left:2px; color:#f97316; font-weight:600;">
+          冷数据自动降级至 L3 NVMe · 热数据留存 DRAM · openclaw 实例数 ↑ 2×
+        </div>
+      </div>
+
+      <!-- Memory tiers -->
+      <div class="sec-label">SMAP 内存分层</div>
+      <div class="mem-stack">
+        <div class="mem-tier tier-l1">
+          <div class="tier-dot dot-green"></div>
+          <div class="tier-name">L1  本地 DRAM</div>
+          <div class="tier-desc">热数据 · 高频访问页面</div>
+          <div class="tier-latency">~100 ns</div>
+        </div>
+        <div class="mem-tier tier-l2">
+          <div class="tier-dot dot-blue"></div>
+          <div class="tier-name">L2  UB 借用内存</div>
+          <div class="tier-desc">温数据 · openEuler UB Stack 驱动</div>
+          <div class="tier-latency">~1 μs</div>
+        </div>
+        <div class="mem-tier tier-l3 tier-l3-highlight" style="position:relative;">
+          <div class="tier-dot dot-purple"></div>
+          <div class="tier-name" style="color:#d8b4fe; font-weight:800;">L3  NVMe SSD ★</div>
+          <div class="tier-desc" style="color:#c4b5fd;">冷数据 · DAMOS_DEMOTION · 超分核心</div>
+          <div class="tier-latency" style="color:#a78bfa;">~100 μs</div>
+          <div class="l3-highlight">核心</div>
+        </div>
+      </div>
+
+      <!-- Ratio -->
+      <div class="sec-label">整机超分比</div>
+      <div class="ratio-box ratio-good">
+        <div class="ratio-num">↑ 1.8×</div>
+        <div class="ratio-unit">目标值</div>
+      </div>
+
+      <!-- Benefits -->
+      <div class="sec-label" style="margin-top:8px;">业务收益</div>
+      <div class="badge-row">
+        <div class="badge badge-green">openclaw 实例 ×2</div>
+        <div class="badge badge-green">存量机型无需升配</div>
+        <div class="badge badge-orange">L3 NVMe 热插拔</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">字节火山 AI 服务平台 · SMAP 内存超分方案 · 技术汇报</div>
+    <div class="footer-right">openEuler OLK-6.6 · UB Stack · DAMOS_DEMOTION</div>
+  </div>
+
+</div>
+</body>
+</html>

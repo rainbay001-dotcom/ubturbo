@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 场景示意 05 v2 — 步骤卡片风格（演进版）</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei',Arial,sans-serif">
+<defs>
+  <linearGradient id="hdr5" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0f2d5c"/><stop offset="1" stop-color="#1e40af"/></linearGradient>
+  <filter id="sh5"><feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#00000018"/></filter>
+</defs>
+
+<rect width="1280" height="720" fill="#f5f7fa"/>
+
+<!-- Header -->
+<rect width="1280" height="58" fill="url(#hdr5)"/>
+<text x="640" y="30" text-anchor="middle" fill="white" font-size="20" font-weight="bold">openclaw · SMAP 工作流程四步示意（演进版）</text>
+<text x="640" y="50" text-anchor="middle" fill="#93c5fd" font-size="12">自动化任务触发 → VM执行渲染 → 内存分层卸载 → 超分业务收益</text>
+<rect x="14" y="62" rx="11" width="144" height="22" fill="#2563eb"/>
+<text x="86" y="77" text-anchor="middle" fill="white" font-size="11" font-weight="bold">05v2 · 步骤卡片（演进）</text>
+
+<!-- Progress connector line -->
+<rect x="92" y="182" width="1096" height="5" rx="2.5" fill="url(#hdr5)"/>
+
+<!-- Step circles on the line -->
+<circle cx="276" cy="184" r="22" fill="white" stroke="#2563eb" stroke-width="3"/>
+<circle cx="276" cy="184" r="16" fill="#2563eb"/>
+<text x="276" y="190" text-anchor="middle" fill="white" font-size="16" font-weight="bold">1</text>
+
+<circle cx="598" cy="184" r="22" fill="white" stroke="#ea580c" stroke-width="3"/>
+<circle cx="598" cy="184" r="16" fill="#ea580c"/>
+<text x="598" y="190" text-anchor="middle" fill="white" font-size="16" font-weight="bold">2</text>
+
+<circle cx="920" cy="184" r="22" fill="white" stroke="#16a34a" stroke-width="3"/>
+<circle cx="920" cy="184" r="16" fill="#16a34a"/>
+<text x="920" y="190" text-anchor="middle" fill="white" font-size="16" font-weight="bold">3</text>
+
+<circle cx="1148" cy="184" r="22" fill="white" stroke="#7c3aed" stroke-width="3"/>
+<circle cx="1148" cy="184" r="16" fill="#7c3aed"/>
+<text x="1148" y="190" text-anchor="middle" fill="white" font-size="16" font-weight="bold">4</text>
+
+<!-- ============ STEP 1: 业务任务触发 ============ -->
+<g transform="translate(64, 214)" filter="url(#sh5)">
+  <rect width="424" height="478" rx="20" fill="white" stroke="#dbeafe" stroke-width="2"/>
+  <!-- Header -->
+  <rect width="424" height="56" rx="20" fill="#2563eb"/>
+  <rect y="42" width="424" height="14" fill="#2563eb"/>
+  <text x="212" y="30" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Step 1  业务任务触发</text>
+  <text x="212" y="48" text-anchor="middle" fill="#bfdbfe" font-size="11">Automated task scheduling</text>
+
+  <!-- Server / scheduling system icon (large) -->
+  <g transform="translate(50, 72)">
+    <!-- server rack -->
+    <rect width="142" height="162" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+    <rect width="142" height="28" rx="10" fill="#2563eb" opacity="0.15"/>
+    <text x="71" y="18" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="bold">任务调度服务</text>
+    <rect x="10" y="34" width="122" height="18" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="14" y="38" width="32" height="10" rx="2" fill="#2563eb" opacity="0.7"/>
+    <circle cx="122" cy="43" r="6" fill="#22c55e"/>
+    <rect x="10" y="58" width="122" height="18" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="14" y="62" width="32" height="10" rx="2" fill="#2563eb" opacity="0.7"/>
+    <circle cx="122" cy="67" r="6" fill="#22c55e"/>
+    <rect x="10" y="82" width="122" height="18" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="14" y="86" width="32" height="10" rx="2" fill="#3b82f6" opacity="0.5"/>
+    <circle cx="122" cy="91" r="6" fill="#f59e0b"/>
+    <!-- queue bar -->
+    <g transform="translate(10, 108)">
+      <text x="61" y="12" text-anchor="middle" fill="#1e40af" font-size="10" font-weight="bold">任务队列</text>
+      <rect width="122" height="10" rx="5" fill="#e2e8f0" y="16"/>
+      <rect width="96" height="10" rx="5" fill="#3b82f6" y="16"/>
+      <text x="61" y="40" text-anchor="middle" fill="#475569" font-size="10">并发 120 任务/分</text>
+    </g>
+  </g>
+
+  <!-- Task type icons -->
+  <text x="212" y="256" text-anchor="middle" fill="#1e40af" font-size="13" font-weight="bold">触发场景</text>
+  <g transform="translate(24, 264)">
+    <rect width="376" height="100" rx="10" fill="#f8faff" stroke="#e2e8f0" stroke-width="1.5"/>
+    <g transform="translate(14, 12)">
+      <rect width="78" height="68" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="1"/>
+      <text x="39" y="32" text-anchor="middle" fill="#1d4ed8" font-size="24">🤖</text>
+      <text x="39" y="54" text-anchor="middle" fill="#2563eb" font-size="9" font-weight="bold">自动化渲染</text>
+      <text x="39" y="65" text-anchor="middle" fill="#64748b" font-size="8">批量调度</text>
+    </g>
+    <g transform="translate(104, 12)">
+      <rect width="78" height="68" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+      <text x="39" y="32" text-anchor="middle" fill="#15803d" font-size="24">🕷</text>
+      <text x="39" y="54" text-anchor="middle" fill="#16a34a" font-size="9" font-weight="bold">内容采集</text>
+      <text x="39" y="65" text-anchor="middle" fill="#64748b" font-size="8">定时触发</text>
+    </g>
+    <g transform="translate(194, 12)">
+      <rect width="78" height="68" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+      <text x="39" y="32" text-anchor="middle" fill="#c2410c" font-size="24">🧪</text>
+      <text x="39" y="54" text-anchor="middle" fill="#ea580c" font-size="9" font-weight="bold">功能测试</text>
+      <text x="39" y="65" text-anchor="middle" fill="#64748b" font-size="8">CI触发</text>
+    </g>
+    <g transform="translate(284, 12)">
+      <rect width="78" height="68" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1"/>
+      <text x="39" y="32" text-anchor="middle" fill="#6d28d9" font-size="24">🔗</text>
+      <text x="39" y="54" text-anchor="middle" fill="#7c3aed" font-size="9" font-weight="bold">API调用</text>
+      <text x="39" y="65" text-anchor="middle" fill="#64748b" font-size="8">接口请求</text>
+    </g>
+  </g>
+
+  <!-- Request types -->
+  <text x="212" y="386" text-anchor="middle" fill="#1e40af" font-size="12" font-weight="bold">请求内容类型</text>
+  <g transform="translate(24, 394)">
+    <rect width="376" height="68" rx="10" fill="#f8faff" stroke="#e2e8f0" stroke-width="1.5"/>
+    <g transform="translate(8, 10)">
+      <rect width="52" height="44" rx="6" fill="#dbeafe"/><text x="26" y="22" text-anchor="middle" fill="#1d4ed8" font-size="18">🌐</text><text x="26" y="38" text-anchor="middle" fill="#2563eb" font-size="9">网页</text>
+    </g>
+    <g transform="translate(68, 10)">
+      <rect width="52" height="44" rx="6" fill="#dcfce7"/><text x="26" y="22" text-anchor="middle" fill="#15803d" font-size="18">🖼</text><text x="26" y="38" text-anchor="middle" fill="#16a34a" font-size="9">图片</text>
+    </g>
+    <g transform="translate(128, 10)">
+      <rect width="52" height="44" rx="6" fill="#fff7ed"/><text x="26" y="22" text-anchor="middle" fill="#c2410c" font-size="18">📜</text><text x="26" y="38" text-anchor="middle" fill="#ea580c" font-size="9">脚本</text>
+    </g>
+    <g transform="translate(188, 10)">
+      <rect width="52" height="44" rx="6" fill="#f0fdf4"/><text x="26" y="22" text-anchor="middle" fill="#15803d" font-size="18">📊</text><text x="26" y="38" text-anchor="middle" fill="#16a34a" font-size="9">数据</text>
+    </g>
+    <g transform="translate(248, 10)">
+      <rect width="52" height="44" rx="6" fill="#fdf4ff"/><text x="26" y="22" text-anchor="middle" fill="#a21caf" font-size="18">🎬</text><text x="26" y="38" text-anchor="middle" fill="#a21caf" font-size="9">媒体</text>
+    </g>
+    <g transform="translate(308, 10)">
+      <rect width="52" height="44" rx="6" fill="#f5f3ff"/><text x="26" y="22" text-anchor="middle" fill="#6d28d9" font-size="18">🔗</text><text x="26" y="38" text-anchor="middle" fill="#7c3aed" font-size="9">API</text>
+    </g>
+  </g>
+</g>
+
+<!-- Step 1→2 arrow -->
+<g transform="translate(495, 432)">
+  <polygon points="0,0 40,22 0,44" fill="#ea580c" opacity="0.7"/>
+</g>
+
+<!-- ============ STEP 2: openclaw VM 执行 ============ -->
+<g transform="translate(542, 214)" filter="url(#sh5)">
+  <rect width="292" height="478" rx="20" fill="white" stroke="#fed7aa" stroke-width="2"/>
+  <rect width="292" height="56" rx="20" fill="#ea580c"/>
+  <rect y="42" width="292" height="14" fill="#ea580c"/>
+  <text x="146" y="30" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Step 2  VM 执行</text>
+  <text x="146" y="48" text-anchor="middle" fill="#fed7aa" font-size="11">openclaw renders in VM</text>
+
+  <!-- VM frame with openclaw browser (dominant) -->
+  <g transform="translate(16, 70)">
+    <!-- VM shell -->
+    <rect width="260" height="370" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+    <rect width="260" height="36" rx="12" fill="#c2410c"/>
+    <rect y="26" width="260" height="10" fill="#c2410c"/>
+    <text x="130" y="20" text-anchor="middle" fill="white" font-size="13" font-weight="bold">虚  机  VM</text>
+    <text x="130" y="34" text-anchor="middle" fill="#fed7aa" font-size="9">2vCPU · 4GB RAM</text>
+    <circle cx="234" cy="16" r="5" fill="#22c55e"/>
+    <circle cx="248" cy="16" r="5" fill="#22c55e" opacity="0.5"/>
+
+    <!-- openclaw browser window (large) -->
+    <g transform="translate(10, 46)">
+      <rect width="240" height="198" rx="8" fill="white" stroke="#ea580c" stroke-width="2"/>
+      <rect width="240" height="28" rx="8" fill="#f97316"/>
+      <rect y="20" width="240" height="8" fill="#f97316"/>
+      <circle cx="14" cy="13" r="5" fill="#ef4444"/>
+      <circle cx="26" cy="13" r="5" fill="#fbbf24"/>
+      <circle cx="38" cy="13" r="5" fill="#22c55e"/>
+      <rect x="52" y="7" width="170" height="14" rx="7" fill="rgba(255,255,255,0.85)"/>
+      <text x="137" y="18" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">openclaw://render/task</text>
+      <!-- content: claw marks -->
+      <rect y="28" width="240" height="170" fill="#fffaf5"/>
+      <line x1="38" y1="36" x2="18" y2="196" stroke="#f97316" stroke-width="20" stroke-linecap="round" opacity="0.08"/>
+      <line x1="88" y1="36" x2="68" y2="196" stroke="#f97316" stroke-width="20" stroke-linecap="round" opacity="0.08"/>
+      <line x1="138" y1="36" x2="118" y2="196" stroke="#f97316" stroke-width="20" stroke-linecap="round" opacity="0.08"/>
+      <path d="M34,38 Q43,90 22,196" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+      <path d="M84,38 Q93,90 72,196" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+      <path d="M134,38 Q143,90 122,196" stroke="#ea580c" fill="none" stroke-width="5" stroke-linecap="round"/>
+      <!-- openclaw label -->
+      <text x="200" y="108" text-anchor="middle" fill="#ea580c" font-size="15" font-weight="bold" opacity="0.6">oc</text>
+      <text x="200" y="126" text-anchor="middle" fill="#ea580c" font-size="10" opacity="0.5">browser</text>
+    </g>
+
+    <!-- Memory bar -->
+    <g transform="translate(10, 256)">
+      <text x="0" y="13" fill="#9a3412" font-size="10" font-weight="bold">DRAM 使用</text>
+      <rect x="0" y="18" width="240" height="12" rx="6" fill="#e2e8f0"/>
+      <rect x="0" y="18" width="204" height="12" rx="6" fill="#3b82f6"/>
+      <text x="102" y="28" text-anchor="middle" fill="white" font-size="8">85%  触发 SMAP 卸载</text>
+    </g>
+
+    <!-- Process cmd -->
+    <g transform="translate(10, 284)">
+      <rect width="240" height="20" rx="4" fill="#1e293b" opacity="0.09"/>
+      <text x="8" y="14" fill="#475569" font-size="9" font-family="monospace">$ openclaw --headless --batch</text>
+    </g>
+
+    <!-- VM specs -->
+    <g transform="translate(10, 312)">
+      <rect width="116" height="30" rx="6" fill="#fff3e0" stroke="#f97316" stroke-width="1"/>
+      <text x="58" y="13" text-anchor="middle" fill="#c2410c" font-size="10">CPU: 2 vCPU</text>
+      <text x="58" y="25" text-anchor="middle" fill="#ea580c" font-size="9">x86_64</text>
+    </g>
+    <g transform="translate(134, 312)">
+      <rect width="116" height="30" rx="6" fill="#eff6ff" stroke="#3b82f6" stroke-width="1"/>
+      <text x="58" y="13" text-anchor="middle" fill="#1e40af" font-size="10">MEM: 4 GB</text>
+      <text x="58" y="25" text-anchor="middle" fill="#2563eb" font-size="9">DDR4</text>
+    </g>
+  </g>
+</g>
+
+<!-- Step 2→3 arrow -->
+<g transform="translate(841, 432)">
+  <polygon points="0,0 40,22 0,44" fill="#16a34a" opacity="0.7"/>
+</g>
+
+<!-- ============ STEP 3: 内存分层 ============ -->
+<g transform="translate(888, 214)" filter="url(#sh5)">
+  <rect width="268" height="478" rx="20" fill="white" stroke="#bbf7d0" stroke-width="2"/>
+  <rect width="268" height="56" rx="20" fill="#16a34a"/>
+  <rect y="42" width="268" height="14" fill="#16a34a"/>
+  <text x="134" y="30" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Step 3  内存分层</text>
+  <text x="134" y="48" text-anchor="middle" fill="#bbf7d0" font-size="11">SMAP tiered memory</text>
+
+  <!-- L1 DRAM block -->
+  <g transform="translate(14, 74)">
+    <rect width="240" height="110" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+    <rect width="240" height="28" rx="12" fill="#2563eb"/>
+    <rect y="18" width="240" height="10" fill="#2563eb"/>
+    <text x="120" y="18" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L1 · 本地 DRAM</text>
+    <!-- RAM sticks (large) -->
+    <g transform="translate(12, 36)">
+      <rect width="40" height="56" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <rect width="40" height="14" rx="3" fill="#1d4ed8" opacity="0.35"/>
+      <rect x="3" y="3" width="8" height="6" rx="1" fill="#1d4ed8"/><rect x="14" y="3" width="8" height="6" rx="1" fill="#1d4ed8"/><rect x="25" y="3" width="8" height="6" rx="1" fill="#1d4ed8"/>
+      <rect x="3" y="13" width="8" height="6" rx="1" fill="#60a5fa"/><rect x="14" y="13" width="8" height="6" rx="1" fill="#60a5fa"/>
+      <rect x="3" y="23" width="8" height="6" rx="1" fill="#93c5fd"/>
+      <rect x="12" y="46" width="16" height="8" fill="#dbeafe"/>
+      <rect x="2" y="54" width="6" height="4" fill="#f59e0b" rx="1"/><rect x="10" y="54" width="6" height="4" fill="#f59e0b" rx="1"/>
+    </g>
+    <g transform="translate(62, 36)">
+      <rect width="40" height="56" rx="3" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.5"/>
+      <rect width="40" height="14" rx="3" fill="#1d4ed8" opacity="0.35"/>
+      <rect x="3" y="3" width="8" height="6" rx="1" fill="#1d4ed8"/>
+      <rect x="12" y="46" width="16" height="8" fill="#dbeafe"/>
+    </g>
+    <text x="162" y="62" text-anchor="middle" fill="#1e40af" font-size="12" font-weight="bold">热数据</text>
+    <text x="162" y="78" text-anchor="middle" fill="#3b82f6" font-size="11">~100ns</text>
+    <text x="162" y="95" text-anchor="middle" fill="#64748b" font-size="10">命中 ~60%</text>
+  </g>
+
+  <!-- Miss arrow -->
+  <g transform="translate(120, 192)">
+    <line x1="0" y1="0" x2="0" y2="22" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="5,3"/>
+    <polygon points="-6,19 6,19 0,28" fill="#f59e0b"/>
+    <text x="14" y="16" fill="#92400e" font-size="10">未命中↓</text>
+  </g>
+
+  <!-- L2 UB block -->
+  <g transform="translate(14, 232)">
+    <rect width="240" height="96" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+    <rect width="240" height="26" rx="12" fill="#16a34a"/>
+    <rect y="16" width="240" height="10" fill="#16a34a"/>
+    <text x="120" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L2 · UB 借用内存</text>
+    <g transform="translate(14, 34)">
+      <line x1="44" y1="22" x2="16" y2="10" stroke="#16a34a" stroke-width="1.5"/>
+      <line x1="44" y1="22" x2="72" y2="10" stroke="#16a34a" stroke-width="1.5"/>
+      <line x1="44" y1="22" x2="16" y2="34" stroke="#16a34a" stroke-width="1.5"/>
+      <line x1="44" y1="22" x2="72" y2="34" stroke="#16a34a" stroke-width="1.5"/>
+      <circle cx="16" cy="10" r="11" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <circle cx="72" cy="10" r="11" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <circle cx="16" cy="34" r="11" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <circle cx="72" cy="34" r="11" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <circle cx="44" cy="22" r="14" fill="#16a34a"/>
+      <text x="44" y="27" text-anchor="middle" fill="white" font-size="8" font-weight="bold">UB</text>
+    </g>
+    <text x="160" y="52" text-anchor="middle" fill="#065f46" font-size="12" font-weight="bold">温数据 · ~1μs</text>
+    <text x="160" y="68" text-anchor="middle" fill="#64748b" font-size="10">跨节点借用</text>
+    <text x="160" y="84" text-anchor="middle" fill="#16a34a" font-size="9">openEuler UB Stack</text>
+  </g>
+
+  <!-- Miss arrow L2→L3 -->
+  <g transform="translate(120, 336)">
+    <line x1="0" y1="0" x2="0" y2="22" stroke="#8b5cf6" stroke-width="2.5" stroke-dasharray="5,3"/>
+    <polygon points="-6,19 6,19 0,28" fill="#8b5cf6"/>
+    <text x="14" y="16" fill="#5b21b6" font-size="10">未命中↓</text>
+  </g>
+
+  <!-- L3 NVMe block -->
+  <g transform="translate(14, 372)">
+    <rect width="240" height="88" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2.5"/>
+    <rect width="240" height="24" rx="12" fill="#7c3aed"/>
+    <rect y="14" width="240" height="10" fill="#7c3aed"/>
+    <text x="120" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L3 · NVMe SSD  ★</text>
+    <!-- SSD graphic -->
+    <g transform="translate(12, 30)">
+      <rect width="104" height="52" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.5"/>
+      <rect x="6" y="8" width="26" height="20" rx="3" fill="#7c3aed" opacity="0.85"/>
+      <rect x="36" y="8" width="26" height="20" rx="3" fill="#7c3aed" opacity="0.85"/>
+      <rect x="66" y="8" width="22" height="20" rx="3" fill="#5b21b6"/>
+      <rect x="6" y="32" width="36" height="14" rx="2" fill="#6d28d9" opacity="0.7"/>
+      <rect x="86" y="16" width="16" height="28" rx="2" fill="#7c3aed"/>
+      <rect x="88" y="18" width="4" height="5" fill="#f59e0b" rx="1"/>
+      <rect x="94" y="18" width="4" height="5" fill="#f59e0b" rx="1"/>
+      <rect x="88" y="28" width="4" height="5" fill="#f59e0b" rx="1"/>
+      <polygon points="72,8 64,24 71,24 62,44 84,24 76,24 84,8" fill="#f59e0b" opacity="0.9"/>
+    </g>
+    <text x="160" y="50" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="bold">冷数据 · ~100μs</text>
+    <text x="160" y="66" text-anchor="middle" fill="#7c3aed" font-size="10">DAMOS_DEMOTION</text>
+  </g>
+</g>
+
+<!-- ============ STEP 4: 超分收益 ============ -->
+<g transform="translate(1168, 214)" filter="url(#sh5)">
+  <rect width="86" height="478" rx="20" fill="white" stroke="#e9d5ff" stroke-width="2"/>
+  <rect width="86" height="56" rx="20" fill="#7c3aed"/>
+  <rect y="42" width="86" height="14" fill="#7c3aed"/>
+  <text x="43" y="28" text-anchor="middle" fill="white" font-size="13" font-weight="bold">Step 4</text>
+  <text x="43" y="46" text-anchor="middle" fill="#ddd6fe" font-size="10">收 益</text>
+
+  <!-- 4 metric blocks -->
+  <g transform="translate(8, 74)">
+    <rect width="70" height="80" rx="10" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+    <text x="35" y="20" text-anchor="middle" fill="#5b21b6" font-size="10" font-weight="bold">超分比</text>
+    <text x="35" y="54" text-anchor="middle" fill="#7c3aed" font-size="30" font-weight="bold">1.8</text>
+    <text x="35" y="72" text-anchor="middle" fill="#7c3aed" font-size="14" font-weight="bold">×</text>
+  </g>
+  <g transform="translate(8, 168)">
+    <rect width="70" height="80" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+    <text x="35" y="20" text-anchor="middle" fill="#065f46" font-size="10" font-weight="bold">VM承载</text>
+    <text x="35" y="54" text-anchor="middle" fill="#16a34a" font-size="30" font-weight="bold">5</text>
+    <text x="35" y="72" text-anchor="middle" fill="#16a34a" font-size="14" font-weight="bold">台</text>
+  </g>
+  <g transform="translate(8, 262)">
+    <rect width="70" height="80" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+    <text x="35" y="20" text-anchor="middle" fill="#1e40af" font-size="10" font-weight="bold">利用率</text>
+    <text x="35" y="56" text-anchor="middle" fill="#2563eb" font-size="22" font-weight="bold">90%</text>
+    <text x="35" y="72" text-anchor="middle" fill="#2563eb" font-size="9">内存</text>
+  </g>
+  <g transform="translate(8, 356)">
+    <rect width="70" height="110" rx="10" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+    <text x="35" y="20" text-anchor="middle" fill="#9a3412" font-size="9" font-weight="bold">NVMe</text>
+    <text x="35" y="56" text-anchor="middle" fill="#ea580c" font-size="12" font-weight="bold">L3</text>
+    <text x="35" y="72" text-anchor="middle" fill="#c2410c" font-size="10">核心</text>
+    <text x="35" y="90" text-anchor="middle" fill="#ea580c" font-size="9">超分</text>
+    <text x="35" y="106" text-anchor="middle" fill="#ea580c" font-size="9">驱动</text>
+  </g>
+</g>
+
+<!-- Footer -->
+<rect y="694" width="1280" height="26" fill="#0f2d5c"/>
+<text x="640" y="711" text-anchor="middle" fill="#93c5fd" font-size="11">openEuler OLK-6.6 · UB Stack · DAMOS_DEMOTION · 字节跳动火山 AI 服务平台</text>
+</svg>
+</body>
+</html>

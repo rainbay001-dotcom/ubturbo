@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 场景示意 01 v3 — 流程图风格（优化版）</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei',Arial,sans-serif">
+<defs>
+  <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#243350"/><stop offset="1" stop-color="#335982"/></linearGradient>
+  <linearGradient id="vmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf5ef"/><stop offset="1" stop-color="#f5ead8"/></linearGradient>
+  <linearGradient id="l1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eff4f9"/><stop offset="1" stop-color="#d8e6f0"/></linearGradient>
+  <linearGradient id="l2g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#edf3f8"/><stop offset="1" stop-color="#bed5e8"/></linearGradient>
+  <linearGradient id="l3g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#faf5ef"/><stop offset="1" stop-color="#f5ead8"/></linearGradient>
+  <filter id="sh"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#00000018"/></filter>
+</defs>
+
+<!-- Background -->
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<!-- Title bar -->
+<rect width="1280" height="66" fill="url(#hdr)"/>
+<text x="640" y="36" text-anchor="middle" fill="white" font-size="22" font-weight="bold">openclaw Browser · SMAP 内存分层场景示意</text>
+<text x="640" y="57" text-anchor="middle" fill="#a8bcd5" font-size="13">字节火山 AI 平台 · 2vCPU / 4GB 虚机 · 多类型请求驱动 · L2 UB 借用 + L3 NVMe 超分提升</text>
+
+<!-- Style label -->
+<rect x="14" y="73" rx="12" width="136" height="24" fill="#b0622c"/>
+<text x="82" y="89" text-anchor="middle" fill="white" font-size="12" font-weight="bold">01v3 · 流程图风格</text>
+
+<!-- =========== CALLER 调用端 =========== -->
+<g transform="translate(68, 180)">
+  <!-- glow ring -->
+  <circle cx="64" cy="100" r="72" fill="#6090bb" opacity="0.07"/>
+  <!-- head -->
+  <circle cx="64" cy="60" r="34" fill="#3d6090"/>
+  <!-- eyes -->
+  <circle cx="52" cy="54" r="5" fill="white"/>
+  <circle cx="76" cy="54" r="5" fill="white"/>
+  <circle cx="53" cy="55" r="2.5" fill="#1e3050"/>
+  <circle cx="77" cy="55" r="2.5" fill="#1e3050"/>
+  <!-- smile -->
+  <path d="M50,68 Q64,78 78,68" stroke="white" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- body -->
+  <path d="M20,106 Q18,140 64,146 Q110,140 108,106 Q108,92 88,97 Q64,104 40,97 Q20,92 20,106Z" fill="#5578a8"/>
+  <!-- label -->
+  <text x="64" y="172" text-anchor="middle" fill="#243350" font-size="16" font-weight="bold">调 用 端</text>
+  <!-- separator -->
+  <line x1="10" y1="180" x2="118" y2="180" stroke="#cbd5e1" stroke-width="1"/>
+  <!-- request type chips: 2 cols × 3 rows -->
+  <g transform="translate(4, 186)">
+    <!-- Row 1: 网页(blue) | 图片(blue) -->
+    <rect x="0" y="0" width="56" height="24" rx="6" fill="#d8e6f0" stroke="#9bb8d8" stroke-width="1.2"/>
+    <circle cx="11" cy="12" r="5.5" fill="none" stroke="#3d6090" stroke-width="1.2"/>
+    <line x1="5.5" y1="12" x2="16.5" y2="12" stroke="#3d6090" stroke-width="1"/>
+    <path d="M11,6.5 Q14,12 11,17.5" fill="none" stroke="#3d6090" stroke-width="0.9"/>
+    <path d="M11,6.5 Q8,12 11,17.5" fill="none" stroke="#3d6090" stroke-width="0.9"/>
+    <text x="37" y="16" text-anchor="middle" fill="#254e84" font-size="10" font-weight="bold">网页</text>
+
+    <rect x="62" y="0" width="56" height="24" rx="6" fill="#d8e6f0" stroke="#9bb8d8" stroke-width="1.2"/>
+    <rect x="65" y="5" width="12" height="9" rx="1.5" fill="none" stroke="#3d6090" stroke-width="1.2"/>
+    <path d="M65,12.5 L68.5,9.5 L72,12.5 L74,10.5 L77,14.5 L65,14.5Z" fill="#3d6090" opacity="0.45"/>
+    <circle cx="75.5" cy="7.5" r="1.5" fill="#3d6090"/>
+    <text x="99" y="16" text-anchor="middle" fill="#254e84" font-size="10" font-weight="bold">图片</text>
+
+    <!-- Row 2: 脚本(orange) | 数据(blue) -->
+    <rect x="0" y="30" width="56" height="24" rx="6" fill="#f5ead8" stroke="#d4a868" stroke-width="1.2"/>
+    <text x="6" y="47" fill="#b0622c" font-size="13" font-weight="bold">&lt;</text>
+    <text x="13" y="47" fill="#7a4030" font-size="9">/</text>
+    <text x="18" y="47" fill="#b0622c" font-size="13" font-weight="bold">&gt;</text>
+    <text x="40" y="46" text-anchor="middle" fill="#964825" font-size="10" font-weight="bold">脚本</text>
+
+    <rect x="62" y="30" width="56" height="24" rx="6" fill="#d8e6f0" stroke="#9bb8d8" stroke-width="1.2"/>
+    <rect x="66" y="37" width="3" height="8" rx="1" fill="#3d6090"/>
+    <rect x="71" y="35" width="3" height="10" rx="1" fill="#3d6090"/>
+    <rect x="76" y="39" width="3" height="6" rx="1" fill="#3d6090"/>
+    <text x="99" y="46" text-anchor="middle" fill="#254e84" font-size="10" font-weight="bold">数据</text>
+
+    <!-- Row 3: 媒体(orange) | API(blue) -->
+    <rect x="0" y="60" width="56" height="24" rx="6" fill="#f5ead8" stroke="#d4a868" stroke-width="1.2"/>
+    <polygon points="7,66 7,78 18,72" fill="#b0622c"/>
+    <text x="37" y="76" text-anchor="middle" fill="#964825" font-size="10" font-weight="bold">媒体</text>
+
+    <rect x="62" y="60" width="56" height="24" rx="6" fill="#d8e6f0" stroke="#9bb8d8" stroke-width="1.2"/>
+    <line x1="66" y1="68" x2="77" y2="68" stroke="#3d6090" stroke-width="1.5"/>
+    <polygon points="76,65 80,68 76,71" fill="#3d6090"/>
+    <line x1="80" y1="76" x2="69" y2="76" stroke="#3d6090" stroke-width="1.5"/>
+    <polygon points="70,73 66,76 70,79" fill="#3d6090"/>
+    <text x="99" y="76" text-anchor="middle" fill="#254e84" font-size="10" font-weight="bold">API</text>
+  </g>
+</g>
+
+<!-- Arrow 1: Caller → VM (curved, v1 style) -->
+<g transform="translate(212, 300)">
+  <path d="M0,0 Q40,-12 80,0" stroke="#607cac" fill="none" stroke-width="3" stroke-dasharray="8,4"/>
+  <polygon points="77,-7 90,0 77,7" fill="#607cac"/>
+  <rect x="10" y="-26" width="64" height="20" rx="8" fill="#607cac" opacity="0.15"/>
+  <text x="42" y="-12" text-anchor="middle" fill="#3d6090" font-size="11" font-weight="bold">请求</text>
+</g>
+
+<!-- =========== VM + openclaw =========== -->
+<g transform="translate(310, 100)" filter="url(#sh)">
+  <!-- VM outer shell -->
+  <rect width="280" height="520" rx="18" fill="url(#vmg)" stroke="#b0622c" stroke-width="2.5"/>
+  <!-- header strip -->
+  <rect width="280" height="56" rx="18" fill="#b0622c"/>
+  <rect y="42" width="280" height="14" fill="#b0622c"/>
+  <!-- server decorations -->
+  <rect x="10" y="62" width="14" height="9" rx="2" fill="#c87840" opacity="0.5"/>
+  <!-- window control dots — neutral grays -->
+  <circle cx="258" cy="20" r="6" fill="#94a3b8" opacity="0.8"/>
+  <circle cx="246" cy="20" r="6" fill="#cbd5e1" opacity="0.8"/>
+  <circle cx="234" cy="20" r="6" fill="#e2e8f0" opacity="0.8"/>
+  <!-- VM label -->
+  <text x="110" y="28" text-anchor="middle" fill="white" font-size="18" font-weight="bold">VM  虚  机</text>
+  <text x="110" y="46" text-anchor="middle" fill="#e0c49a" font-size="12">2 vCPU  /  4 GB RAM</text>
+
+  <!-- openclaw BROWSER -->
+  <g transform="translate(18, 70)">
+    <!-- browser window -->
+    <rect width="244" height="200" rx="10" fill="white" stroke="#b0622c" stroke-width="2"/>
+    <!-- tab bar -->
+    <rect width="244" height="32" rx="10" fill="#c07840"/>
+    <rect y="22" width="244" height="10" fill="#c07840"/>
+    <!-- window buttons — neutral grays -->
+    <circle cx="16" cy="15" r="6" fill="#94a3b8"/>
+    <circle cx="32" cy="15" r="6" fill="#cbd5e1"/>
+    <circle cx="48" cy="15" r="6" fill="#e2e8f0"/>
+    <!-- URL bar -->
+    <rect x="62" y="8" width="158" height="16" rx="8" fill="rgba(255,255,255,0.85)"/>
+    <text x="141" y="20" text-anchor="middle" fill="#555" font-size="9" font-family="monospace">openclaw://page/render</text>
+    <!-- Content area -->
+    <rect x="0" y="32" width="244" height="168" rx="0" fill="#fffbf8"/>
+    <!-- Claw shadow stripes -->
+    <line x1="42" y1="40" x2="20" y2="196" stroke="#c07840" stroke-width="22" stroke-linecap="round" opacity="0.07"/>
+    <line x1="100" y1="40" x2="78" y2="196" stroke="#c07840" stroke-width="22" stroke-linecap="round" opacity="0.07"/>
+    <line x1="158" y1="40" x2="136" y2="196" stroke="#c07840" stroke-width="22" stroke-linecap="round" opacity="0.07"/>
+    <!-- Claw strokes -->
+    <path d="M38,44 Q48,90 32,194" stroke="#b0622c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <path d="M96,44 Q106,90 90,194" stroke="#b0622c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <path d="M154,44 Q164,90 148,194" stroke="#b0622c" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <!-- Page content hints -->
+    <rect x="170" y="48" width="60" height="8" rx="4" fill="#e2e8f0"/>
+    <rect x="170" y="62" width="50" height="8" rx="4" fill="#e2e8f0"/>
+    <rect x="170" y="76" width="56" height="8" rx="4" fill="#e2e8f0"/>
+    <rect x="170" y="90" width="44" height="8" rx="4" fill="#e2e8f0"/>
+    <rect x="170" y="110" width="60" height="40" rx="4" fill="#f1f5f9"/>
+    <text x="196" y="135" text-anchor="middle" fill="#b0622c" font-size="11" font-weight="bold" opacity="0.7">openclaw</text>
+    <text x="196" y="149" text-anchor="middle" fill="#b0622c" font-size="9" opacity="0.7">browser</text>
+  </g>
+
+  <!-- Memory bar in VM -->
+  <g transform="translate(18, 284)">
+    <text x="122" y="16" text-anchor="middle" fill="#7a4030" font-size="12" font-weight="bold">内存使用</text>
+    <rect x="0" y="22" width="244" height="16" rx="8" fill="#e2e8f0"/>
+    <rect x="0" y="22" width="208" height="16" rx="8" fill="#5578a8"/>
+    <text x="104" y="34" text-anchor="middle" fill="white" font-size="10">DRAM 85%</text>
+    <text x="122" y="54" text-anchor="middle" fill="#3d6090" font-size="11">↓ SMAP 将冷页面卸载至 L2 / L3</text>
+  </g>
+
+  <!-- SMAP status pill — muted blue -->
+  <g transform="translate(18, 350)">
+    <rect width="244" height="22" rx="6" fill="#eff4f9" stroke="#5578a8" stroke-width="1.5"/>
+    <text x="122" y="15" text-anchor="middle" fill="#254e84" font-size="11" font-weight="bold">✓  SMAP 已启用</text>
+  </g>
+
+  <!-- VM count info (expanded 2-row grid) -->
+  <g transform="translate(18, 382)">
+    <rect width="244" height="100" rx="12" fill="white" stroke="#e2e8f0" stroke-width="1.5"/>
+    <text x="122" y="16" text-anchor="middle" fill="#64748b" font-size="12" font-weight="bold">宿主机虚机承载</text>
+    <!-- Row 1: existing VMs (muted orange) -->
+    <g transform="translate(6,22)">
+      <rect width="72" height="30" rx="6" fill="#faf5ef" stroke="#b0622c" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#b0622c" font-size="13" font-weight="bold">VM</text>
+    </g>
+    <g transform="translate(86,22)">
+      <rect width="72" height="30" rx="6" fill="#faf5ef" stroke="#b0622c" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#b0622c" font-size="13" font-weight="bold">VM</text>
+    </g>
+    <g transform="translate(166,22)">
+      <rect width="72" height="30" rx="6" fill="#faf5ef" stroke="#b0622c" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#b0622c" font-size="13" font-weight="bold">VM</text>
+    </g>
+    <!-- Row 2: SMAP expansion VMs — muted blue -->
+    <g transform="translate(6,58)">
+      <rect width="72" height="30" rx="6" fill="#eff4f9" stroke="#5578a8" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#3d6090" font-size="13" font-weight="bold">+VM</text>
+    </g>
+    <g transform="translate(86,58)">
+      <rect width="72" height="30" rx="6" fill="#eff4f9" stroke="#5578a8" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#3d6090" font-size="13" font-weight="bold">+VM</text>
+    </g>
+    <g transform="translate(166,58)">
+      <rect width="72" height="30" rx="6" fill="#eff4f9" stroke="#5578a8" stroke-width="2"/>
+      <text x="36" y="20" text-anchor="middle" fill="#3d6090" font-size="13" font-weight="bold">+VM</text>
+    </g>
+  </g>
+
+  <!-- Superratio — muted orange -->
+  <g transform="translate(18, 490)">
+    <rect width="244" height="24" rx="10" fill="#b0622c" opacity="0.1"/>
+    <text x="122" y="16" text-anchor="middle" fill="#b0622c" font-size="12" font-weight="bold">超分比  1.0×  →  ↑ 1.8×（L2+L3）</text>
+  </g>
+</g>
+
+<!-- Arrow 2: VM → Memory (curved, v1 style) -->
+<g transform="translate(604, 310)">
+  <path d="M0,0 Q36,-14 72,0" stroke="#8090a0" fill="none" stroke-width="3"/>
+  <polygon points="69,-7 83,0 69,7" fill="#8090a0"/>
+  <text x="36" y="-18" text-anchor="middle" fill="#64748b" font-size="11">内存请求</text>
+</g>
+
+<!-- =========== MEMORY TIERS =========== -->
+<!-- L1 DRAM — muted blue -->
+<g transform="translate(698, 102)" filter="url(#sh)">
+  <rect width="548" height="144" rx="14" fill="url(#l1g)" stroke="#5578a8" stroke-width="2.5"/>
+  <!-- Badge -->
+  <rect x="12" y="12" width="58" height="58" rx="12" fill="#3d6090"/>
+  <text x="41" y="44" text-anchor="middle" fill="white" font-size="24" font-weight="bold">L1</text>
+  <text x="41" y="62" text-anchor="middle" fill="#bcd3e8" font-size="11">DRAM</text>
+  <!-- RAM sticks graphic -->
+  <g transform="translate(82, 12)">
+    <g transform="translate(0,0)">
+      <rect width="54" height="102" rx="4" fill="#d8e6f0" stroke="#5578a8" stroke-width="1.5"/>
+      <rect y="0" width="54" height="22" rx="4" fill="#254e84" opacity="0.4"/>
+      <rect x="6" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="22" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="36" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="6" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="22" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="36" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="6" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="22" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="36" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="6" y="48" width="12" height="9" rx="2" fill="#9bb8d8"/>
+      <rect x="22" y="48" width="12" height="9" rx="2" fill="#9bb8d8"/>
+      <rect x="36" y="48" width="12" height="9" rx="2" fill="#9bb8d8"/>
+      <rect x="18" y="84" width="18" height="12" fill="#d8e6f0"/>
+      <!-- pins — muted warm -->
+      <rect x="6" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="18" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="30" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="42" y="96" width="6" height="6" fill="#c87840" rx="1"/>
+    </g>
+    <g transform="translate(64,0)">
+      <rect width="54" height="102" rx="4" fill="#d8e6f0" stroke="#5578a8" stroke-width="1.5"/>
+      <rect y="0" width="54" height="22" rx="4" fill="#254e84" opacity="0.4"/>
+      <rect x="6" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="22" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="36" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="6" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="22" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="36" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="6" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="22" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="36" y="34" width="12" height="9" rx="2" fill="#7898c0"/>
+      <rect x="18" y="84" width="18" height="12" fill="#d8e6f0"/>
+      <rect x="6" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="18" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="30" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+    </g>
+    <g transform="translate(128,0)">
+      <rect width="54" height="102" rx="4" fill="#d8e6f0" stroke="#5578a8" stroke-width="1.5"/>
+      <rect y="0" width="54" height="22" rx="4" fill="#254e84" opacity="0.4"/>
+      <rect x="6" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="22" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="36" y="6" width="12" height="9" rx="2" fill="#254e84"/>
+      <rect x="6" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="22" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="36" y="20" width="12" height="9" rx="2" fill="#5578a8"/>
+      <rect x="18" y="84" width="18" height="12" fill="#d8e6f0"/>
+      <rect x="6" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="18" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+      <rect x="30" y="96" width="8" height="6" fill="#c87840" rx="1"/>
+    </g>
+  </g>
+  <text x="430" y="46" text-anchor="middle" fill="#1e3050" font-size="17" font-weight="bold">本地 DRAM</text>
+  <text x="430" y="68" text-anchor="middle" fill="#3d6090" font-size="13">热  数  据</text>
+  <text x="430" y="90" text-anchor="middle" fill="#64748b" font-size="12">延迟 ~100 ns  |  直接访问</text>
+  <rect x="368" y="104" width="124" height="24" rx="12" fill="#254e84" opacity="0.10"/>
+  <text x="430" y="120" text-anchor="middle" fill="#254e84" font-size="12" font-weight="bold">命中率 ≈ 60%</text>
+</g>
+
+<!-- Miss arrow L1→L2 — gray -->
+<g transform="translate(972, 250)">
+  <line x1="0" y1="0" x2="0" y2="26" stroke="#8090a0" stroke-width="3" stroke-dasharray="7,4"/>
+  <polygon points="-7,23 7,23 0,36" fill="#8090a0"/>
+  <text x="14" y="18" fill="#64748b" font-size="11">未命中↓</text>
+</g>
+
+<!-- L2 UB — muted steel blue -->
+<g transform="translate(698, 290)" filter="url(#sh)">
+  <rect width="548" height="144" rx="14" fill="url(#l2g)" stroke="#2d608a" stroke-width="2.5"/>
+  <!-- Badge -->
+  <rect x="12" y="12" width="58" height="58" rx="12" fill="#2d608a"/>
+  <text x="41" y="44" text-anchor="middle" fill="white" font-size="24" font-weight="bold">L2</text>
+  <text x="41" y="62" text-anchor="middle" fill="#bed5e8" font-size="11">UB借用</text>
+  <!-- Network topology graphic — muted blue palette -->
+  <g transform="translate(86, 14)">
+    <line x1="100" y1="57" x2="30" y2="24" stroke="#2d608a" stroke-width="2.5"/>
+    <line x1="100" y1="57" x2="170" y2="24" stroke="#2d608a" stroke-width="2.5"/>
+    <line x1="100" y1="57" x2="30" y2="90" stroke="#2d608a" stroke-width="2.5"/>
+    <line x1="100" y1="57" x2="170" y2="90" stroke="#2d608a" stroke-width="2.5"/>
+    <line x1="100" y1="57" x2="100" y2="108" stroke="#2d608a" stroke-width="2.5"/>
+    <circle cx="65" cy="40" r="5" fill="#7898c0"/>
+    <circle cx="135" cy="40" r="5" fill="#7898c0"/>
+    <circle cx="65" cy="74" r="5" fill="#9bb8d8"/>
+    <circle cx="30" cy="24" r="16" fill="#d8e6f0" stroke="#2d608a" stroke-width="2"/>
+    <text x="30" y="29" text-anchor="middle" fill="#1e3a6e" font-size="9" font-weight="bold">N1</text>
+    <circle cx="170" cy="24" r="16" fill="#d8e6f0" stroke="#2d608a" stroke-width="2"/>
+    <text x="170" y="29" text-anchor="middle" fill="#1e3a6e" font-size="9" font-weight="bold">N2</text>
+    <circle cx="30" cy="90" r="16" fill="#d8e6f0" stroke="#2d608a" stroke-width="2"/>
+    <text x="30" y="95" text-anchor="middle" fill="#1e3a6e" font-size="9" font-weight="bold">N3</text>
+    <circle cx="170" cy="90" r="16" fill="#d8e6f0" stroke="#2d608a" stroke-width="2"/>
+    <text x="170" y="95" text-anchor="middle" fill="#1e3a6e" font-size="9" font-weight="bold">N4</text>
+    <circle cx="100" cy="57" r="22" fill="#2d608a" opacity="0.15"/>
+    <circle cx="100" cy="57" r="14" fill="#2d608a"/>
+    <text x="100" y="53" text-anchor="middle" fill="white" font-size="8" font-weight="bold">UB</text>
+    <text x="100" y="64" text-anchor="middle" fill="white" font-size="7">Hub</text>
+    <circle cx="100" cy="108" r="16" fill="#d8e6f0" stroke="#2d608a" stroke-width="2"/>
+    <text x="100" y="113" text-anchor="middle" fill="#1e3a6e" font-size="9" font-weight="bold">N5</text>
+  </g>
+  <text x="430" y="46" text-anchor="middle" fill="#1e3a6e" font-size="17" font-weight="bold">UB 借用内存</text>
+  <text x="430" y="68" text-anchor="middle" fill="#2d608a" font-size="13">温  数  据</text>
+  <text x="430" y="90" text-anchor="middle" fill="#64748b" font-size="12">延迟 ~1 μs  |  跨节点借用</text>
+  <rect x="368" y="104" width="124" height="24" rx="12" fill="#2d608a" opacity="0.10"/>
+  <text x="430" y="120" text-anchor="middle" fill="#2d608a" font-size="12" font-weight="bold">扩容 ×1.4 倍</text>
+</g>
+
+<!-- Miss arrow L2→L3 — gray -->
+<g transform="translate(972, 438)">
+  <line x1="0" y1="0" x2="0" y2="26" stroke="#8090a0" stroke-width="3" stroke-dasharray="7,4"/>
+  <polygon points="-7,23 7,23 0,36" fill="#8090a0"/>
+  <text x="14" y="18" fill="#64748b" font-size="11">未命中↓</text>
+</g>
+
+<!-- L3 NVMe — muted terracotta/sienna -->
+<g transform="translate(698, 478)" filter="url(#sh)">
+  <rect width="548" height="144" rx="14" fill="url(#l3g)" stroke="#b0622c" stroke-width="3"/>
+  <!-- Badge -->
+  <rect x="12" y="12" width="58" height="58" rx="12" fill="#b0622c"/>
+  <text x="41" y="44" text-anchor="middle" fill="white" font-size="24" font-weight="bold">L3</text>
+  <text x="41" y="62" text-anchor="middle" fill="#f5ead8" font-size="11">NVMe</text>
+  <!-- SSD PCB graphic — muted orange palette -->
+  <g transform="translate(84, 12)">
+    <rect x="0" y="6" width="280" height="116" rx="8" fill="#f5ead8" stroke="#b0622c" stroke-width="2"/>
+    <rect x="10" y="16" width="52" height="38" rx="5" fill="#b0622c" opacity="0.80"/>
+    <text x="36" y="40" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="70" y="16" width="52" height="38" rx="5" fill="#b0622c" opacity="0.80"/>
+    <text x="96" y="40" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="130" y="16" width="52" height="38" rx="5" fill="#b0622c" opacity="0.80"/>
+    <text x="156" y="40" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="10" y="60" width="52" height="38" rx="5" fill="#964825" opacity="0.70"/>
+    <text x="36" y="84" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="70" y="60" width="52" height="38" rx="5" fill="#964825" opacity="0.70"/>
+    <text x="96" y="84" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NAND</text>
+    <rect x="190" y="16" width="72" height="52" rx="5" fill="#7a4030"/>
+    <text x="226" y="44" text-anchor="middle" fill="white" font-size="9" font-family="monospace">NVMe</text>
+    <text x="226" y="57" text-anchor="middle" fill="#e0c49a" font-size="8" font-family="monospace">CTRL</text>
+    <rect x="248" y="72" width="30" height="44" rx="3" fill="#b0622c"/>
+    <rect x="252" y="76" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <rect x="252" y="87" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <rect x="252" y="98" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <rect x="260" y="76" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <rect x="260" y="87" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <rect x="260" y="98" width="5" height="7" rx="1" fill="#e0c49a"/>
+    <!-- lightning bolt — muted warm -->
+    <polygon points="175,58 163,82 172,82 160,110 193,80 182,80 196,58" fill="#c87840" opacity="0.85"/>
+  </g>
+  <!-- Right-side text panel -->
+  <text x="455" y="36" text-anchor="middle" fill="#7a4030" font-size="17" font-weight="bold">NVMe SSD</text>
+  <text x="455" y="57" text-anchor="middle" fill="#b0622c" font-size="13">冷  数  据</text>
+  <text x="455" y="76" text-anchor="middle" fill="#64748b" font-size="12">延迟 ~100 μs</text>
+  <!-- Core badge — muted orange -->
+  <rect x="372" y="88" width="162" height="22" rx="11" fill="#b0622c"/>
+  <text x="453" y="103" text-anchor="middle" fill="white" font-size="11" font-weight="bold">★ 核心超分扩展</text>
+  <!-- Superratio pill — muted orange -->
+  <rect x="372" y="116" width="162" height="22" rx="11" fill="#b0622c" opacity="0.10"/>
+  <text x="453" y="131" text-anchor="middle" fill="#b0622c" font-size="12" font-weight="bold">超分比 ↑ 1.8×</text>
+</g>
+
+<!-- Footer -->
+<rect y="694" width="1280" height="26" fill="#243350"/>
+<text x="640" y="711" text-anchor="middle" fill="#a8bcd5" font-size="11">openEuler OLK-6.6 · UB Stack · 字节跳动火山 AI 服务平台</text>
+</svg>
+</body>
+</html>

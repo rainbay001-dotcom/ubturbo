@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- PCB base -->
+  <rect x="6" y="16" width="68" height="40" rx="4" fill="#1a1a2e" stroke="#4a3060" stroke-width="1.5"/>
+  <!-- Edge connector -->
+  <rect x="6" y="46" width="68" height="10" fill="#0f0f1e"/>
+  <rect x="9" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="14" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="19" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="24" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="29" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="34" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="39" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="44" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="49" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="54" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="59" y="47" width="3" height="8" fill="#c8a84b"/>
+  <rect x="64" y="47" width="3" height="8" fill="#c8a84b"/>
+  <!-- Controller chip -->
+  <rect x="12" y="20" width="20" height="22" rx="2" fill="#6b21a8" stroke="#a855f7" stroke-width="1"/>
+  <text x="22" y="34" font-size="5.5" fill="#e9d5ff" text-anchor="middle" font-family="monospace">NVMe</text>
+  <text x="22" y="40" font-size="4.5" fill="#e9d5ff" text-anchor="middle" font-family="monospace">CTRL</text>
+  <!-- NAND flash chips -->
+  <rect x="38" y="20" width="14" height="10" rx="1" fill="#4a1d96" stroke="#7c3aed" stroke-width="0.8"/>
+  <rect x="54" y="20" width="14" height="10" rx="1" fill="#4a1d96" stroke="#7c3aed" stroke-width="0.8"/>
+  <rect x="38" y="32" width="14" height="10" rx="1" fill="#4a1d96" stroke="#7c3aed" stroke-width="0.8"/>
+  <rect x="54" y="32" width="14" height="10" rx="1" fill="#4a1d96" stroke="#7c3aed" stroke-width="0.8"/>
+  <!-- Flash labels -->
+  <text x="45" y="27" font-size="4.5" fill="#c4b5fd" text-anchor="middle" font-family="monospace">NAND</text>
+  <text x="61" y="27" font-size="4.5" fill="#c4b5fd" text-anchor="middle" font-family="monospace">NAND</text>
+  <text x="45" y="39" font-size="4.5" fill="#c4b5fd" text-anchor="middle" font-family="monospace">NAND</text>
+  <text x="61" y="39" font-size="4.5" fill="#c4b5fd" text-anchor="middle" font-family="monospace">NAND</text>
+  <!-- Labels -->
+  <text x="40" y="12" font-size="8" fill="#a855f7" text-anchor="middle" font-family="Arial" font-weight="bold">NVMe SSD</text>
+  <text x="40" y="70" font-size="7" fill="#888" text-anchor="middle" font-family="Arial">冷数据 · ~100μs</text>
+</svg>

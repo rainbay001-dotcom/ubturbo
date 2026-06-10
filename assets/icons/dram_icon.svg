@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- PCB board -->
+  <rect x="6" y="28" width="68" height="24" rx="3" fill="#1a3a5c" stroke="#2d5986" stroke-width="1.5"/>
+  <!-- Connector notch -->
+  <rect x="6" y="46" width="68" height="6" rx="0" fill="#0f2040"/>
+  <rect x="8" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="13" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="18" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="23" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="28" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="33" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="38" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="43" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="48" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="53" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="58" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="63" y="47" width="3" height="4" fill="#c8a84b"/>
+  <rect x="68" y="47" width="4" height="4" fill="#c8a84b"/>
+  <!-- RAM chips -->
+  <rect x="10" y="30" width="12" height="14" rx="2" fill="#2a5298" stroke="#3d6fcc" stroke-width="1"/>
+  <rect x="26" y="30" width="12" height="14" rx="2" fill="#2a5298" stroke="#3d6fcc" stroke-width="1"/>
+  <rect x="42" y="30" width="12" height="14" rx="2" fill="#2a5298" stroke="#3d6fcc" stroke-width="1"/>
+  <rect x="58" y="30" width="12" height="14" rx="2" fill="#2a5298" stroke="#3d6fcc" stroke-width="1"/>
+  <!-- Chip labels -->
+  <text x="16" y="40" font-size="5" fill="#8ab4ff" text-anchor="middle" font-family="monospace">DDR5</text>
+  <text x="32" y="40" font-size="5" fill="#8ab4ff" text-anchor="middle" font-family="monospace">DDR5</text>
+  <text x="48" y="40" font-size="5" fill="#8ab4ff" text-anchor="middle" font-family="monospace">DDR5</text>
+  <text x="64" y="40" font-size="5" fill="#8ab4ff" text-anchor="middle" font-family="monospace">DDR5</text>
+  <!-- DRAM label -->
+  <text x="40" y="20" font-size="9" fill="#4472C4" text-anchor="middle" font-family="Arial" font-weight="bold">DRAM</text>
+  <text x="40" y="70" font-size="7" fill="#888" text-anchor="middle" font-family="Arial">本地内存 · ~100ns</text>
+</svg>

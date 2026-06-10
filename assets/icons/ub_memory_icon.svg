@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Left server node -->
+  <rect x="4" y="22" width="22" height="36" rx="4" fill="#1e4d7b" stroke="#2d6fa8" stroke-width="1.5"/>
+  <rect x="7" y="26" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <rect x="7" y="32" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <rect x="7" y="38" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <circle cx="15" cy="49" r="3" fill="#00c4a7"/>
+  <!-- Right server node -->
+  <rect x="54" y="22" width="22" height="36" rx="4" fill="#1e4d7b" stroke="#2d6fa8" stroke-width="1.5"/>
+  <rect x="57" y="26" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <rect x="57" y="32" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <rect x="57" y="38" width="16" height="4" rx="1" fill="#3d8fd4"/>
+  <circle cx="65" cy="49" r="3" fill="#00c4a7"/>
+  <!-- Network cable -->
+  <path d="M 26 40 Q 40 30 54 40" stroke="#00c4a7" stroke-width="2.5" fill="none" stroke-dasharray="4,2"/>
+  <path d="M 26 44 Q 40 54 54 44" stroke="#00c4a7" stroke-width="2.5" fill="none" stroke-dasharray="4,2"/>
+  <!-- UB label in center -->
+  <circle cx="40" cy="40" r="9" fill="#0e7a6e" stroke="#00c4a7" stroke-width="1.5"/>
+  <text x="40" y="44" font-size="9" fill="white" text-anchor="middle" font-family="Arial" font-weight="bold">UB</text>
+  <!-- Labels -->
+  <text x="40" y="15" font-size="8" fill="#2d9deb" text-anchor="middle" font-family="Arial" font-weight="bold">借用内存</text>
+  <text x="40" y="70" font-size="7" fill="#888" text-anchor="middle" font-family="Arial">跨机借用 · ~1μs</text>
+</svg>

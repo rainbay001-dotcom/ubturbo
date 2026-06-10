@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>SMAP openclaw — 10种PPT风格预览</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 24px; }
+  h1 { color: #1a2840; text-align: center; margin-bottom: 8px; font-size: 22px; }
+  p.sub { text-align: center; color: #666; margin-bottom: 24px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 1400px; margin: 0 auto; }
+  .card { background: white; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden; }
+  .card-header { padding: 10px 16px; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+  .card-header .idx { background: rgba(255,255,255,0.25); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  /* each slide preview is a scaled-down 16:9 container */
+  .slide-container { position: relative; width: 100%; padding-top: 56.25%; overflow: hidden; }
+  .slide-inner { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; transform-origin: top left; }
+  /* Slide content for each style */
+  .slide { width: 1280px; height: 720px; background: white; position: relative; overflow: hidden; }
+  .header { position: absolute; top: 0; left: 0; width: 100%; height: 54px; display: flex; align-items: center; padding: 0 16px; box-sizing: border-box; }
+  .accent-bar { position: absolute; top: 0; left: 0; width: 6px; height: 54px; }
+  .header-title { margin-left: 14px; font-size: 18px; font-weight: bold; color: white; }
+  .header-sub { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.85); padding-right: 8px; }
+  .footer { position: absolute; bottom: 0; left: 0; width: 100%; height: 30px; display: flex; align-items: center; padding: 0 14px; box-sizing: border-box; }
+  .footer-text { font-size: 9px; color: rgba(255,255,255,0.75); }
+  .footer-label { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.75); }
+  .body-area { position: absolute; top: 58px; bottom: 34px; left: 0; right: 0; display: flex; }
+  .col { flex: 1; margin: 4px 4px; border-radius: 6px; padding: 10px 8px; box-sizing: border-box; display: flex; flex-direction: column; }
+  .col-title { font-size: 11px; font-weight: bold; text-align: center; margin-bottom: 6px; }
+  .col-divider { height: 2px; margin: 0 20px 8px; border-radius: 1px; opacity: 0.6; }
+  /* VM grid */
+  .vm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 4px 0; }
+  .vm-box { border-radius: 5px; padding: 4px 3px; text-align: center; }
+  .vm-name { font-size: 8px; font-weight: bold; color: white; }
+  .vm-spec { font-size: 7px; color: rgba(220,235,255,0.9); }
+  .vm-app  { font-size: 7px; color: rgba(255,220,180,0.95); }
+  /* Memory layers */
+  .mem-layer { display: flex; align-items: center; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; border-left: 4px solid; }
+  .mem-icon { font-size: 22px; margin-right: 8px; }
+  .mem-name { font-size: 10px; font-weight: bold; }
+  .mem-detail { font-size: 8px; opacity: 0.8; margin-top: 2px; }
+  /* Chip tags */
+  .chip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 4px; }
+  .chip { border-radius: 10px; padding: 3px 0; text-align: center; font-size: 8px; font-weight: bold; color: white; }
+  .caller-icon { font-size: 44px; text-align: center; margin: 8px 0; }
+  .caller-label { font-size: 13px; font-weight: bold; text-align: center; }
+  .caller-sub { font-size: 9px; text-align: center; opacity: 0.7; margin-bottom: 6px; }
+  .badge { display: inline-block; border-radius: 10px; padding: 2px 8px; font-size: 8px; font-weight: bold; color: white; margin-top: 4px; }
+  .overcommit { text-align: center; font-size: 10px; font-weight: bold; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>SMAP openclaw 场景示意图 — 10 种 PPT 风格预览</h1>
+<p class="sub">以下为 10 种配色风格的 HTML 缩略预览，选定后运行 <code>python3 scripts/generate_pptx_beautiful.py</code> 生成对应 .pptx 文件</p>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const THEMES = [
+  { idx:"01", label:"简约蓝橙", header:"#4472C4", accent:"#C55A11", card:"#F2F2F2", cardLine:"#4472C4", footer:"#1F3864", body:"#fff", title:"#1F3864", vm1:"#4472C4", vm2:"#C55A11", l1:"#4472C4", l2:"#0070C0", l3:"#C55A11" },
+  { idx:"02", label:"商务石板蓝", header:"#2E3D4A", accent:"#C8621E", card:"#F5F7FA", cardLine:"#2E3D4A", footer:"#1E2837", body:"#fff", title:"#1E2837", vm1:"#2E3D4A", vm2:"#C8621E", l1:"#2E3D4A", l2:"#1E5A82", l3:"#B45014" },
+  { idx:"03", label:"清新青蓝", header:"#008080", accent:"#E67E22", card:"#F0FCFC", cardLine:"#008080", footer:"#005050", body:"#fff", title:"#005050", vm1:"#008080", vm2:"#E67E22", l1:"#008080", l2:"#00A078", l3:"#D25A14" },
+  { idx:"04", label:"深蓝金色", header:"#002855", accent:"#B48C00", card:"#F8F6EB", cardLine:"#002855", footer:"#001E41", body:"#fff", title:"#002855", vm1:"#002855", vm2:"#B48C00", l1:"#002855", l2:"#0A5096", l3:"#A07800" },
+  { idx:"05", label:"钢蓝专业", header:"#466EA0", accent:"#B9551E", card:"#F0F4FA", cardLine:"#466EA0", footer:"#23375A", body:"#fff", title:"#28468E", vm1:"#466EA0", vm2:"#B9551E", l1:"#466EA0", l2:"#2882B4", l3:"#B9551E" },
+  { idx:"06", label:"森绿商务", header:"#22553C", accent:"#D26414", card:"#EEF8F2", cardLine:"#22553C", footer:"#143728", body:"#fff", title:"#144128", vm1:"#22553C", vm2:"#D26414", l1:"#22553C", l2:"#008C50", l3:"#B4500A" },
+  { idx:"07", label:"科技紫", header:"#4B0082", accent:"#DC3C78", card:"#F8F0FF", cardLine:"#7840B4", footer:"#320059", body:"#fff", title:"#3C0064", vm1:"#6428A0", vm2:"#DC3C78", l1:"#6428A0", l2:"#3C64C8", l3:"#C82864" },
+  { idx:"08", label:"暖色陶土", header:"#9B4128", accent:"#376BA0", card:"#FFF5F0", cardLine:"#9B4128", footer:"#642814", body:"#fff", title:"#782D19", vm1:"#9B4128", vm2:"#376BA0", l1:"#9B4128", l2:"#508CBE", l3:"#782D19" },
+  { idx:"09", label:"柔和薰衣草", header:"#6450AA", accent:"#F08232", card:"#F5F3FF", cardLine:"#9682D2", footer:"#463282", body:"#fff", title:"#463282", vm1:"#6450AA", vm2:"#F08232", l1:"#6450AA", l2:"#3C82C8", l3:"#D26419" },
+  { idx:"10", label:"单色高级灰", header:"#282828", accent:"#EA580C", card:"#F6F6F6", cardLine:"#A0A0A0", footer:"#1E1E1E", body:"#fff", title:"#191919", vm1:"#5A5A5A", vm2:"#EA580C", l1:"#646464", l2:"#828282", l3:"#EA580C" },
+];
+
+const MEM_LAYERS = [
+  { name:"L1  DRAM", icon:"💾", sub:"本地内存  · 热数据", lat:"~100 ns", key:"l1" },
+  { name:"L2  UB借用", icon:"🔗", sub:"跨机借用  · 温数据", lat:"~1 μs", key:"l2" },
+  { name:"L3  NVMe", icon:"⚡", sub:"本地SSD  · 冷数据", lat:"~100 μs", key:"l3", badge:true },
+];
+const CHIPS = ["🌐 网页","🖼 图片","📜 脚本","📊 数据","🎬 媒体","🔗 API"];
+const VMS = [["VM-01","VM-02","VM-03"],["VM-04★","VM-05★","VM-06★"]];
+
+function makeSlide(t) {
+  const scaleX = (100 / 1280);
+  const s = document.createElement('div');
+  s.className = 'slide';
+  s.style.background = t.body;
+
+  // Header
+  const h = document.createElement('div');
+  h.className = 'header';
+  h.style.background = t.header;
+  h.innerHTML = `
+    <div class="accent-bar" style="background:${t.accent}"></div>
+    <span class="header-title">SMAP 内存分层超分方案  ·  openclaw 业务场景</span>
+    <span class="header-sub">字节跳动火山 AI 服务平台</span>`;
+  s.appendChild(h);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'body-area';
+
+  // Col1: Caller
+  const c1 = document.createElement('div');
+  c1.className = 'col';
+  c1.style.background = t.card;
+  c1.style.border = `1px solid ${t.cardLine}`;
+  c1.innerHTML = `
+    <div class="col-title" style="color:${t.title}">调 用 端</div>
+    <div class="col-divider" style="background:${t.accent}"></div>
+    <div class="caller-icon">🖥️</div>
+    <div class="caller-label" style="color:${t.title}">调 用 端</div>
+    <div class="caller-sub">批量任务 / API调用 / 自动化测试</div>
+    <div class="chip-grid">
+      ${CHIPS.map((c,i)=>`<div class="chip" style="background:${i%2===0?t.l1:t.accent}">${c}</div>`).join('')}
+    </div>`;
+  body.appendChild(c1);
+
+  // Arrow 1→2
+  const a1 = document.createElement('div');
+  a1.style.cssText = `display:flex;align-items:center;font-size:22px;color:${t.accent};padding:0 2px;`;
+  a1.textContent = '→';
+  body.appendChild(a1);
+
+  // Col2: VM
+  const c2 = document.createElement('div');
+  c2.className = 'col';
+  c2.style.background = t.card;
+  c2.style.border = `1px solid ${t.cardLine}`;
+  let vmHTML = `
+    <div class="col-title" style="color:${t.title}">虚机层  ·  openclaw</div>
+    <div class="col-divider" style="background:${t.accent}"></div>
+    <div style="text-align:center;font-size:34px">🌐</div>
+    <div style="text-align:center;font-size:11px;font-weight:bold;color:${t.accent}">openclaw browser</div>
+    <div style="text-align:center;font-size:9px;color:#888;margin-bottom:6px">--headless · 无头渲染</div>`;
+  VMS.forEach(row => {
+    vmHTML += `<div class="vm-grid">`;
+    row.forEach((name,i) => {
+      const isExtra = row === VMS[1];
+      vmHTML += `<div class="vm-box" style="background:${isExtra?t.vm2:t.vm1}">
+        <div class="vm-name">${name}</div>
+        <div class="vm-spec">2vCPU/4G</div>
+        <div class="vm-app">openclaw 🌐</div>
+      </div>`;
+    });
+    vmHTML += `</div>`;
+  });
+  vmHTML += `<div class="overcommit" style="color:${t.accent}">超分比 1.0×  →  ↑ 1.8×</div>`;
+  c2.innerHTML = vmHTML;
+  body.appendChild(c2);
+
+  // Arrow 2→3
+  const a2 = document.createElement('div');
+  a2.style.cssText = `display:flex;align-items:center;font-size:22px;color:${t.accent};padding:0 2px;`;
+  a2.textContent = '→';
+  body.appendChild(a2);
+
+  // Col3: Memory
+  const c3 = document.createElement('div');
+  c3.className = 'col';
+  c3.style.background = t.card;
+  c3.style.border = `1px solid ${t.cardLine}`;
+  let memHTML = `
+    <div class="col-title" style="color:${t.title}">SMAP 内存分层</div>
+    <div class="col-divider" style="background:${t.l1}"></div>`;
+  MEM_LAYERS.forEach(m => {
+    const lcolor = t[m.key];
+    memHTML += `<div class="mem-layer" style="background:${lcolor}18;border-color:${lcolor}">
+      <div class="mem-icon">${m.icon}</div>
+      <div>
+        <div class="mem-name" style="color:${lcolor}">${m.name}</div>
+        <div class="mem-detail" style="color:#555">${m.sub}</div>
+        <div class="mem-detail" style="color:#777">延迟 ${m.lat}</div>
+        ${m.badge?`<span class="badge" style="background:${lcolor}">★ 核心超分扩展</span>`:''}
+      </div>
+    </div>
+    ${m.badge?'':'<div style="text-align:center;font-size:9px;color:#aaa;margin:-4px 0 4px">↓ 冷数据降级</div>'}`;
+  });
+  c3.innerHTML = memHTML;
+  body.appendChild(c3);
+
+  s.appendChild(body);
+
+  // Footer
+  const f = document.createElement('div');
+  f.className = 'footer';
+  f.style.background = t.footer;
+  f.innerHTML = `
+    <span class="footer-text">火山引擎 AI 平台  ·  openEuler OLK-6.6  ·  UB Stack  ·  SMAP 内存分层</span>
+    <span class="footer-label">${t.label}</span>`;
+  s.appendChild(f);
+
+  return s;
+}
+
+const grid = document.getElementById('grid');
+THEMES.forEach(t => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const ch = document.createElement('div');
+  ch.className = 'card-header';
+  ch.style.background = t.header;
+  ch.style.color = 'white';
+  ch.innerHTML = `<span>${t.idx} — ${t.label}</span><span class="idx">${t.idx}</span>`;
+  card.appendChild(ch);
+
+  const container = document.createElement('div');
+  container.className = 'slide-container';
+  const inner = document.createElement('div');
+  inner.className = 'slide-inner';
+  inner.appendChild(makeSlide(t));
+  container.appendChild(inner);
+  card.appendChild(container);
+
+  grid.appendChild(card);
+});
+
+// Responsive scaling
+function scaleSlides() {
+  document.querySelectorAll('.slide-container').forEach(c => {
+    const w = c.clientWidth;
+    const scale = w / 1280;
+    c.querySelector('.slide-inner').style.transform = `scale(${scale})`;
+    c.style.paddingTop = (720 * scale) + 'px';
+  });
+}
+scaleSlides();
+window.addEventListener('resize', scaleSlides);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Server/system icon representing the caller -->
+  <rect x="16" y="8" width="48" height="52" rx="6" fill="#2E3D4A" stroke="#4A6080" stroke-width="2"/>
+  <!-- Drive bays -->
+  <rect x="22" y="14" width="36" height="7" rx="2" fill="#1a2840" stroke="#3d5a78" stroke-width="1"/>
+  <rect x="22" y="24" width="36" height="7" rx="2" fill="#1a2840" stroke="#3d5a78" stroke-width="1"/>
+  <rect x="22" y="34" width="36" height="7" rx="2" fill="#1a2840" stroke="#3d5a78" stroke-width="1"/>
+  <!-- Status LEDs -->
+  <circle cx="53" cy="17.5" r="2" fill="#22c55e"/>
+  <circle cx="53" cy="27.5" r="2" fill="#22c55e"/>
+  <circle cx="53" cy="37.5" r="2" fill="#f59e0b"/>
+  <!-- Power button -->
+  <circle cx="40" cy="50" r="4" fill="#0ea5e9" stroke="#38bdf8" stroke-width="1"/>
+  <!-- Legs/base -->
+  <rect x="24" y="60" width="8" height="12" rx="2" fill="#2E3D4A"/>
+  <rect x="48" y="60" width="8" height="12" rx="2" fill="#2E3D4A"/>
+  <rect x="20" y="70" width="40" height="4" rx="2" fill="#1a2840"/>
+  <!-- Label -->
+  <text x="40" y="79" font-size="0" fill="transparent">Caller</text>
+</svg>

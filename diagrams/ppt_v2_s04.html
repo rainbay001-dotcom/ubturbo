@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ppt_v2_s04 — Architecture Blueprint</title>
+<style>
+  body { margin: 0; padding: 0; background: #e8edf2; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg"
+     font-family="'Microsoft YaHei', Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#F0F4F8"/>
+
+  <!-- Title Bar -->
+  <rect x="0" y="0" width="1280" height="56" fill="#1A3F6F"/>
+  <text x="640" y="35" text-anchor="middle" fill="white" font-size="20" font-weight="bold">
+    openclaw Browser · SMAP 内存分层场景示意
+  </text>
+
+  <!-- Footer -->
+  <rect x="0" y="695" width="1280" height="25" fill="#1A3F6F"/>
+  <text x="640" y="712" text-anchor="middle" fill="#C8860A" font-size="11" font-weight="bold">
+    字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack
+  </text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- GROUP 1: 业务请求层 (dashed border) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="30" y="72" width="260" height="580" rx="10" ry="10"
+        fill="#FAFBFD" stroke="#1A3F6F" stroke-width="1.5" stroke-dasharray="8,4"/>
+  <!-- Group label tab -->
+  <rect x="55" y="64" width="120" height="22" rx="4" fill="#1A3F6F"/>
+  <text x="115" y="79" text-anchor="middle" fill="white" font-size="11" font-weight="bold">业务请求层</text>
+
+  <!-- Caller Person Icon Box -->
+  <rect x="90" y="90" width="120" height="90" rx="8" fill="#E8EEF8" stroke="#1A3F6F" stroke-width="1.5"/>
+  <!-- Person icon -->
+  <circle cx="150" cy="118" r="16" fill="#1A3F6F"/>
+  <ellipse cx="150" cy="155" rx="22" ry="14" fill="#1A3F6F"/>
+  <text x="150" y="178" text-anchor="middle" fill="#1A3F6F" font-size="10" font-weight="bold">调用端</text>
+
+  <!-- Divider line -->
+  <line x1="55" y1="200" x2="265" y2="200" stroke="#CBD5E0" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="150" y="216" text-anchor="middle" fill="#64748B" font-size="10">请求类型</text>
+
+  <!-- 6 request chips in 2×3 grid -->
+  <!-- Row 1 -->
+  <!-- 网页 chip -->
+  <rect x="50" y="224" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- Globe icon -->
+  <circle cx="65" cy="242" r="9" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <line x1="65" y1="233" x2="65" y2="251" stroke="#1A3F6F" stroke-width="1"/>
+  <ellipse cx="65" cy="242" rx="4" ry="9" fill="none" stroke="#1A3F6F" stroke-width="1"/>
+  <line x1="56" y1="242" x2="74" y2="242" stroke="#1A3F6F" stroke-width="1"/>
+  <text x="85" y="245" fill="#1A3F6F" font-size="11" font-weight="bold">网页</text>
+
+  <!-- 图片 chip -->
+  <rect x="178" y="224" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- Image icon -->
+  <rect x="188" y="233" width="18" height="14" rx="2" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <circle cx="192" cy="237" r="2" fill="#C8860A"/>
+  <polyline points="188,247 193,242 198,246 201,243 206,247" fill="none" stroke="#1A3F6F" stroke-width="1"/>
+  <text x="209" y="245" fill="#1A3F6F" font-size="11" font-weight="bold">图片</text>
+
+  <!-- Row 2 -->
+  <!-- 脚本 chip -->
+  <rect x="50" y="278" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- Code icon: </> -->
+  <text x="60" y="306" fill="#1A3F6F" font-size="13" font-weight="bold">&lt;/&gt;</text>
+  <text x="85" y="306" fill="#1A3F6F" font-size="11" font-weight="bold">脚本</text>
+
+  <!-- 数据 chip -->
+  <rect x="178" y="278" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- Database icon -->
+  <ellipse cx="197" cy="289" rx="9" ry="4" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <rect x="188" y="289" width="18" height="10" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <ellipse cx="197" cy="299" rx="9" ry="4" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <text x="209" y="299" fill="#1A3F6F" font-size="11" font-weight="bold">数据</text>
+
+  <!-- Row 3 -->
+  <!-- 媒体 chip -->
+  <rect x="50" y="332" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- Play icon -->
+  <circle cx="65" cy="354" r="11" fill="none" stroke="#1A3F6F" stroke-width="1.5"/>
+  <polygon points="61,349 61,359 72,354" fill="#1A3F6F"/>
+  <text x="85" y="358" fill="#1A3F6F" font-size="11" font-weight="bold">媒体</text>
+
+  <!-- API chip -->
+  <rect x="178" y="332" width="70" height="44" rx="6" fill="#EBF0FB" stroke="#1A3F6F" stroke-width="1.2"/>
+  <!-- API icon: {} -->
+  <text x="188" y="360" fill="#1A3F6F" font-size="13" font-weight="bold">{ }</text>
+  <text x="208" y="358" fill="#1A3F6F" font-size="11" font-weight="bold">API</text>
+
+  <!-- Divider -->
+  <line x1="55" y1="395" x2="265" y2="395" stroke="#CBD5E0" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Stats in caller group -->
+  <text x="150" y="415" text-anchor="middle" fill="#64748B" font-size="10">并发请求</text>
+  <rect x="80" y="422" width="140" height="30" rx="6" fill="#1A3F6F"/>
+  <text x="150" y="442" text-anchor="middle" fill="#C8860A" font-size="13" font-weight="bold">≥ 200 req/s</text>
+
+  <text x="150" y="475" text-anchor="middle" fill="#64748B" font-size="10">VM规格</text>
+  <rect x="80" y="482" width="140" height="30" rx="6" fill="#E8EEF8" stroke="#1A3F6F" stroke-width="1"/>
+  <text x="150" y="502" text-anchor="middle" fill="#1A3F6F" font-size="12" font-weight="bold">2vCPU / 4GB</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- GROUP 2: openclaw VM层 (solid orange border) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="320" y="72" width="360" height="580" rx="10" ry="10"
+        fill="#FFFDF8" stroke="#C8860A" stroke-width="2"/>
+  <!-- Group label tab -->
+  <rect x="360" y="64" width="160" height="22" rx="4" fill="#C8860A"/>
+  <text x="440" y="79" text-anchor="middle" fill="white" font-size="11" font-weight="bold">openclaw VM 层</text>
+
+  <!-- openclaw label -->
+  <rect x="340" y="90" width="320" height="36" rx="6" fill="#FFF3E0"/>
+  <text x="500" y="114" text-anchor="middle" fill="#C8860A" font-size="15" font-weight="bold">openclaw Browser</text>
+
+  <!-- Overcommit ratio display -->
+  <rect x="340" y="134" width="320" height="50" rx="6" fill="#F8F0E0" stroke="#C8860A" stroke-width="1"/>
+  <text x="430" y="155" text-anchor="middle" fill="#888" font-size="11">超分比</text>
+  <text x="560" y="155" text-anchor="middle" fill="#888" font-size="11">超分比</text>
+  <text x="430" y="175" text-anchor="middle" fill="#DC2626" font-size="16" font-weight="bold">1.0×</text>
+  <text x="493" y="175" text-anchor="middle" fill="#C8860A" font-size="20" font-weight="bold">→</text>
+  <text x="560" y="175" text-anchor="middle" fill="#16A34A" font-size="16" font-weight="bold">1.8×</text>
+
+  <!-- VM Grid 2×3 -->
+  <!-- Row 1: VM-01, VM-02, VM-03 (orange/existing) -->
+  <!-- VM-01 -->
+  <rect x="340" y="198" width="96" height="78" rx="7" fill="#FFF3E0" stroke="#C8860A" stroke-width="1.8"/>
+  <!-- Monitor icon -->
+  <rect x="355" y="206" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="360" y="209" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <!-- Browser UI hint -->
+  <rect x="362" y="211" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="364" cy="214" r="2" fill="#EF4444"/>
+  <circle cx="370" cy="214" r="2" fill="#F59E0B"/>
+  <circle cx="376" cy="214" r="2" fill="#22C55E"/>
+  <rect x="362" y="219" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="355" y="248" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="370" y="252" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="388" y="280" text-anchor="middle" fill="#C8860A" font-size="10" font-weight="bold">VM-01</text>
+  <text x="388" y="272" text-anchor="middle" fill="#888" font-size="8">existing</text>
+
+  <!-- VM-02 -->
+  <rect x="452" y="198" width="96" height="78" rx="7" fill="#FFF3E0" stroke="#C8860A" stroke-width="1.8"/>
+  <rect x="467" y="206" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="472" y="209" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <rect x="474" y="211" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="476" cy="214" r="2" fill="#EF4444"/>
+  <circle cx="482" cy="214" r="2" fill="#F59E0B"/>
+  <circle cx="488" cy="214" r="2" fill="#22C55E"/>
+  <rect x="474" y="219" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="467" y="248" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="482" y="252" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="500" y="280" text-anchor="middle" fill="#C8860A" font-size="10" font-weight="bold">VM-02</text>
+  <text x="500" y="272" text-anchor="middle" fill="#888" font-size="8">existing</text>
+
+  <!-- VM-03 -->
+  <rect x="564" y="198" width="96" height="78" rx="7" fill="#FFF3E0" stroke="#C8860A" stroke-width="1.8"/>
+  <rect x="579" y="206" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="584" y="209" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <rect x="586" y="211" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="588" cy="214" r="2" fill="#EF4444"/>
+  <circle cx="594" cy="214" r="2" fill="#F59E0B"/>
+  <circle cx="600" cy="214" r="2" fill="#22C55E"/>
+  <rect x="586" y="219" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="579" y="248" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="594" y="252" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="612" y="280" text-anchor="middle" fill="#C8860A" font-size="10" font-weight="bold">VM-03</text>
+  <text x="612" y="272" text-anchor="middle" fill="#888" font-size="8">existing</text>
+
+  <!-- Row 2: VM-04, VM-05, VM-06 (blue/SMAP new) -->
+  <!-- VM-04 -->
+  <rect x="340" y="290" width="96" height="78" rx="7" fill="#EBF4FF" stroke="#1A6FC4" stroke-width="1.8"/>
+  <rect x="355" y="298" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="360" y="301" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <rect x="362" y="303" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="364" cy="306" r="2" fill="#EF4444"/>
+  <circle cx="370" cy="306" r="2" fill="#F59E0B"/>
+  <circle cx="376" cy="306" r="2" fill="#22C55E"/>
+  <rect x="362" y="311" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="355" y="340" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="370" y="344" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="388" y="372" text-anchor="middle" fill="#1A6FC4" font-size="10" font-weight="bold">VM-04</text>
+  <text x="388" y="364" text-anchor="middle" fill="#888" font-size="8">SMAP new</text>
+  <!-- Star badge -->
+  <circle cx="428" cy="296" r="8" fill="#1A6FC4"/>
+  <text x="428" y="300" text-anchor="middle" fill="white" font-size="10">★</text>
+
+  <!-- VM-05 -->
+  <rect x="452" y="290" width="96" height="78" rx="7" fill="#EBF4FF" stroke="#1A6FC4" stroke-width="1.8"/>
+  <rect x="467" y="298" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="472" y="301" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <rect x="474" y="303" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="476" cy="306" r="2" fill="#EF4444"/>
+  <circle cx="482" cy="306" r="2" fill="#F59E0B"/>
+  <circle cx="488" cy="306" r="2" fill="#22C55E"/>
+  <rect x="474" y="311" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="467" y="340" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="482" y="344" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="500" y="372" text-anchor="middle" fill="#1A6FC4" font-size="10" font-weight="bold">VM-05</text>
+  <text x="500" y="364" text-anchor="middle" fill="#888" font-size="8">SMAP new</text>
+  <circle cx="540" cy="296" r="8" fill="#1A6FC4"/>
+  <text x="540" y="300" text-anchor="middle" fill="white" font-size="10">★</text>
+
+  <!-- VM-06 -->
+  <rect x="564" y="290" width="96" height="78" rx="7" fill="#EBF4FF" stroke="#1A6FC4" stroke-width="1.8"/>
+  <rect x="579" y="298" width="66" height="42" rx="3" fill="#1A3F6F"/>
+  <rect x="584" y="301" width="56" height="32" rx="2" fill="#2A5FA5"/>
+  <rect x="586" y="303" width="52" height="6" rx="1" fill="#4A7FBF"/>
+  <circle cx="588" cy="306" r="2" fill="#EF4444"/>
+  <circle cx="594" cy="306" r="2" fill="#F59E0B"/>
+  <circle cx="600" cy="306" r="2" fill="#22C55E"/>
+  <rect x="586" y="311" width="52" height="19" rx="1" fill="#1E3A5F"/>
+  <rect x="579" y="340" width="66" height="4" rx="1" fill="#1A3F6F"/>
+  <rect x="594" y="344" width="36" height="5" rx="2" fill="#1A3F6F"/>
+  <text x="612" y="372" text-anchor="middle" fill="#1A6FC4" font-size="10" font-weight="bold">VM-06</text>
+  <text x="612" y="364" text-anchor="middle" fill="#888" font-size="8">SMAP new</text>
+  <circle cx="652" cy="296" r="8" fill="#1A6FC4"/>
+  <text x="652" y="300" text-anchor="middle" fill="white" font-size="10">★</text>
+
+  <!-- VM group labels -->
+  <rect x="340" y="383" width="150" height="20" rx="4" fill="#FFF3E0" stroke="#C8860A" stroke-width="1"/>
+  <text x="415" y="397" text-anchor="middle" fill="#C8860A" font-size="10" font-weight="bold">■ VM-01~03 现有</text>
+  <rect x="502" y="383" width="158" height="20" rx="4" fill="#EBF4FF" stroke="#1A6FC4" stroke-width="1"/>
+  <text x="581" y="397" text-anchor="middle" fill="#1A6FC4" font-size="10" font-weight="bold">★ VM-04~06 SMAP新增</text>
+
+  <!-- SMAP badge on VM layer -->
+  <rect x="380" y="415" width="240" height="52" rx="8" fill="#1A3F6F"/>
+  <text x="500" y="436" text-anchor="middle" fill="#C8860A" font-size="12" font-weight="bold">SMAP — Swap Memory</text>
+  <text x="500" y="457" text-anchor="middle" fill="white" font-size="11">Allocation &amp; Policy</text>
+
+  <!-- Key metrics -->
+  <rect x="340" y="478" width="150" height="50" rx="6" fill="#F8F0E0" stroke="#C8860A" stroke-width="1"/>
+  <text x="415" y="497" text-anchor="middle" fill="#888" font-size="10">内存超分</text>
+  <text x="415" y="519" text-anchor="middle" fill="#16A34A" font-size="17" font-weight="bold">↑ 80%</text>
+
+  <rect x="510" y="478" width="150" height="50" rx="6" fill="#F8F0E0" stroke="#C8860A" stroke-width="1"/>
+  <text x="585" y="497" text-anchor="middle" fill="#888" font-size="10">VM密度</text>
+  <text x="585" y="519" text-anchor="middle" fill="#1A6FC4" font-size="17" font-weight="bold">3 → 6台</text>
+
+  <!-- openEuler note -->
+  <rect x="340" y="538" width="320" height="30" rx="6" fill="#E8EEF8" stroke="#1A3F6F" stroke-width="1"/>
+  <text x="500" y="558" text-anchor="middle" fill="#1A3F6F" font-size="11">openEuler OLK-6.6 内核支持</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- GROUP 3: SMAP内存分层 (dashed blue border) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="710" y="72" width="340" height="580" rx="10" ry="10"
+        fill="#FAFCFF" stroke="#1A6FC4" stroke-width="1.5" stroke-dasharray="8,4"/>
+  <rect x="770" y="64" width="140" height="22" rx="4" fill="#1A6FC4"/>
+  <text x="840" y="79" text-anchor="middle" fill="white" font-size="11" font-weight="bold">SMAP 内存分层</text>
+
+  <!-- L1 DRAM block -->
+  <rect x="730" y="88" width="300" height="158" rx="8" fill="white" stroke="#16A34A" stroke-width="2"/>
+  <!-- L1 top color bar -->
+  <rect x="730" y="88" width="300" height="32" rx="8" fill="#16A34A"/>
+  <rect x="730" y="104" width="300" height="16" fill="#16A34A"/>
+  <text x="880" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L1 — DRAM 热数据层</text>
+
+  <!-- Memory chip icon for L1 -->
+  <rect x="748" y="130" width="52" height="52" rx="4" fill="#E8F5E9" stroke="#16A34A" stroke-width="1.5"/>
+  <!-- Chip body -->
+  <rect x="758" y="140" width="32" height="32" rx="2" fill="#16A34A"/>
+  <!-- Chip pins left -->
+  <line x1="748" y1="146" x2="758" y2="146" stroke="#16A34A" stroke-width="2"/>
+  <line x1="748" y1="152" x2="758" y2="152" stroke="#16A34A" stroke-width="2"/>
+  <line x1="748" y1="158" x2="758" y2="158" stroke="#16A34A" stroke-width="2"/>
+  <line x1="748" y1="164" x2="758" y2="164" stroke="#16A34A" stroke-width="2"/>
+  <!-- Chip pins right -->
+  <line x1="790" y1="146" x2="800" y2="146" stroke="#16A34A" stroke-width="2"/>
+  <line x1="790" y1="152" x2="800" y2="152" stroke="#16A34A" stroke-width="2"/>
+  <line x1="790" y1="158" x2="800" y2="158" stroke="#16A34A" stroke-width="2"/>
+  <line x1="790" y1="164" x2="800" y2="164" stroke="#16A34A" stroke-width="2"/>
+  <text x="774" y="162" text-anchor="middle" fill="white" font-size="11" font-weight="bold">M</text>
+
+  <!-- L1 stats -->
+  <text x="815" y="140" fill="#1A3F6F" font-size="12" font-weight="bold">热数据 · ~100ns</text>
+  <text x="815" y="158" fill="#555" font-size="11">命中率：~60%</text>
+  <rect x="815" y="165" width="200" height="8" rx="4" fill="#E0E0E0"/>
+  <rect x="815" y="165" width="120" height="8" rx="4" fill="#16A34A"/>
+  <text x="815" y="186" fill="#555" font-size="10">容量：本机 DRAM</text>
+  <text x="815" y="200" fill="#555" font-size="10">延迟：≈ 100 ns</text>
+  <text x="815" y="215" fill="#555" font-size="10">策略：直接映射</text>
+  <text x="815" y="229" fill="#555" font-size="10">类型：物理内存</text>
+
+  <!-- L1 badge -->
+  <rect x="970" y="130" width="48" height="24" rx="12" fill="#16A34A"/>
+  <text x="994" y="147" text-anchor="middle" fill="white" font-size="11" font-weight="bold">HOT</text>
+
+  <!-- Down arrow L1→L2 -->
+  <line x1="880" y1="246" x2="880" y2="270" stroke="#1A3F6F" stroke-width="2" stroke-dasharray="5,3"/>
+  <polygon points="874,268 880,278 886,268" fill="#1A3F6F"/>
+  <text x="920" y="261" fill="#64748B" font-size="10">miss → evict</text>
+
+  <!-- L2 UB block -->
+  <rect x="730" y="282" width="300" height="158" rx="8" fill="white" stroke="#C8860A" stroke-width="2"/>
+  <rect x="730" y="282" width="300" height="32" rx="8" fill="#C8860A"/>
+  <rect x="730" y="298" width="300" height="16" fill="#C8860A"/>
+  <text x="880" y="304" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L2 — UB 借调内存层</text>
+
+  <!-- Server rack icon for L2 -->
+  <rect x="748" y="324" width="52" height="52" rx="4" fill="#FFF3E0" stroke="#C8860A" stroke-width="1.5"/>
+  <rect x="754" y="330" width="40" height="8" rx="2" fill="#C8860A"/>
+  <rect x="754" y="342" width="40" height="8" rx="2" fill="#C8860A"/>
+  <rect x="754" y="354" width="40" height="8" rx="2" fill="#C8860A"/>
+  <circle cx="790" cy="334" r="2" fill="#16A34A"/>
+  <circle cx="790" cy="346" r="2" fill="#F59E0B"/>
+  <circle cx="790" cy="358" r="2" fill="#16A34A"/>
+  <text x="774" y="371" text-anchor="middle" fill="#C8860A" font-size="9" font-weight="bold">UB</text>
+
+  <!-- L2 stats -->
+  <text x="815" y="334" fill="#1A3F6F" font-size="12" font-weight="bold">暖数据 · ~1μs</text>
+  <text x="815" y="352" fill="#555" font-size="11">openEuler UB Stack</text>
+  <rect x="815" y="359" width="200" height="8" rx="4" fill="#E0E0E0"/>
+  <rect x="815" y="359" width="70" height="8" rx="4" fill="#C8860A"/>
+  <text x="815" y="380" fill="#555" font-size="10">延迟：≈ 1 μs</text>
+  <text x="815" y="394" fill="#555" font-size="10">来源：跨节点 UB 借调</text>
+  <text x="815" y="408" fill="#555" font-size="10">策略：SMAP swap</text>
+  <text x="815" y="422" fill="#555" font-size="10">协议：RDMA / UB</text>
+
+  <rect x="955" y="324" width="62" height="24" rx="12" fill="#C8860A"/>
+  <text x="986" y="341" text-anchor="middle" fill="white" font-size="11" font-weight="bold">WARM</text>
+
+  <!-- Down arrow L2→L3 -->
+  <line x1="880" y1="440" x2="880" y2="464" stroke="#1A3F6F" stroke-width="2" stroke-dasharray="5,3"/>
+  <polygon points="874,462 880,472 886,462" fill="#1A3F6F"/>
+  <text x="920" y="455" fill="#64748B" font-size="10">miss → swap</text>
+
+  <!-- L3 NVMe block -->
+  <rect x="730" y="476" width="300" height="148" rx="8" fill="white" stroke="#E94560" stroke-width="2"/>
+  <rect x="730" y="476" width="300" height="32" rx="8" fill="#E94560"/>
+  <rect x="730" y="492" width="300" height="16" fill="#E94560"/>
+  <text x="880" y="498" text-anchor="middle" fill="white" font-size="13" font-weight="bold">L3 — NVMe SSD 冷数据层</text>
+
+  <!-- NVMe drive icon -->
+  <rect x="748" y="518" width="52" height="52" rx="4" fill="#FEE2E2" stroke="#E94560" stroke-width="1.5"/>
+  <!-- Drive body -->
+  <rect x="754" y="524" width="40" height="28" rx="2" fill="#E94560"/>
+  <rect x="756" y="526" width="36" height="24" rx="1" fill="#DC2626"/>
+  <!-- Drive connector -->
+  <rect x="758" y="552" width="28" height="6" rx="1" fill="#9CA3AF"/>
+  <rect x="760" y="554" width="4" height="4" fill="#6B7280"/>
+  <rect x="766" y="554" width="4" height="4" fill="#6B7280"/>
+  <rect x="772" y="554" width="4" height="4" fill="#6B7280"/>
+  <rect x="778" y="554" width="4" height="4" fill="#6B7280"/>
+  <text x="774" y="574" text-anchor="middle" fill="#E94560" font-size="9" font-weight="bold">NVMe</text>
+
+  <!-- L3 stats -->
+  <text x="815" y="528" fill="#1A3F6F" font-size="12" font-weight="bold">冷数据 · ~100μs</text>
+  <text x="815" y="546" fill="#555" font-size="11">本地 NVMe SSD</text>
+  <rect x="815" y="553" width="200" height="8" rx="4" fill="#E0E0E0"/>
+  <rect x="815" y="553" width="30" height="8" rx="4" fill="#E94560"/>
+  <text x="815" y="574" fill="#555" font-size="10">延迟：≈ 100 μs</text>
+  <text x="815" y="588" fill="#555" font-size="10">策略：最终回收</text>
+  <text x="815" y="602" fill="#555" font-size="10">类型：持久化存储</text>
+
+  <rect x="955" y="518" width="62" height="24" rx="12" fill="#E94560"/>
+  <text x="986" y="535" text-anchor="middle" fill="white" font-size="11" font-weight="bold">COLD</text>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CONNECTOR ARROWS — Caller → VM -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1A3F6F"/>
+    </marker>
+    <marker id="arrowGold" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#C8860A"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#16A34A"/>
+    </marker>
+  </defs>
+
+  <!-- Caller → VM layer (curved dashed) -->
+  <path d="M 290,237 C 305,237 312,237 320,237" stroke="#1A3F6F" stroke-width="2"
+        fill="none" stroke-dasharray="6,3" marker-end="url(#arrowBlue)"/>
+  <path d="M 290,280 C 305,280 312,300 320,330" stroke="#1A3F6F" stroke-width="2"
+        fill="none" stroke-dasharray="6,3" marker-end="url(#arrowBlue)"/>
+
+  <!-- VM → Memory tiers (stepped connectors) -->
+  <!-- VM to L1 -->
+  <path d="M 680,237 L 700,237 L 700,167 L 730,167" stroke="#16A34A" stroke-width="2"
+        fill="none" stroke-dasharray="6,3" marker-end="url(#arrowGreen)"/>
+  <!-- VM to L2 -->
+  <path d="M 680,330 L 700,330 L 700,361 L 730,361" stroke="#C8860A" stroke-width="2"
+        fill="none" stroke-dasharray="6,3" marker-end="url(#arrowGold)"/>
+  <!-- VM to L3 -->
+  <path d="M 680,348 L 705,348 L 705,550 L 730,550" stroke="#E94560" stroke-width="2"
+        fill="none" stroke-dasharray="6,3" marker-end="url(#arrowBlue)"/>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- LEGEND BOX (bottom right) -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <rect x="1068" y="600" width="192" height="90" rx="6" fill="white" stroke="#CBD5E0" stroke-width="1.2"/>
+  <rect x="1068" y="600" width="192" height="22" rx="6" fill="#1A3F6F"/>
+  <rect x="1068" y="612" width="192" height="10" fill="#1A3F6F"/>
+  <text x="1164" y="616" text-anchor="middle" fill="white" font-size="10" font-weight="bold">图例 Legend</text>
+  <!-- Legend items -->
+  <rect x="1080" y="628" width="16" height="10" rx="2" fill="#FFF3E0" stroke="#C8860A" stroke-width="1.5"/>
+  <text x="1102" y="638" fill="#444" font-size="10">现有 VM (橙色)</text>
+  <rect x="1080" y="645" width="16" height="10" rx="2" fill="#EBF4FF" stroke="#1A6FC4" stroke-width="1.5"/>
+  <text x="1102" y="655" fill="#444" font-size="10">SMAP新增 VM (蓝色)</text>
+  <line x1="1080" y1="668" x2="1096" y2="668" stroke="#1A3F6F" stroke-width="2" stroke-dasharray="4,2"/>
+  <text x="1102" y="672" fill="#444" font-size="10">数据流连接线</text>
+
+</svg>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 方案 — 三列流程图</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+<!-- Header -->
+<rect width="1280" height="60" fill="#1B3A5C"/>
+<text x="640" y="34" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="bold">SMAP 内存分层方案 — 火山 AI 平台 openclaw 超分场景</text>
+<text x="640" y="52" text-anchor="middle" fill="#90aac8" font-size="12">Style 02 · 三列流程图（调用端 → VM 层 → 内存分层）</text>
+
+<!-- Subtitle context bar -->
+<rect x="24" y="68" width="1232" height="34" rx="4" fill="#f0f4f8" stroke="#dce6f0" stroke-width="1"/>
+<text x="44" y="82" fill="#1B3A5C" font-size="11" font-weight="bold">业务背景：</text>
+<text x="128" y="82" fill="#444" font-size="11">字节火山 AI 平台 · 2vCPU/4GB 虚机 · openclaw browser（无头浏览器，执行网页渲染 / 内容采集 / 自动化测试）</text>
+<text x="44" y="96" fill="#1B3A5C" font-size="11" font-weight="bold">客户诉求：</text>
+<text x="128" y="96" fill="#444" font-size="11">利用 L2（UB 借用内存）+ L3（NVMe SSD）扩展有效内存容量，将超分比从 1.0× 提升至约 1.8×，增大单机 VM 承载密度</text>
+
+<!-- Column 1: Caller -->
+<rect x="24" y="112" width="300" height="564" rx="6" fill="#f5f8fc" stroke="#c8d8e8" stroke-width="1.5"/>
+<rect x="24" y="112" width="300" height="36" rx="6" fill="#1B3A5C"/>
+<rect x="24" y="134" width="300" height="14" fill="#1B3A5C"/>
+<text x="174" y="135" text-anchor="middle" fill="white" font-size="13" font-weight="bold">调用端（触发方）</text>
+
+<circle cx="174" cy="210" r="42" fill="#1B3A5C"/>
+<circle cx="162" cy="203" r="7" fill="white"/>
+<circle cx="186" cy="203" r="7" fill="white"/>
+<circle cx="163" cy="204" r="3.5" fill="#1B3A5C"/>
+<circle cx="187" cy="204" r="3.5" fill="#1B3A5C"/>
+<path d="M160,216 Q174,228 188,216" stroke="white" fill="none" stroke-width="3" stroke-linecap="round"/>
+<path d="M130,258 Q128,282 174,290 Q220,282 218,258 Q218,244 198,250 Q174,256 150,250 Q130,244 130,258Z" fill="#2a4e72"/>
+
+<text x="174" y="314" text-anchor="middle" fill="#1B3A5C" font-size="13" font-weight="bold">业务调度系统</text>
+<line x1="60" y1="322" x2="288" y2="322" stroke="#c8d8e8" stroke-width="1"/>
+
+<text x="60" y="348" fill="#444" font-size="12" font-weight="bold">请求类型：</text>
+<!-- request type badges -->
+<rect x="60" y="356" width="64" height="26" rx="13" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="92" y="373" text-anchor="middle" fill="#1B3A5C" font-size="11">🌐 网页</text>
+<rect x="132" y="356" width="64" height="26" rx="13" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="164" y="373" text-anchor="middle" fill="#1B3A5C" font-size="11">🖼 图片</text>
+<rect x="204" y="356" width="64" height="26" rx="13" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="236" y="373" text-anchor="middle" fill="#1B3A5C" font-size="11">📜 脚本</text>
+<rect x="60" y="390" width="64" height="26" rx="13" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="92" y="407" text-anchor="middle" fill="#B45309" font-size="11">📊 数据</text>
+<rect x="132" y="390" width="64" height="26" rx="13" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="164" y="407" text-anchor="middle" fill="#B45309" font-size="11">🎬 媒体</text>
+<rect x="204" y="390" width="64" height="26" rx="13" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="236" y="407" text-anchor="middle" fill="#B45309" font-size="11">🔗 API</text>
+
+<line x1="60" y1="428" x2="288" y2="428" stroke="#c8d8e8" stroke-width="1"/>
+<text x="60" y="448" fill="#666" font-size="11">触发方式：批量任务调度 / API 调用</text>
+<text x="60" y="466" fill="#666" font-size="11">场景：AI 内容抓取、页面批量渲染</text>
+<text x="60" y="484" fill="#666" font-size="11">      自动化回归测试等</text>
+
+<!-- Column 2: VM -->
+<rect x="490" y="112" width="300" height="564" rx="6" fill="#fff8f3" stroke="#B45309" stroke-width="2"/>
+<rect x="490" y="112" width="300" height="36" rx="6" fill="#B45309"/>
+<rect x="490" y="134" width="300" height="14" fill="#B45309"/>
+<text x="640" y="135" text-anchor="middle" fill="white" font-size="13" font-weight="bold">VM 虚机层（openclaw）</text>
+
+<!-- Browser window -->
+<rect x="510" y="162" width="260" height="170" rx="6" fill="white" stroke="#B45309" stroke-width="1.5"/>
+<rect x="510" y="162" width="260" height="30" rx="6" fill="#B45309"/>
+<rect x="510" y="180" width="260" height="12" fill="#B45309"/>
+<circle cx="524" cy="173" r="5" fill="#eee"/>
+<circle cx="537" cy="173" r="5" fill="#ddd"/>
+<circle cx="550" cy="173" r="5" fill="#ccc"/>
+<rect x="556" y="167" width="170" height="14" rx="7" fill="rgba(255,255,255,0.85)"/>
+<text x="641" y="178" text-anchor="middle" fill="#555" font-size="9" font-family="monospace">openclaw://headless/render</text>
+<!-- claw marks -->
+<path d="M620,198 Q608,214 610,238 Q610,256 622,260" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M640,198 Q640,214 640,238 Q640,256 640,260" stroke="#d07020" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M660,198 Q672,214 670,238 Q670,256 658,260" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<!-- page lines -->
+<rect x="520" y="200" width="200" height="10" rx="3" fill="#ffe0a0"/>
+<rect x="520" y="216" width="160" height="6" rx="3" fill="#e8ecf2"/>
+<rect x="520" y="228" width="180" height="6" rx="3" fill="#e8ecf2"/>
+<rect x="520" y="240" width="140" height="6" rx="3" fill="#e8ecf2"/>
+<text x="640" y="310" text-anchor="middle" fill="#B45309" font-size="12" font-weight="bold">openclaw browser</text>
+<text x="640" y="328" text-anchor="middle" fill="#888" font-size="10">headless · 高并发网页处理</text>
+
+<!-- VM grid -->
+<line x1="510" y1="340" x2="750" y2="340" stroke="#f0d8b0" stroke-width="1"/>
+<text x="640" y="358" text-anchor="middle" fill="#7B4000" font-size="11" font-weight="bold">宿主机虚机承载（SMAP 超分前 → 后）</text>
+<!-- existing VMs -->
+<rect x="510" y="368" width="60" height="38" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+<text x="540" y="384" text-anchor="middle" fill="#B45309" font-size="10" font-weight="bold">VM-01</text>
+<text x="540" y="398" text-anchor="middle" fill="#B45309" font-size="9">■ 运行中</text>
+<rect x="578" y="368" width="60" height="38" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+<text x="608" y="384" text-anchor="middle" fill="#B45309" font-size="10" font-weight="bold">VM-02</text>
+<text x="608" y="398" text-anchor="middle" fill="#B45309" font-size="9">■ 运行中</text>
+<rect x="646" y="368" width="60" height="38" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+<text x="676" y="384" text-anchor="middle" fill="#B45309" font-size="10" font-weight="bold">VM-03</text>
+<text x="676" y="398" text-anchor="middle" fill="#B45309" font-size="9">■ 运行中</text>
+<!-- extended VMs -->
+<rect x="510" y="414" width="60" height="38" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="540" y="430" text-anchor="middle" fill="#2E7D32" font-size="10" font-weight="bold">VM-04</text>
+<text x="540" y="444" text-anchor="middle" fill="#2E7D32" font-size="9">★ 超分扩展</text>
+<rect x="578" y="414" width="60" height="38" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="608" y="430" text-anchor="middle" fill="#2E7D32" font-size="10" font-weight="bold">VM-05</text>
+<text x="608" y="444" text-anchor="middle" fill="#2E7D32" font-size="9">★ 超分扩展</text>
+<rect x="646" y="414" width="60" height="38" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="676" y="430" text-anchor="middle" fill="#2E7D32" font-size="10" font-weight="bold">VM-06</text>
+<text x="676" y="444" text-anchor="middle" fill="#2E7D32" font-size="9">★ 超分扩展</text>
+
+<text x="640" y="472" text-anchor="middle" fill="#777" font-size="10">cache miss → SMAP 调度冷页至 L2/L3</text>
+
+<!-- ratio bar -->
+<rect x="510" y="488" width="240" height="18" rx="9" fill="#eee"/>
+<rect x="510" y="488" width="180" height="18" rx="9" fill="#2E7D32"/>
+<text x="640" y="522" text-anchor="middle" fill="#333" font-size="11">超分比：1.0× → ↑ 1.8×</text>
+
+<!-- Column 3: Memory -->
+<rect x="956" y="112" width="300" height="564" rx="6" fill="#f8f9fc" stroke="#c8d8e8" stroke-width="1.5"/>
+<rect x="956" y="112" width="300" height="36" rx="6" fill="#1B3A5C"/>
+<rect x="956" y="134" width="300" height="14" fill="#1B3A5C"/>
+<text x="1106" y="135" text-anchor="middle" fill="white" font-size="13" font-weight="bold">SMAP 三级内存分层</text>
+
+<!-- L1 -->
+<rect x="976" y="162" width="260" height="148" rx="6" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1.5"/>
+<rect x="976" y="162" width="260" height="30" rx="6" fill="#1B3A5C"/>
+<rect x="976" y="180" width="260" height="12" fill="#1B3A5C"/>
+<text x="1106" y="181" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L1 — 本地 DRAM</text>
+<rect x="990" y="198" width="22" height="58" rx="2" fill="#5578a8"/><rect x="993" y="201" width="16" height="4" rx="1" fill="white" opacity="0.7"/><rect x="993" y="207" width="16" height="4" rx="1" fill="white" opacity="0.5"/><rect x="993" y="213" width="16" height="4" rx="1" fill="white" opacity="0.3"/>
+<rect x="1018" y="198" width="22" height="58" rx="2" fill="#5578a8"/><rect x="1021" y="201" width="16" height="4" rx="1" fill="white" opacity="0.7"/><rect x="1021" y="207" width="16" height="4" rx="1" fill="white" opacity="0.5"/>
+<rect x="1046" y="198" width="22" height="58" rx="2" fill="#5578a8"/><rect x="1049" y="201" width="16" height="4" rx="1" fill="white" opacity="0.7"/><rect x="1049" y="207" width="16" height="4" rx="1" fill="white" opacity="0.5"/>
+<text x="1180" y="216" text-anchor="middle" fill="#1B3A5C" font-size="12" font-weight="bold">热数据</text>
+<text x="1180" y="234" text-anchor="middle" fill="#555" font-size="11">延迟 ~100 ns</text>
+<text x="1180" y="250" text-anchor="middle" fill="#555" font-size="11">本地直接访问</text>
+<text x="1106" y="296" text-anchor="middle" fill="#777" font-size="10">频繁访问的工作集页面</text>
+
+<!-- L2 -->
+<rect x="976" y="328" width="260" height="148" rx="6" fill="#eafaf1" stroke="#2E7D32" stroke-width="1.5"/>
+<rect x="976" y="328" width="260" height="30" rx="6" fill="#2E7D32"/>
+<rect x="976" y="346" width="260" height="12" fill="#2E7D32"/>
+<text x="1106" y="347" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L2 — UB 借用内存</text>
+<circle cx="1010" cy="380" r="18" fill="#2E7D32"/>
+<text x="1010" y="384" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+<circle cx="1060" cy="380" r="18" fill="#2E7D32"/>
+<text x="1060" y="384" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+<line x1="1028" y1="380" x2="1042" y2="380" stroke="#1B5E20" stroke-width="2"/>
+<polygon points="1040,376 1048,380 1040,384" fill="#1B5E20"/>
+<text x="1180" y="372" text-anchor="middle" fill="#1B5E20" font-size="12" font-weight="bold">温数据</text>
+<text x="1180" y="390" text-anchor="middle" fill="#555" font-size="11">延迟 ~1 μs</text>
+<text x="1180" y="406" text-anchor="middle" fill="#555" font-size="11">RDMA 跨机借用</text>
+<text x="1106" y="462" text-anchor="middle" fill="#777" font-size="10">次热页面，openEuler UB Stack 驱动</text>
+
+<!-- L3 -->
+<rect x="976" y="494" width="260" height="148" rx="6" fill="#fef9ec" stroke="#B45309" stroke-width="2"/>
+<rect x="976" y="494" width="260" height="30" rx="6" fill="#B45309"/>
+<rect x="976" y="512" width="260" height="12" fill="#B45309"/>
+<text x="1106" y="513" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L3 — NVMe SSD ★ 核心</text>
+<rect x="988" y="532" width="80" height="54" rx="3" fill="#8B4513"/>
+<rect x="994" y="536" width="68" height="9" rx="2" fill="#c8a870"/>
+<rect x="994" y="548" width="68" height="9" rx="2" fill="#c8a870"/>
+<rect x="994" y="560" width="68" height="9" rx="2" fill="#c8a870"/>
+<rect x="998" y="538" width="14" height="7" rx="1" fill="#444"/>
+<rect x="1016" y="538" width="14" height="7" rx="1" fill="#444"/>
+<text x="1180" y="546" text-anchor="middle" fill="#7B3800" font-size="12" font-weight="bold">冷数据</text>
+<text x="1180" y="564" text-anchor="middle" fill="#555" font-size="11">延迟 ~100 μs</text>
+<text x="1180" y="580" text-anchor="middle" fill="#555" font-size="11">大容量超分扩展</text>
+<text x="1106" y="628" text-anchor="middle" fill="#777" font-size="10">冷页存储，DAMOS 自动降冷迁移</text>
+
+<!-- Arrow col1→col2 -->
+<path d="M324,295 Q390,295 490,295" stroke="#1B3A5C" fill="none" stroke-width="2"/>
+<polygon points="488,290 500,295 488,300" fill="#1B3A5C"/>
+<rect x="350" y="281" width="88" height="24" rx="12" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="394" y="297" text-anchor="middle" fill="#1B3A5C" font-size="11">批量调度</text>
+
+<!-- Arrow col2→col3 -->
+<path d="M790,395 Q870,395 956,395" stroke="#B45309" fill="none" stroke-width="2" stroke-dasharray="6,3"/>
+<polygon points="954,390 966,395 954,400" fill="#B45309"/>
+<rect x="826" y="381" width="88" height="24" rx="12" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="870" y="397" text-anchor="middle" fill="#B45309" font-size="11">冷页卸载</text>
+
+<!-- Footer -->
+<rect x="0" y="700" width="1280" height="20" fill="#1B3A5C"/>
+<text x="640" y="714" text-anchor="middle" fill="#90aac8" font-size="10">字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack · SMAP 内存分层方案</text>
+</svg>
+</body>
+</html>

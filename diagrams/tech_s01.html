@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 方案 — 双栏概览</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+<!-- Header -->
+<rect width="1280" height="60" fill="#1B3A5C"/>
+<text x="640" y="34" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="bold">SMAP 内存分层方案 — 火山 AI 平台 openclaw 超分场景</text>
+<text x="640" y="52" text-anchor="middle" fill="#90aac8" font-size="12">Style 01 · 双栏概览</text>
+
+<!-- Left panel: business context -->
+<rect x="24" y="74" width="370" height="622" rx="6" fill="#f5f8fc" stroke="#dce6f0" stroke-width="1"/>
+<rect x="24" y="74" width="370" height="36" rx="6" fill="#1B3A5C"/>
+<rect x="24" y="96" width="370" height="14" fill="#1B3A5C"/>
+<text x="209" y="97" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">业务背景与客户诉求</text>
+
+<text x="44" y="138" fill="#1B3A5C" font-size="13" font-weight="bold">▌ 客户背景</text>
+<text x="44" y="160" fill="#444" font-size="12">字节跳动火山 AI 服务平台，承载批量</text>
+<text x="44" y="178" fill="#444" font-size="12">AI 推理及 RPA 类业务负载。</text>
+
+<text x="44" y="206" fill="#1B3A5C" font-size="13" font-weight="bold">▌ 业务负载</text>
+<text x="44" y="228" fill="#444" font-size="12">每台虚机规格：2 vCPU / 4 GB RAM</text>
+<text x="44" y="246" fill="#444" font-size="12">每台虚机内运行 openclaw browser</text>
+<text x="44" y="264" fill="#444" font-size="12">（headless 无头浏览器，执行网页渲染、</text>
+<text x="44" y="282" fill="#444" font-size="12">内容采集、自动化测试等任务）</text>
+
+<text x="44" y="310" fill="#1B3A5C" font-size="13" font-weight="bold">▌ 当前痛点</text>
+<rect x="44" y="320" width="6" height="44" fill="#c0392b" rx="2"/>
+<text x="58" y="336" fill="#555" font-size="12">物理宿主机 DRAM 容量有限，单机</text>
+<text x="58" y="352" fill="#555" font-size="12">可承载虚机数量受内存瓶颈制约。</text>
+<rect x="44" y="374" width="6" height="44" fill="#c0392b" rx="2"/>
+<text x="58" y="390" fill="#555" font-size="12">超分比低（约 1.0×），整机 VM</text>
+<text x="58" y="406" fill="#555" font-size="12">密度难以提升，运营成本高。</text>
+
+<text x="44" y="438" fill="#1B3A5C" font-size="13" font-weight="bold">▌ 改进目标</text>
+<rect x="44" y="448" width="6" height="30" fill="#1B3A5C" rx="2"/>
+<text x="58" y="468" fill="#555" font-size="12">引入 SMAP 内存分层，利用 L2（UB</text>
+<rect x="44" y="488" width="6" height="30" fill="#1B3A5C" rx="2"/>
+<text x="58" y="508" fill="#555" font-size="12">借用内存）+ L3（NVMe SSD）扩展</text>
+<rect x="44" y="528" width="6" height="30" fill="#1B3A5C" rx="2"/>
+<text x="58" y="548" fill="#555" font-size="12">有效内存容量，超分比目标 ↑ 1.8×。</text>
+
+<text x="44" y="580" fill="#1B3A5C" font-size="13" font-weight="bold">▌ 技术栈</text>
+<text x="44" y="600" fill="#666" font-size="11">openEuler OLK-6.6 · UB Stack</text>
+<text x="44" y="618" fill="#666" font-size="11">DAMOS_DEMOTION · PSI 感知调度</text>
+
+<!-- Right panel: architecture diagram -->
+<rect x="414" y="74" width="842" height="622" rx="6" fill="#f9fbfd" stroke="#dce6f0" stroke-width="1"/>
+<rect x="414" y="74" width="842" height="36" rx="6" fill="#1B3A5C"/>
+<rect x="414" y="96" width="842" height="14" fill="#1B3A5C"/>
+<text x="835" y="97" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">技术架构示意</text>
+
+<!-- Caller -->
+<g transform="translate(440,130)">
+  <rect width="120" height="130" rx="8" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1.5"/>
+  <circle cx="60" cy="38" r="22" fill="#1B3A5C"/>
+  <circle cx="52" cy="34" r="4" fill="white"/>
+  <circle cx="68" cy="34" r="4" fill="white"/>
+  <path d="M50,44 Q60,52 70,44" stroke="white" fill="none" stroke-width="2" stroke-linecap="round"/>
+  <path d="M20,80 Q20,100 60,106 Q100,100 100,80 Q100,68 80,72 Q60,78 40,72 Q20,68 20,80Z" fill="#2a4e72"/>
+  <text x="60" y="118" text-anchor="middle" fill="#1B3A5C" font-size="12" font-weight="bold">调用端</text>
+</g>
+
+<!-- Arrow caller→VM -->
+<line x1="560" y1="195" x2="620" y2="195" stroke="#1B3A5C" stroke-width="2"/>
+<polygon points="618,190 630,195 618,200" fill="#1B3A5C"/>
+<text x="590" y="187" text-anchor="middle" fill="#666" font-size="10">请求</text>
+
+<!-- VM block -->
+<g transform="translate(630,110)">
+  <rect width="220" height="320" rx="8" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+  <rect width="220" height="38" rx="8" fill="#B45309"/>
+  <rect y="26" width="220" height="12" fill="#B45309"/>
+  <text x="110" y="22" text-anchor="middle" fill="white" font-size="13" font-weight="bold">VM 虚机层</text>
+  <text x="110" y="35" text-anchor="middle" fill="#ffe0b8" font-size="10">2 vCPU / 4GB × N 台</text>
+
+  <!-- openclaw browser icon -->
+  <rect x="20" y="54" width="180" height="120" rx="6" fill="white" stroke="#B45309" stroke-width="1.5"/>
+  <rect x="20" y="54" width="180" height="24" rx="6" fill="#B45309"/>
+  <rect x="20" y="66" width="180" height="12" fill="#B45309"/>
+  <circle cx="34" cy="62" r="4" fill="#eee"/><circle cx="46" cy="62" r="4" fill="#ddd"/><circle cx="58" cy="62" r="4" fill="#ccc"/>
+  <rect x="64" y="57" width="110" height="12" rx="6" fill="rgba(255,255,255,0.85)"/>
+  <text x="119" y="67" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">openclaw://render</text>
+  <!-- claw icon -->
+  <path d="M110,90 Q100,100 100,115 Q100,128 110,130" stroke="#B45309" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <path d="M110,90 Q120,100 120,115 Q120,128 110,130" stroke="#B45309" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <path d="M90,100 Q82,110 84,122" stroke="#e67e22" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <path d="M130,100 Q138,110 136,122" stroke="#e67e22" fill="none" stroke-width="3" stroke-linecap="round"/>
+  <text x="110" y="158" text-anchor="middle" fill="#B45309" font-size="11" font-weight="bold">openclaw browser</text>
+
+  <!-- VM grid -->
+  <text x="110" y="198" text-anchor="middle" fill="#7B4000" font-size="11" font-weight="bold">宿主机虚机承载</text>
+  <!-- row1 -->
+  <rect x="20" y="206" width="44" height="30" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="42" y="218" text-anchor="middle" fill="#B45309" font-size="8">VM-01</text>
+  <text x="42" y="230" text-anchor="middle" fill="#B45309" font-size="7">■ 运行</text>
+  <rect x="72" y="206" width="44" height="30" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="94" y="218" text-anchor="middle" fill="#B45309" font-size="8">VM-02</text>
+  <text x="94" y="230" text-anchor="middle" fill="#B45309" font-size="7">■ 运行</text>
+  <rect x="124" y="206" width="44" height="30" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="146" y="218" text-anchor="middle" fill="#B45309" font-size="8">VM-03</text>
+  <text x="146" y="230" text-anchor="middle" fill="#B45309" font-size="7">■ 运行</text>
+  <!-- row2 -->
+  <rect x="20" y="244" width="44" height="30" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="42" y="256" text-anchor="middle" fill="#2E7D32" font-size="8">VM-04</text>
+  <text x="42" y="268" text-anchor="middle" fill="#2E7D32" font-size="7">★ 扩展</text>
+  <rect x="72" y="244" width="44" height="30" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="94" y="256" text-anchor="middle" fill="#2E7D32" font-size="8">VM-05</text>
+  <text x="94" y="268" text-anchor="middle" fill="#2E7D32" font-size="7">★ 扩展</text>
+  <rect x="124" y="244" width="44" height="30" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="146" y="256" text-anchor="middle" fill="#2E7D32" font-size="8">VM-06</text>
+  <text x="146" y="268" text-anchor="middle" fill="#2E7D32" font-size="7">★ 扩展</text>
+
+  <!-- miss arrow -->
+  <text x="110" y="300" text-anchor="middle" fill="#777" font-size="10">内存 cache miss ↓</text>
+  <text x="110" y="316" text-anchor="middle" fill="#777" font-size="10">SMAP 调度至下层</text>
+</g>
+
+<!-- Arrow VM→Memory -->
+<line x1="850" y1="270" x2="910" y2="270" stroke="#1B3A5C" stroke-width="2"/>
+<polygon points="908,265 920,270 908,275" fill="#1B3A5C"/>
+<text x="880" y="262" text-anchor="middle" fill="#666" font-size="10">冷页卸载</text>
+
+<!-- Memory tiers -->
+<!-- L1 DRAM -->
+<g transform="translate(920,110)">
+  <rect width="180" height="90" rx="8" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="2"/>
+  <rect width="180" height="30" rx="8" fill="#1B3A5C"/>
+  <rect y="20" width="180" height="10" fill="#1B3A5C"/>
+  <text x="90" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L1 — 本地 DRAM</text>
+  <!-- RAM sticks -->
+  <rect x="16" y="36" width="20" height="42" rx="2" fill="#5578a8"/><rect x="18" y="38" width="16" height="4" rx="1" fill="white" opacity="0.6"/><rect x="18" y="44" width="16" height="4" rx="1" fill="white" opacity="0.4"/>
+  <rect x="42" y="36" width="20" height="42" rx="2" fill="#5578a8"/><rect x="44" y="38" width="16" height="4" rx="1" fill="white" opacity="0.6"/><rect x="44" y="44" width="16" height="4" rx="1" fill="white" opacity="0.4"/>
+  <rect x="68" y="36" width="20" height="42" rx="2" fill="#5578a8"/><rect x="70" y="38" width="16" height="4" rx="1" fill="white" opacity="0.6"/>
+  <text x="130" y="52" fill="#1B3A5C" font-size="11" font-weight="bold">热数据</text>
+  <text x="130" y="66" fill="#555" font-size="10">~100 ns</text>
+  <text x="130" y="79" fill="#555" font-size="10">本地访问</text>
+</g>
+
+<!-- L2 UB -->
+<g transform="translate(920,222)">
+  <rect width="180" height="90" rx="8" fill="#eafaf1" stroke="#2E7D32" stroke-width="2"/>
+  <rect width="180" height="30" rx="8" fill="#2E7D32"/>
+  <rect y="20" width="180" height="10" fill="#2E7D32"/>
+  <text x="90" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L2 — UB 借用内存</text>
+  <!-- network nodes -->
+  <circle cx="30" cy="58" r="14" fill="#2E7D32"/>
+  <text x="30" y="62" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+  <circle cx="72" cy="58" r="14" fill="#2E7D32"/>
+  <text x="72" y="62" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+  <line x1="44" y1="58" x2="58" y2="58" stroke="#2E7D32" stroke-width="2"/>
+  <text x="130" y="52" fill="#1B5E20" font-size="11" font-weight="bold">温数据</text>
+  <text x="130" y="66" fill="#555" font-size="10">~1 μs</text>
+  <text x="130" y="79" fill="#555" font-size="10">RDMA 访问</text>
+</g>
+
+<!-- L3 NVMe -->
+<g transform="translate(920,334)">
+  <rect width="180" height="90" rx="8" fill="#fef9ec" stroke="#B45309" stroke-width="2.5"/>
+  <rect width="180" height="30" rx="8" fill="#B45309"/>
+  <rect y="20" width="180" height="10" fill="#B45309"/>
+  <text x="90" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">L3 — NVMe SSD ★</text>
+  <!-- NVMe PCB -->
+  <rect x="14" y="36" width="72" height="44" rx="3" fill="#8B4513"/>
+  <rect x="20" y="40" width="60" height="8" rx="2" fill="#c0a060"/><rect x="20" y="50" width="60" height="8" rx="2" fill="#c0a060"/><rect x="20" y="60" width="60" height="8" rx="2" fill="#c0a060"/>
+  <rect x="24" y="42" width="12" height="6" rx="1" fill="#555"/>
+  <rect x="40" y="42" width="12" height="6" rx="1" fill="#555"/>
+  <text x="130" y="52" fill="#7B3800" font-size="11" font-weight="bold">冷数据</text>
+  <text x="130" y="66" fill="#555" font-size="10">~100 μs</text>
+  <text x="130" y="79" fill="#555" font-size="10">核心超分扩展</text>
+</g>
+
+<!-- Miss arrows between L tiers -->
+<line x1="1010" y1="200" x2="1010" y2="222" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="1005,220 1010,232 1015,220" fill="#888"/>
+<line x1="1010" y1="312" x2="1010" y2="334" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="1005,332 1010,344 1015,332" fill="#888"/>
+
+<!-- Result box -->
+<g transform="translate(630,466)">
+  <rect width="470" height="90" rx="8" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="235" y="24" text-anchor="middle" fill="#1B5E20" font-size="13" font-weight="bold">✓ 方案收益</text>
+  <text x="20" y="46" fill="#333" font-size="12">超分比：1.0× → ↑ 1.8×　　虚机密度：3 台 → 6 台</text>
+  <text x="20" y="64" fill="#333" font-size="12">热数据留 DRAM（L1）　温数据借用 UB（L2）　冷数据卸至 NVMe（L3）</text>
+  <text x="20" y="80" fill="#666" font-size="11">DAMOS 自动探测冷热页，PSI 感知调度，应用无感知迁移</text>
+</g>
+
+<!-- Footer -->
+<rect x="0" y="700" width="1280" height="20" fill="#1B3A5C"/>
+<text x="640" y="714" text-anchor="middle" fill="#90aac8" font-size="10">字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack · SMAP 内存分层</text>
+</svg>
+</body>
+</html>

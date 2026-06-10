@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP 方案 — 泳道交互图</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+<!-- Header -->
+<rect width="1280" height="60" fill="#1B3A5C"/>
+<text x="640" y="34" text-anchor="middle" fill="#ffffff" font-size="20" font-weight="bold">SMAP 内存分层方案 — 火山 AI 平台 openclaw 超分场景</text>
+<text x="640" y="52" text-anchor="middle" fill="#90aac8" font-size="12">Style 06 · 泳道交互图（调用链路与内存访问路径）</text>
+
+<!-- Context strip -->
+<rect x="24" y="68" width="1232" height="30" rx="4" fill="#f0f4f8"/>
+<text x="44" y="86" fill="#444" font-size="11">背景：火山 AI 平台 · 每台 2vCPU/4GB 虚机运行 openclaw browser · SMAP 通过感知冷热页，将不同温度的内存页路由至 L1/L2/L3 不同层级，实现内存容量扩展</text>
+
+<!-- Swimlane headers -->
+<rect x="24" y="106" width="200" height="570" rx="4" fill="#1B3A5C"/>
+<text x="124" y="186" text-anchor="middle" fill="white" font-size="13" font-weight="bold" transform="rotate(-90,124,186)">调 用 端</text>
+<text x="124" y="390" text-anchor="middle" fill="white" font-size="13" font-weight="bold" transform="rotate(-90,124,390)">openclaw VM</text>
+<text x="124" y="582" text-anchor="middle" fill="white" font-size="13" font-weight="bold" transform="rotate(-90,124,582)">SMAP 内存层</text>
+
+<!-- Lane separators -->
+<line x1="224" y1="106" x2="1256" y2="106" stroke="#dce6f0" stroke-width="1.5"/>
+<line x1="24" y1="306" x2="1256" y2="306" stroke="#dce6f0" stroke-width="1.5"/>
+<line x1="24" y1="510" x2="1256" y2="510" stroke="#dce6f0" stroke-width="1.5"/>
+<line x1="24" y1="676" x2="1256" y2="676" stroke="#dce6f0" stroke-width="1.5"/>
+
+<!-- Lane backgrounds -->
+<rect x="224" y="106" width="1032" height="200" fill="#f8faff" opacity="0.5"/>
+<rect x="224" y="306" width="1032" height="204" fill="#fffaf5" opacity="0.5"/>
+<rect x="224" y="510" width="1032" height="166" fill="#f8fff9" opacity="0.5"/>
+
+<!-- Lane 1: Caller -->
+<!-- caller icon -->
+<circle cx="290" cy="205" r="34" fill="#1B3A5C"/>
+<circle cx="280" cy="198" r="6" fill="white"/><circle cx="300" cy="198" r="6" fill="white"/>
+<circle cx="281" cy="199" r="3" fill="#1B3A5C"/><circle cx="301" cy="199" r="3" fill="#1B3A5C"/>
+<path d="M278,210 Q290,220 302,210" stroke="white" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M256,240 Q254,258 290,264 Q326,258 324,240 Q324,230 308,234 Q290,240 272,234 Q256,230 256,240Z" fill="#2a4e72"/>
+<text x="290" y="280" text-anchor="middle" fill="#1B3A5C" font-size="11" font-weight="bold">业务调度系统</text>
+
+<!-- Request types in lane 1 -->
+<rect x="360" y="130" width="70" height="28" rx="14" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="395" y="148" text-anchor="middle" fill="#1B3A5C" font-size="11">🌐 网页</text>
+<rect x="440" y="130" width="70" height="28" rx="14" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="475" y="148" text-anchor="middle" fill="#1B3A5C" font-size="11">🖼 图片</text>
+<rect x="520" y="130" width="70" height="28" rx="14" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1"/>
+<text x="555" y="148" text-anchor="middle" fill="#1B3A5C" font-size="11">📜 脚本</text>
+<rect x="360" y="168" width="70" height="28" rx="14" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="395" y="186" text-anchor="middle" fill="#B45309" font-size="11">📊 数据</text>
+<rect x="440" y="168" width="70" height="28" rx="14" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="475" y="186" text-anchor="middle" fill="#B45309" font-size="11">🎬 媒体</text>
+<rect x="520" y="168" width="70" height="28" rx="14" fill="#fff5ee" stroke="#B45309" stroke-width="1"/>
+<text x="555" y="186" text-anchor="middle" fill="#B45309" font-size="11">🔗 API</text>
+
+<!-- Arrow caller→VM: step 1 -->
+<line x1="290" y1="270" x2="290" y2="305" stroke="#1B3A5C" stroke-width="2.5"/>
+<polygon points="284,302 290,314 296,302" fill="#1B3A5C"/>
+<rect x="240" y="282" width="100" height="22" rx="11" fill="white" stroke="#1B3A5C" stroke-width="1"/>
+<text x="290" y="296" text-anchor="middle" fill="#1B3A5C" font-size="10">① 批量调度</text>
+
+<!-- Arrow: step 2 across lane 1 -->
+<line x1="640" y1="206" x2="800" y2="206" stroke="#1B3A5C" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="797,201 807,206 797,211" fill="#1B3A5C"/>
+<rect x="690" y="194" width="68" height="18" rx="9" fill="white" stroke="#1B3A5C" stroke-width="1"/>
+<text x="724" y="206" text-anchor="middle" fill="#1B3A5C" font-size="9">请求分发</text>
+
+<!-- Lane 2: VM -->
+<!-- openclaw browser window -->
+<g transform="translate(240,326)">
+  <rect width="180" height="130" rx="6" fill="white" stroke="#B45309" stroke-width="1.5"/>
+  <rect width="180" height="26" rx="6" fill="#B45309"/>
+  <rect y="18" width="180" height="8" fill="#B45309"/>
+  <circle cx="14" cy="13" r="5" fill="#eee"/><circle cx="27" cy="13" r="5" fill="#ddd"/><circle cx="40" cy="13" r="5" fill="#ccc"/>
+  <rect x="46" y="7" width="116" height="12" rx="6" fill="rgba(255,255,255,0.85)"/>
+  <text x="104" y="17" text-anchor="middle" fill="#555" font-size="8" font-family="monospace">openclaw://render</text>
+  <!-- claw -->
+  <path d="M90,32 Q80,46 82,68 Q82,82 90,84" stroke="#B45309" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <path d="M90,32 Q100,46 98,68 Q98,82 90,84" stroke="#d07020" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <!-- content lines -->
+  <rect x="14" y="38" width="140" height="8" rx="3" fill="#ffe0a0"/>
+  <rect x="14" y="52" width="110" height="6" rx="3" fill="#e8ecf2"/>
+  <rect x="14" y="64" width="130" height="6" rx="3" fill="#e8ecf2"/>
+  <text x="90" y="120" text-anchor="middle" fill="#B45309" font-size="11" font-weight="bold">openclaw browser</text>
+</g>
+
+<!-- VM specs card -->
+<rect x="454" y="326" width="200" height="80" rx="6" fill="#fff8f3" stroke="#B45309" stroke-width="1"/>
+<text x="554" y="346" text-anchor="middle" fill="#B45309" font-size="12" font-weight="bold">VM 规格</text>
+<text x="474" y="366" fill="#555" font-size="11">CPU：2 vCPU</text>
+<text x="474" y="384" fill="#555" font-size="11">内存：4 GB RAM</text>
+<text x="474" y="400" fill="#555" font-size="11">SMAP 状态：✓ 启用</text>
+
+<!-- VM grid (6 VMs) -->
+<g transform="translate(690,326)">
+  <text x="264" y="16" text-anchor="middle" fill="#7B4000" font-size="11" font-weight="bold">宿主机承载 6 台 VM（3 原有 + 3 SMAP扩展）</text>
+  <rect x="0" y="24" width="80" height="54" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="40" y="40" text-anchor="middle" fill="#B45309" font-size="10">VM-01</text>
+  <text x="40" y="60" text-anchor="middle" fill="#B45309" font-size="14">🖥</text>
+  <rect x="88" y="24" width="80" height="54" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="128" y="40" text-anchor="middle" fill="#B45309" font-size="10">VM-02</text>
+  <text x="128" y="60" text-anchor="middle" fill="#B45309" font-size="14">🖥</text>
+  <rect x="176" y="24" width="80" height="54" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+  <text x="216" y="40" text-anchor="middle" fill="#B45309" font-size="10">VM-03</text>
+  <text x="216" y="60" text-anchor="middle" fill="#B45309" font-size="14">🖥</text>
+  <rect x="0" y="84" width="80" height="54" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="40" y="100" text-anchor="middle" fill="#2E7D32" font-size="10">VM-04★</text>
+  <text x="40" y="120" text-anchor="middle" fill="#2E7D32" font-size="14">🖥</text>
+  <rect x="88" y="84" width="80" height="54" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="128" y="100" text-anchor="middle" fill="#2E7D32" font-size="10">VM-05★</text>
+  <text x="128" y="120" text-anchor="middle" fill="#2E7D32" font-size="14">🖥</text>
+  <rect x="176" y="84" width="80" height="54" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="216" y="100" text-anchor="middle" fill="#2E7D32" font-size="10">VM-06★</text>
+  <text x="216" y="120" text-anchor="middle" fill="#2E7D32" font-size="14">🖥</text>
+</g>
+
+<!-- Arrow VM→Memory: step 3 -->
+<line x1="640" y1="505" x2="640" y2="510" stroke="#888" stroke-width="2" stroke-dasharray="4,3"/>
+<polygon points="634,507 640,518 646,507" fill="#888"/>
+<rect x="568" y="487" width="144" height="22" rx="11" fill="white" stroke="#888" stroke-width="1"/>
+<text x="640" y="501" text-anchor="middle" fill="#666" font-size="10">③ cache miss → 冷页卸载</text>
+
+<!-- Lane 3: Memory tiers -->
+<!-- L1 -->
+<rect x="240" y="526" width="250" height="114" rx="6" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="1.5"/>
+<rect x="240" y="526" width="250" height="26" rx="6" fill="#1B3A5C"/>
+<rect x="240" y="540" width="250" height="12" fill="#1B3A5C"/>
+<text x="365" y="540" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L1 — 本地 DRAM</text>
+<rect x="254" y="552" width="16" height="38" rx="2" fill="#5578a8"/><rect x="256" y="554" width="12" height="3" rx="1" fill="white" opacity="0.7"/>
+<rect x="276" y="552" width="16" height="38" rx="2" fill="#5578a8"/><rect x="278" y="554" width="12" height="3" rx="1" fill="white" opacity="0.7"/>
+<rect x="298" y="552" width="16" height="38" rx="2" fill="#5578a8"/>
+<text x="430" y="566" fill="#1B3A5C" font-size="11" font-weight="bold">热数据  ~100 ns</text>
+<text x="430" y="582" fill="#555" font-size="10">工作集页面，直接本地访问</text>
+<text x="365" y="628" text-anchor="middle" fill="#666" font-size="10">② 首次访问（L1 命中）</text>
+
+<!-- Arrow L1→L2 miss -->
+<line x1="640" y1="570" x2="700" y2="570" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="697,566 706,570 697,574" fill="#888"/>
+<text x="670" y="562" text-anchor="middle" fill="#888" font-size="9">miss</text>
+
+<!-- L2 -->
+<rect x="548" y="526" width="250" height="114" rx="6" fill="#eafaf1" stroke="#2E7D32" stroke-width="1.5"/>
+<rect x="548" y="526" width="250" height="26" rx="6" fill="#2E7D32"/>
+<rect x="548" y="540" width="250" height="12" fill="#2E7D32"/>
+<text x="673" y="540" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L2 — UB 借用内存</text>
+<circle cx="572" cy="576" r="14" fill="#2E7D32"/>
+<text x="572" y="580" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+<circle cx="610" cy="576" r="14" fill="#2E7D32"/>
+<text x="610" y="580" text-anchor="middle" fill="white" font-size="9" font-weight="bold">UB</text>
+<line x1="586" y1="576" x2="596" y2="576" stroke="#1B5E20" stroke-width="1.5"/>
+<polygon points="594,573 602,576 594,579" fill="#1B5E20"/>
+<text x="738" y="566" fill="#1B5E20" font-size="11" font-weight="bold">温数据  ~1 μs</text>
+<text x="738" y="582" fill="#555" font-size="10">次热页面，RDMA 跨机访问</text>
+<text x="673" y="628" text-anchor="middle" fill="#666" font-size="10">④ L1 miss → 查 L2（UB借用）</text>
+
+<!-- Arrow L2→L3 miss -->
+<line x1="940" y1="570" x2="990" y2="570" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="987,566 996,570 987,574" fill="#888"/>
+<text x="965" y="562" text-anchor="middle" fill="#888" font-size="9">miss</text>
+
+<!-- L3 -->
+<rect x="856" y="526" width="368" height="114" rx="6" fill="#fef9ec" stroke="#B45309" stroke-width="2"/>
+<rect x="856" y="526" width="368" height="26" rx="6" fill="#B45309"/>
+<rect x="856" y="540" width="368" height="12" fill="#B45309"/>
+<text x="1040" y="540" text-anchor="middle" fill="white" font-size="11" font-weight="bold">L3 — NVMe SSD ★ 核心超分扩展</text>
+<!-- PCB -->
+<rect x="870" y="552" width="72" height="58" rx="3" fill="#8B4513"/>
+<rect x="878" y="556" width="56" height="7" rx="2" fill="#c8a870"/>
+<rect x="878" y="565" width="56" height="7" rx="2" fill="#c8a870"/>
+<rect x="878" y="574" width="56" height="7" rx="2" fill="#c8a870"/>
+<rect x="882" y="558" width="14" height="5" rx="1" fill="#444"/>
+<rect x="900" y="558" width="14" height="5" rx="1" fill="#444"/>
+<text x="1090" y="566" fill="#7B3800" font-size="11" font-weight="bold">冷数据  ~100 μs</text>
+<text x="1090" y="582" fill="#555" font-size="10">大容量存储，DAMOS 自动迁移冷页</text>
+<text x="1090" y="596" fill="#555" font-size="10">核心超分手段，提供额外容量池</text>
+<text x="1040" y="628" text-anchor="middle" fill="#666" font-size="10">⑤ L2 miss → 访问 L3（NVMe），提供超分容量</text>
+
+<!-- Footer -->
+<rect x="0" y="700" width="1280" height="20" fill="#1B3A5C"/>
+<text x="640" y="714" text-anchor="middle" fill="#90aac8" font-size="10">字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack · SMAP 内存分层方案 · 超分比 1.0× → ↑ 1.8×</text>
+</svg>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP openclaw — 物理部署全景</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<defs>
+  <marker id="arr8a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#546E7A"/>
+  </marker>
+  <marker id="arr8b" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#E65100"/>
+  </marker>
+</defs>
+
+<!-- Header -->
+<rect width="1280" height="56" fill="#1B3A5C"/>
+<text x="640" y="34" text-anchor="middle" fill="#fff" font-size="21" font-weight="bold">SMAP 物理部署架构  —  字节火山 AI 平台</text>
+<text x="640" y="51" text-anchor="middle" fill="#90a4ae" font-size="13">宿主机硬件全景 · openclaw VM 集群 · 三级内存分层</text>
+
+<!-- ============ HOST SERVER BOX ============ -->
+<rect x="20" y="66" width="860" height="636" rx="8" fill="#F8FAFB" stroke="#CCC" stroke-width="2"/>
+<rect x="20" y="66" width="860" height="38" rx="8" fill="#546E7A"/>
+<rect x="20" y="90" width="860" height="14" fill="#546E7A"/>
+<text x="450" y="89" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">宿主机  (字节火山 AI 服务器)</text>
+<text x="870" y="89" text-anchor="end" fill="#cfd8dc" font-size="12">openEuler OLK-6.6</text>
+
+<!-- CPU section -->
+<rect x="36" y="116" width="200" height="110" rx="5" fill="#fff" stroke="#546E7A" stroke-width="1.5"/>
+<text x="136" y="136" text-anchor="middle" fill="#546E7A" font-size="13" font-weight="bold">CPU</text>
+<line x1="52" y1="140" x2="220" y2="140" stroke="#E0E0E0" stroke-width="1"/>
+<!-- CPU die visual -->
+<rect x="56" y="148" width="160" height="68" rx="4" fill="#546E7A"/>
+<!-- CPU cores -->
+<rect x="62" y="154" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="88" y="154" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="114" y="154" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="140" y="154" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="166" y="154" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="62" y="180" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="88" y="180" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="114" y="180" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="140" y="180" width="22" height="22" rx="2" fill="#607D8B"/>
+<rect x="166" y="180" width="22" height="22" rx="2" fill="#607D8B"/>
+<text x="136" y="222" text-anchor="middle" fill="#888" font-size="11">多核处理器</text>
+
+<!-- DRAM section (L1) -->
+<rect x="252" y="116" width="200" height="110" rx="5" fill="#fff" stroke="#1B3A5C" stroke-width="1.5"/>
+<rect x="252" y="116" width="200" height="28" rx="5" fill="#1B3A5C"/>
+<rect x="252" y="132" width="200" height="12" fill="#1B3A5C"/>
+<text x="352" y="131" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L1 — 本地 DRAM</text>
+<!-- RAM sticks visual -->
+<rect x="268" y="152" width="20" height="60" rx="2" fill="#1B3A5C"/>
+<rect x="271" y="156" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="271" y="170" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="271" y="184" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="294" y="152" width="20" height="60" rx="2" fill="#1B3A5C"/>
+<rect x="297" y="156" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="297" y="170" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="297" y="184" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="320" y="152" width="20" height="60" rx="2" fill="#2d5a8a"/>
+<rect x="323" y="156" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="323" y="170" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<rect x="323" y="184" width="4" height="10" rx="1" fill="#5d8cc4"/>
+<text x="390" y="166" fill="#1B3A5C" font-size="13" font-weight="bold">热数据</text>
+<text x="390" y="184" fill="#555" font-size="12">~100 ns</text>
+<text x="390" y="202" fill="#888" font-size="11">物理内存直映</text>
+<text x="268" y="224" fill="#888" font-size="11">有限容量</text>
+
+<!-- NVMe section (L3) -->
+<rect x="468" y="116" width="200" height="110" rx="5" fill="#fff" stroke="#E65100" stroke-width="2"/>
+<rect x="468" y="116" width="200" height="28" rx="5" fill="#E65100"/>
+<rect x="468" y="132" width="200" height="12" fill="#E65100"/>
+<text x="568" y="131" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L3 — NVMe SSD ★</text>
+<!-- NVMe visual compact -->
+<rect x="484" y="152" width="56" height="68" rx="2" fill="#E65100"/>
+<rect x="487" y="155" width="50" height="62" rx="1" fill="#FF7043"/>
+<rect x="490" y="158" width="14" height="10" rx="1" fill="#BF360C"/>
+<rect x="508" y="158" width="14" height="10" rx="1" fill="#BF360C"/>
+<rect x="490" y="171" width="32" height="7" rx="1" fill="#D84315"/>
+<rect x="490" y="181" width="26" height="22" rx="1" fill="#BF360C"/>
+<rect x="487" y="213" width="50" height="4" rx="1" fill="#5D4037"/>
+<rect x="490" y="215" width="4" height="2" fill="#FF8A65"/>
+<rect x="498" y="215" width="4" height="2" fill="#FF8A65"/>
+<rect x="506" y="215" width="4" height="2" fill="#FF8A65"/>
+<text x="575" y="166" fill="#E65100" font-size="13" font-weight="bold">冷数据</text>
+<text x="575" y="184" fill="#E65100" font-size="13" font-weight="bold">~100 μs</text>
+<text x="575" y="202" fill="#888" font-size="11">大容量扩展</text>
+<text x="575" y="218" fill="#888" font-size="11">超分比核心</text>
+<text x="484" y="224" fill="#888" font-size="11">低成本</text>
+
+<!-- RDMA NIC (L2 network path) -->
+<rect x="684" y="116" width="180" height="110" rx="5" fill="#fff" stroke="#388E3C" stroke-width="1.5"/>
+<rect x="684" y="116" width="180" height="28" rx="5" fill="#388E3C"/>
+<rect x="684" y="132" width="180" height="12" fill="#388E3C"/>
+<text x="774" y="131" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L2 — RDMA NIC</text>
+<!-- NIC visual -->
+<rect x="700" y="152" width="70" height="55" rx="2" fill="#388E3C"/>
+<rect x="703" y="155" width="64" height="49" rx="1" fill="#4CAF50" opacity="0.6"/>
+<!-- NIC ports -->
+<rect x="706" y="198" width="10" height="7" rx="1" fill="#2E7D32"/>
+<rect x="719" y="198" width="10" height="7" rx="1" fill="#2E7D32"/>
+<rect x="732" y="198" width="10" height="7" rx="1" fill="#2E7D32"/>
+<rect x="745" y="198" width="10" height="7" rx="1" fill="#2E7D32"/>
+<rect x="758" y="198" width="8" height="7" rx="1" fill="#2E7D32"/>
+<text x="790" y="166" fill="#2E7D32" font-size="12">温数据</text>
+<text x="790" y="184" fill="#2E7D32" font-size="12" font-weight="bold">~1 μs</text>
+<text x="790" y="202" fill="#888" font-size="11">RDMA 直连</text>
+<text x="700" y="224" fill="#888" font-size="11">跨节点内存池</text>
+
+<!-- ============ VM CLUSTER ============ -->
+<rect x="36" y="244" width="828" height="360" rx="6" fill="#FFF8F0" stroke="#B45309" stroke-width="1.5"/>
+<rect x="36" y="244" width="828" height="36" rx="6" fill="#B45309"/>
+<rect x="36" y="266" width="828" height="14" fill="#B45309"/>
+<text x="450" y="266" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold">VM 虚机集群  —  openclaw browser × 6 台</text>
+
+<!-- 6 VMs in 2 rows -->
+<!-- VM 1 -->
+<rect x="56" y="290" width="230" height="136" rx="6" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="56" y="290" width="230" height="36" rx="6" fill="#B45309"/>
+<rect x="56" y="312" width="230" height="14" fill="#B45309"/>
+<text x="171" y="311" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-01</text>
+<text x="90" y="336" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M171,350 Q158,367 158,386 Q158,398 171,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M171,350 Q184,367 184,386 Q184,398 171,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M153,361 Q142,376 146,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M189,361 Q200,376 196,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="220" y="390" fill="#B45309" font-size="13" font-weight="bold">openclaw</text>
+<text x="220" y="406" fill="#888" font-size="12">headless</text>
+<text x="56" y="424" fill="#B45309" font-size="11">现有 VM</text>
+
+<!-- VM 2 -->
+<rect x="302" y="290" width="230" height="136" rx="6" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="302" y="290" width="230" height="36" rx="6" fill="#B45309"/>
+<rect x="302" y="312" width="230" height="14" fill="#B45309"/>
+<text x="417" y="311" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-02</text>
+<text x="336" y="336" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M417,350 Q404,367 404,386 Q404,398 417,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M417,350 Q430,367 430,386 Q430,398 417,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M399,361 Q388,376 392,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M435,361 Q446,376 442,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="466" y="390" fill="#B45309" font-size="13" font-weight="bold">openclaw</text>
+<text x="466" y="406" fill="#888" font-size="12">headless</text>
+<text x="302" y="424" fill="#B45309" font-size="11">现有 VM</text>
+
+<!-- VM 3 -->
+<rect x="548" y="290" width="230" height="136" rx="6" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="548" y="290" width="230" height="36" rx="6" fill="#B45309"/>
+<rect x="548" y="312" width="230" height="14" fill="#B45309"/>
+<text x="663" y="311" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-03</text>
+<text x="582" y="336" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M663,350 Q650,367 650,386 Q650,398 663,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M663,350 Q676,367 676,386 Q676,398 663,404" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M645,361 Q634,376 638,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M681,361 Q692,376 688,392" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="712" y="390" fill="#B45309" font-size="13" font-weight="bold">openclaw</text>
+<text x="712" y="406" fill="#888" font-size="12">headless</text>
+<text x="548" y="424" fill="#B45309" font-size="11">现有 VM</text>
+
+<!-- VM 4 (SMAP extended) -->
+<rect x="56" y="438" width="230" height="136" rx="6" fill="#f8fff8" stroke="#2E7D32" stroke-width="2"/>
+<rect x="56" y="438" width="230" height="36" rx="6" fill="#2E7D32"/>
+<rect x="56" y="460" width="230" height="14" fill="#2E7D32"/>
+<text x="171" y="459" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-04 ★ 超分扩展</text>
+<text x="90" y="484" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M171,498 Q158,515 158,534 Q158,546 171,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M171,498 Q184,515 184,534 Q184,546 171,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M153,509 Q142,524 146,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M189,509 Q200,524 196,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="220" y="538" fill="#2E7D32" font-size="13" font-weight="bold">openclaw</text>
+<text x="220" y="554" fill="#888" font-size="12">headless</text>
+<text x="56" y="572" fill="#2E7D32" font-size="11">★ SMAP 新增</text>
+
+<!-- VM 5 (SMAP extended) -->
+<rect x="302" y="438" width="230" height="136" rx="6" fill="#f8fff8" stroke="#2E7D32" stroke-width="2"/>
+<rect x="302" y="438" width="230" height="36" rx="6" fill="#2E7D32"/>
+<rect x="302" y="460" width="230" height="14" fill="#2E7D32"/>
+<text x="417" y="459" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-05 ★ 超分扩展</text>
+<text x="336" y="484" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M417,498 Q404,515 404,534 Q404,546 417,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M417,498 Q430,515 430,534 Q430,546 417,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M399,509 Q388,524 392,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M435,509 Q446,524 442,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="466" y="538" fill="#2E7D32" font-size="13" font-weight="bold">openclaw</text>
+<text x="466" y="554" fill="#888" font-size="12">headless</text>
+<text x="302" y="572" fill="#2E7D32" font-size="11">★ SMAP 新增</text>
+
+<!-- VM 6 (SMAP extended) -->
+<rect x="548" y="438" width="230" height="136" rx="6" fill="#f8fff8" stroke="#2E7D32" stroke-width="2"/>
+<rect x="548" y="438" width="230" height="36" rx="6" fill="#2E7D32"/>
+<rect x="548" y="460" width="230" height="14" fill="#2E7D32"/>
+<text x="663" y="459" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM-06 ★ 超分扩展</text>
+<text x="582" y="484" fill="#666" font-size="12">2 vCPU  /  4 GB</text>
+<path d="M663,498 Q650,515 650,534 Q650,546 663,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M663,498 Q676,515 676,534 Q676,546 663,552" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M645,509 Q634,524 638,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M681,509 Q692,524 688,540" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="712" y="538" fill="#2E7D32" font-size="13" font-weight="bold">openclaw</text>
+<text x="712" y="554" fill="#888" font-size="12">headless</text>
+<text x="548" y="572" fill="#2E7D32" font-size="11">★ SMAP 新增</text>
+
+<!-- ============ RIGHT SIDE PANEL: Summary ============ -->
+<rect x="900" y="66" width="360" height="636" rx="8" fill="#F8FAFB" stroke="#E0E0E0" stroke-width="1"/>
+<rect x="900" y="66" width="360" height="38" rx="8" fill="#546E7A"/>
+<rect x="900" y="90" width="360" height="14" fill="#546E7A"/>
+<text x="1080" y="89" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold">方案概要</text>
+
+<text x="920" y="128" fill="#1B3A5C" font-size="14" font-weight="bold">业务背景</text>
+<line x1="920" y1="136" x2="1240" y2="136" stroke="#E0E0E0" stroke-width="1"/>
+<text x="920" y="154" fill="#444" font-size="13">字节火山 AI 服务平台</text>
+<text x="920" y="172" fill="#444" font-size="13">高密度 openclaw VM 部署需求</text>
+<text x="920" y="190" fill="#666" font-size="12">headless 批量渲染 / 采集 / 测试</text>
+
+<text x="920" y="222" fill="#C62828" font-size="14" font-weight="bold">核心痛点</text>
+<line x1="920" y1="230" x2="1240" y2="230" stroke="#E0E0E0" stroke-width="1"/>
+<text x="920" y="248" fill="#C62828" font-size="13">单层 DRAM 限制 VM 数量</text>
+<text x="920" y="266" fill="#C62828" font-size="13">超分比仅 1.0×，商业密度低</text>
+
+<text x="920" y="298" fill="#2E7D32" font-size="14" font-weight="bold">SMAP 方案</text>
+<line x1="920" y1="306" x2="1240" y2="306" stroke="#E0E0E0" stroke-width="1"/>
+<rect x="920" y="314" width="300" height="28" rx="4" fill="#E8EFF8"/>
+<text x="1070" y="333" text-anchor="middle" fill="#1B3A5C" font-size="13" font-weight="bold">L1 本地 DRAM</text>
+<rect x="920" y="348" width="300" height="28" rx="4" fill="#E8F5E9"/>
+<text x="1070" y="367" text-anchor="middle" fill="#388E3C" font-size="13" font-weight="bold">L2 UB 借用内存</text>
+<rect x="920" y="382" width="300" height="28" rx="4" fill="#FFF3E0"/>
+<text x="1070" y="401" text-anchor="middle" fill="#E65100" font-size="13" font-weight="bold">L3 NVMe SSD  ★ 超分核心</text>
+<!-- Down arrows between tiers -->
+<text x="1230" y="333" fill="#888" font-size="11">热数据</text>
+<text x="1230" y="367" fill="#888" font-size="11">温数据</text>
+<text x="1230" y="401" fill="#888" font-size="11">冷数据</text>
+
+<text x="920" y="436" fill="#444" font-size="12">DAMOS 自动冷热页面迁移</text>
+<text x="920" y="454" fill="#444" font-size="12">应用透明，无需改造</text>
+
+<!-- Metrics -->
+<text x="920" y="490" fill="#1B3A5C" font-size="14" font-weight="bold">核心指标</text>
+<line x1="920" y1="498" x2="1240" y2="498" stroke="#E0E0E0" stroke-width="1"/>
+
+<rect x="920" y="506" width="145" height="80" rx="5" fill="#1B3A5C"/>
+<text x="992" y="530" text-anchor="middle" fill="#7fa8cc" font-size="12">VM 数量</text>
+<text x="992" y="566" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold">6台</text>
+
+<rect x="1075" y="506" width="145" height="80" rx="5" fill="#2E7D32"/>
+<text x="1147" y="530" text-anchor="middle" fill="#a5d6a7" font-size="12">超分比</text>
+<text x="1147" y="566" text-anchor="middle" fill="#fff" font-size="28" font-weight="bold">×1.8</text>
+
+<rect x="920" y="596" width="300" height="52" rx="5" fill="#E8EFF8"/>
+<text x="1070" y="616" text-anchor="middle" fill="#1B3A5C" font-size="13">相同硬件，VM 承载翻倍</text>
+<text x="1070" y="636" text-anchor="middle" fill="#1B3A5C" font-size="13">无需新增服务器</text>
+
+<!-- Footer -->
+<rect y="700" width="1280" height="20" fill="#F5F5F5"/>
+<line x1="0" y1="700" x2="1280" y2="700" stroke="#E0E0E0" stroke-width="1"/>
+<text x="640" y="714" text-anchor="middle" fill="#888" font-size="11">SMAP · openEuler OLK-6.6 · UB Stack RDMA · NVMe SSD · openclaw browser headless</text>
+
+</svg>
+</body>
+</html>

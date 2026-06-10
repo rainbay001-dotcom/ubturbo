@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP openclaw — 网络拓扑图</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<defs>
+  <marker id="arr9a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#1B3A5C"/>
+  </marker>
+  <marker id="arr9b" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#B45309"/>
+  </marker>
+  <marker id="arr9c" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+    <polygon points="0 0, 10 3.5, 0 7" fill="#E65100"/>
+  </marker>
+</defs>
+
+<!-- Header -->
+<rect width="1280" height="56" fill="#1B3A5C"/>
+<text x="640" y="34" text-anchor="middle" fill="#fff" font-size="21" font-weight="bold">SMAP 内存访问拓扑  —  openclaw 超分场景</text>
+<text x="640" y="51" text-anchor="middle" fill="#90a4ae" font-size="13">字节火山 AI 平台 · 节点间 RDMA 借用 · L1/L2/L3 分级内存访问路径</text>
+
+<!-- ============ LEFT: Context panel ============ -->
+<rect x="20" y="66" width="240" height="634" rx="4" fill="#FAFBFC"/>
+<rect x="20" y="66" width="4" height="634" fill="#1B3A5C"/>
+
+<text x="40" y="98" fill="#1B3A5C" font-size="15" font-weight="bold">场景说明</text>
+<line x1="40" y1="106" x2="248" y2="106" stroke="#E0E0E0" stroke-width="1"/>
+
+<rect x="32" y="114" width="216" height="84" rx="4" fill="#E8EFF8"/>
+<text x="46" y="133" fill="#1B3A5C" font-size="13" font-weight="bold">业务负载</text>
+<text x="46" y="151" fill="#444" font-size="12">openclaw browser</text>
+<text x="46" y="169" fill="#444" font-size="12">headless 批量渲染</text>
+<text x="46" y="185" fill="#666" font-size="11">自动化调度触发</text>
+<text x="46" y="193" fill="#666" font-size="11">无需显示输出</text>
+
+<rect x="32" y="206" width="216" height="100" rx="4" fill="#FFF3E0"/>
+<text x="46" y="225" fill="#B45309" font-size="13" font-weight="bold">请求类型</text>
+<text x="46" y="243" fill="#666" font-size="12">🌐 网页渲染</text>
+<text x="46" y="261" fill="#666" font-size="12">🖼 图片加载</text>
+<text x="46" y="279" fill="#666" font-size="12">📜 脚本执行</text>
+<text x="46" y="297" fill="#666" font-size="12">📊 数据采集</text>
+
+<rect x="32" y="314" width="216" height="84" rx="4" fill="#E8F5E9"/>
+<text x="46" y="333" fill="#2E7D32" font-size="13" font-weight="bold">SMAP 机制</text>
+<text x="46" y="351" fill="#444" font-size="12">内核冷热页监控</text>
+<text x="46" y="369" fill="#444" font-size="12">DAMOS 自动迁移</text>
+<text x="46" y="387" fill="#666" font-size="11">页面透明卸载</text>
+
+<text x="40" y="426" fill="#1B3A5C" font-size="14" font-weight="bold">节点图例</text>
+<line x1="40" y1="434" x2="248" y2="434" stroke="#E0E0E0" stroke-width="1"/>
+<circle cx="52" cy="454" r="12" fill="#B45309"/>
+<text x="70" y="458" fill="#444" font-size="12">openclaw VM</text>
+<circle cx="52" cy="480" r="12" fill="#1B3A5C"/>
+<text x="70" y="484" fill="#444" font-size="12">L1 DRAM</text>
+<circle cx="52" cy="506" r="12" fill="#388E3C"/>
+<text x="70" y="510" fill="#444" font-size="12">L2 UB借用</text>
+<circle cx="52" cy="532" r="12" fill="#E65100"/>
+<text x="70" y="536" fill="#444" font-size="12">L3 NVMe</text>
+
+<text x="40" y="572" fill="#1B3A5C" font-size="14" font-weight="bold">连线图例</text>
+<line x1="40" y1="580" x2="248" y2="580" stroke="#E0E0E0" stroke-width="1"/>
+<line x1="40" y1="596" x2="100" y2="596" stroke="#B45309" stroke-width="2.5"/>
+<text x="108" y="600" fill="#444" font-size="12">内存请求</text>
+<line x1="40" y1="618" x2="100" y2="618" stroke="#546E7A" stroke-width="2" stroke-dasharray="5,3"/>
+<text x="108" y="622" fill="#444" font-size="12">未命中降级</text>
+<line x1="40" y1="640" x2="100" y2="640" stroke="#2E7D32" stroke-width="2" stroke-dasharray="3,3"/>
+<text x="108" y="644" fill="#444" font-size="12">数据返回</text>
+<line x1="40" y1="660" x2="100" y2="660" stroke="#E65100" stroke-width="2" stroke-dasharray="5,2"/>
+<text x="108" y="664" fill="#444" font-size="12">RDMA 链路</text>
+
+<!-- ============ MAIN: Topology ============ -->
+<!-- Outer ring: Request source -->
+<circle cx="640" cy="380" r="310" fill="none" stroke="#F5F5F5" stroke-width="2" stroke-dasharray="6,4"/>
+<circle cx="640" cy="380" r="190" fill="none" stroke="#F5F5F5" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+<!-- Request source (top) -->
+<rect x="568" y="76" width="144" height="70" rx="6" fill="#E8EFF8" stroke="#1B3A5C" stroke-width="2"/>
+<!-- person icon mini -->
+<circle cx="620" cy="100" r="12" fill="#1B3A5C"/>
+<circle cx="616" cy="97" r="3.5" fill="white"/>
+<circle cx="624" cy="97" r="3.5" fill="white"/>
+<path d="M615,104 Q620,108 625,104" stroke="white" fill="none" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M608,120 Q608,126 620,128 Q632,126 632,120 Q632,114 628,116 Q620,118 612,116 Q608,114 608,120Z" fill="#2d5a8a"/>
+<text x="655" y="105" fill="#1B3A5C" font-size="13" font-weight="bold">调用端</text>
+<text x="655" y="123" fill="#666" font-size="12">批量任务触发</text>
+
+<!-- Arrow from source to openclaw nodes -->
+<line x1="620" y1="146" x2="556" y2="230" stroke="#1B3A5C" stroke-width="2" marker-end="url(#arr9a)"/>
+<line x1="660" y1="146" x2="724" y2="230" stroke="#1B3A5C" stroke-width="2" marker-end="url(#arr9a)"/>
+<text x="594" y="193" fill="#1B3A5C" font-size="11">请求</text>
+<text x="682" y="193" fill="#1B3A5C" font-size="11">请求</text>
+
+<!-- 6 openclaw VM nodes (arranged in arc) -->
+<!-- VM 1 (top-left) -->
+<circle cx="426" cy="280" r="56" fill="#FFF5EB" stroke="#B45309" stroke-width="2.5"/>
+<path d="M426,258 Q413,274 413,292 Q413,304 426,310" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M426,258 Q439,274 439,292 Q439,304 426,310" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M408,267 Q397,281 401,296" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M444,267 Q455,281 451,296" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="426" y="330" text-anchor="middle" fill="#B45309" font-size="13" font-weight="bold">VM-01</text>
+
+<!-- VM 2 (top-right) -->
+<circle cx="854" cy="280" r="56" fill="#FFF5EB" stroke="#B45309" stroke-width="2.5"/>
+<path d="M854,258 Q841,274 841,292 Q841,304 854,310" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M854,258 Q867,274 867,292 Q867,304 854,310" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M836,267 Q825,281 829,296" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M872,267 Q883,281 879,296" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="854" y="330" text-anchor="middle" fill="#B45309" font-size="13" font-weight="bold">VM-02</text>
+
+<!-- VM 3 (mid-left) -->
+<circle cx="362" cy="408" r="56" fill="#FFF5EB" stroke="#B45309" stroke-width="2.5"/>
+<path d="M362,386 Q349,402 349,420 Q349,432 362,438" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M362,386 Q375,402 375,420 Q375,432 362,438" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M344,395 Q333,409 337,424" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M380,395 Q391,409 387,424" stroke="#D97706" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="362" y="458" text-anchor="middle" fill="#B45309" font-size="13" font-weight="bold">VM-03</text>
+
+<!-- VM 4 (mid-right) - green extended -->
+<circle cx="918" cy="408" r="56" fill="#f8fff8" stroke="#2E7D32" stroke-width="2.5"/>
+<path d="M918,386 Q905,402 905,420 Q905,432 918,438" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M918,386 Q931,402 931,420 Q931,432 918,438" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M900,395 Q889,409 893,424" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M936,395 Q947,409 943,424" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="918" y="453" text-anchor="middle" fill="#2E7D32" font-size="13" font-weight="bold">VM-04★</text>
+<text x="918" y="468" text-anchor="middle" fill="#2E7D32" font-size="11">超分扩展</text>
+
+<!-- VM 5 (bottom-left) - green extended -->
+<circle cx="462" cy="528" r="56" fill="#f8fff8" stroke="#2E7D32" stroke-width="2.5"/>
+<path d="M462,506 Q449,522 449,540 Q449,552 462,558" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M462,506 Q475,522 475,540 Q475,552 462,558" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M444,515 Q433,529 437,544" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M480,515 Q491,529 487,544" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="462" y="573" text-anchor="middle" fill="#2E7D32" font-size="13" font-weight="bold">VM-05★</text>
+<text x="462" y="588" text-anchor="middle" fill="#2E7D32" font-size="11">超分扩展</text>
+
+<!-- VM 6 (bottom-right) - green extended -->
+<circle cx="818" cy="528" r="56" fill="#f8fff8" stroke="#2E7D32" stroke-width="2.5"/>
+<path d="M818,506 Q805,522 805,540 Q805,552 818,558" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M818,506 Q831,522 831,540 Q831,552 818,558" stroke="#2E7D32" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M800,515 Q789,529 793,544" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<path d="M836,515 Q847,529 843,544" stroke="#4CAF50" fill="none" stroke-width="3.5" stroke-linecap="round"/>
+<text x="818" y="573" text-anchor="middle" fill="#2E7D32" font-size="13" font-weight="bold">VM-06★</text>
+<text x="818" y="588" text-anchor="middle" fill="#2E7D32" font-size="11">超分扩展</text>
+
+<!-- CENTER: SMAP + Memory nodes -->
+<!-- L1 node (center-left) -->
+<circle cx="580" cy="380" r="46" fill="#E8EFF8" stroke="#1B3A5C" stroke-width="2"/>
+<text x="580" y="373" text-anchor="middle" fill="#1B3A5C" font-size="14" font-weight="bold">L1</text>
+<text x="580" y="389" text-anchor="middle" fill="#1B3A5C" font-size="12">DRAM</text>
+<text x="580" y="403" text-anchor="middle" fill="#888" font-size="11">100 ns</text>
+<text x="580" y="440" text-anchor="middle" fill="#888" font-size="11">热数据</text>
+
+<!-- L3 node (center) -->
+<circle cx="700" cy="380" r="52" fill="#FFF3E0" stroke="#E65100" stroke-width="2.5"/>
+<text x="700" y="370" text-anchor="middle" fill="#E65100" font-size="14" font-weight="bold">L3★</text>
+<text x="700" y="386" text-anchor="middle" fill="#E65100" font-size="12">NVMe</text>
+<text x="700" y="402" text-anchor="middle" fill="#E65100" font-size="12" font-weight="bold">100 μs</text>
+<text x="700" y="418" text-anchor="middle" fill="#888" font-size="11">冷数据</text>
+<text x="700" y="446" text-anchor="middle" fill="#E65100" font-size="11">超分核心</text>
+
+<!-- L2 node (far right beyond VMs) -->
+<rect x="1060" y="290" width="180" height="120" rx="6" fill="#E8F5E9" stroke="#388E3C" stroke-width="2"/>
+<rect x="1060" y="290" width="180" height="34" rx="6" fill="#388E3C"/>
+<rect x="1060" y="310" width="180" height="14" fill="#388E3C"/>
+<text x="1150" y="309" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L2 — UB 借用内存</text>
+<circle cx="1090" cy="368" r="20" fill="#388E3C"/>
+<text x="1090" y="373" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">UB</text>
+<circle cx="1126" cy="356" r="13" fill="#4CAF50" opacity="0.7"/>
+<circle cx="1126" cy="382" r="13" fill="#4CAF50" opacity="0.7"/>
+<line x1="1110" y1="365" x2="1113" y2="360" stroke="#2E7D32" stroke-width="1.5"/>
+<line x1="1110" y1="371" x2="1113" y2="376" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="1165" y="360" fill="#2E7D32" font-size="12">温数据</text>
+<text x="1165" y="378" fill="#2E7D32" font-size="12" font-weight="bold">~1 μs</text>
+<text x="1165" y="396" fill="#888" font-size="11">RDMA</text>
+<text x="1060" y="430" fill="#888" font-size="11">openEuler UB Stack</text>
+
+<!-- Connections: VM nodes → L1 -->
+<line x1="473" y1="294" x2="541" y2="358" stroke="#B45309" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="415" y1="378" x2="534" y2="378" stroke="#B45309" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="451" y1="495" x2="543" y2="404" stroke="#2E7D32" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="810" y1="296" x2="744" y2="354" stroke="#B45309" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="876" y1="380" x2="752" y2="380" stroke="#2E7D32" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="830" y1="494" x2="750" y2="408" stroke="#2E7D32" stroke-width="1.5" stroke-dasharray="5,3"/>
+
+<!-- L1 → L3 miss path -->
+<line x1="626" y1="380" x2="648" y2="380" stroke="#546E7A" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arr9a)"/>
+<text x="637" y="368" text-anchor="middle" fill="#546E7A" font-size="11">未命中</text>
+
+<!-- L3 to L2 (RDMA path) -->
+<line x1="752" y1="380" x2="1054" y2="360" stroke="#E65100" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arr9c)"/>
+<text x="900" y="356" text-anchor="middle" fill="#E65100" font-size="11">RDMA 借用路径</text>
+
+<!-- Footer -->
+<rect y="700" width="1280" height="20" fill="#F5F5F5"/>
+<line x1="0" y1="700" x2="1280" y2="700" stroke="#E0E0E0" stroke-width="1"/>
+<text x="640" y="714" text-anchor="middle" fill="#888" font-size="11">SMAP · openEuler OLK-6.6 · DAMOS 冷热分级 · UB Stack RDMA · NVMe SSD 超分核心</text>
+
+</svg>
+</body>
+</html>

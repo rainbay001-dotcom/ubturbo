@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP — KPI 仪表盘</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<!-- Header -->
+<rect width="1280" height="68" fill="#1B3A5C"/>
+<text x="640" y="42" text-anchor="middle" fill="#fff" font-size="26" font-weight="bold">SMAP 方案 — 关键指标概览</text>
+<text x="640" y="60" text-anchor="middle" fill="#93b4d4" font-size="14">字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack</text>
+
+<!-- Footer -->
+<rect y="692" width="1280" height="28" fill="#1B3A5C"/>
+<text x="640" y="710" text-anchor="middle" fill="#93b4d4" font-size="13">DAMOS 自动感知 · PSI 调度 · openclaw 应用透明</text>
+
+<!-- ====== TOP KPI ROW (y:80-210) ====== -->
+<!-- KPI 1: 超分比 -->
+<rect x="20" y="80" width="295" height="120" rx="8" fill="white" stroke="#2E7D32" stroke-width="2"/>
+<rect x="20" y="80" width="295" height="7" rx="4" fill="#2E7D32"/>
+<text x="167" y="130" text-anchor="middle" fill="#2E7D32" font-size="46" font-weight="bold">↑ 1.8×</text>
+<text x="167" y="162" text-anchor="middle" fill="#555" font-size="20">整机超分比</text>
+<text x="167" y="188" text-anchor="middle" fill="#888" font-size="15">（原 1.0×）</text>
+
+<!-- KPI 2: VM承载 -->
+<rect x="335" y="80" width="295" height="120" rx="8" fill="white" stroke="#B45309" stroke-width="2"/>
+<rect x="335" y="80" width="295" height="7" rx="4" fill="#B45309"/>
+<text x="482" y="130" text-anchor="middle" fill="#B45309" font-size="46" font-weight="bold">6 台</text>
+<text x="482" y="162" text-anchor="middle" fill="#555" font-size="20">openclaw VM 承载</text>
+<text x="482" y="188" text-anchor="middle" fill="#888" font-size="15">（原 3 台）</text>
+
+<!-- KPI 3: 内存分层 -->
+<rect x="650" y="80" width="295" height="120" rx="8" fill="white" stroke="#1B3A5C" stroke-width="2"/>
+<rect x="650" y="80" width="295" height="7" rx="4" fill="#1B3A5C"/>
+<text x="797" y="130" text-anchor="middle" fill="#1B3A5C" font-size="46" font-weight="bold">3 级</text>
+<text x="797" y="162" text-anchor="middle" fill="#555" font-size="20">内存分层</text>
+<text x="797" y="188" text-anchor="middle" fill="#888" font-size="15">L1 + L2 + L3</text>
+
+<!-- KPI 4: 提升幅度 -->
+<rect x="965" y="80" width="295" height="120" rx="8" fill="white" stroke="#6A1B9A" stroke-width="2"/>
+<rect x="965" y="80" width="295" height="7" rx="4" fill="#6A1B9A"/>
+<text x="1112" y="130" text-anchor="middle" fill="#6A1B9A" font-size="46" font-weight="bold">80%</text>
+<text x="1112" y="162" text-anchor="middle" fill="#555" font-size="20">超分提升幅度</text>
+<text x="1112" y="188" text-anchor="middle" fill="#888" font-size="15">VM 密度大幅提升</text>
+
+<!-- ====== LEFT: Architecture (x:20-580, y:220-680) ====== -->
+<rect x="20" y="220" width="560" height="460" rx="8" fill="#f4f7fb" stroke="#1B3A5C" stroke-width="1.5"/>
+<text x="300" y="254" text-anchor="middle" fill="#1B3A5C" font-size="20" font-weight="bold">架构示意</text>
+
+<!-- Caller → VM row -->
+<!-- Caller icon -->
+<circle cx="80" cy="310" r="28" fill="#1B3A5C"/>
+<circle cx="72" cy="304" r="5" fill="white"/>
+<circle cx="88" cy="304" r="5" fill="white"/>
+<path d="M70,316 Q80,324 90,316" stroke="white" fill="none" stroke-width="2" stroke-linecap="round"/>
+<path d="M48,348 Q48,365 80,370 Q112,365 112,348 Q112,338 96,342 Q80,346 64,342 Q48,338 48,348Z" fill="#2a4e72"/>
+<text x="80" y="384" text-anchor="middle" fill="#1B3A5C" font-size="15">调用端</text>
+
+<!-- Arrow to VM -->
+<line x1="112" y1="330" x2="148" y2="330" stroke="#1B3A5C" stroke-width="2.5"/>
+<polygon points="146,324 160,330 146,336" fill="#1B3A5C"/>
+
+<!-- VM + openclaw box -->
+<rect x="160" y="285" width="230" height="160" rx="8" fill="white" stroke="#B45309" stroke-width="2"/>
+<rect x="160" y="285" width="230" height="34" rx="8" fill="#B45309"/>
+<rect x="160" y="305" width="230" height="14" fill="#B45309"/>
+<text x="275" y="307" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">VM 虚机层</text>
+<!-- small claw -->
+<path d="M275,330 Q264,344 264,356 Q264,366 275,372" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M275,330 Q286,344 286,356 Q286,366 275,372" stroke="#B45309" fill="none" stroke-width="5" stroke-linecap="round"/>
+<path d="M256,338 Q246,350 248,362" stroke="#d97706" fill="none" stroke-width="3" stroke-linecap="round"/>
+<path d="M294,338 Q304,350 302,362" stroke="#d97706" fill="none" stroke-width="3" stroke-linecap="round"/>
+<text x="275" y="386" text-anchor="middle" fill="#B45309" font-size="12" font-weight="bold">openclaw</text>
+<!-- VM grid 2x3 small -->
+<rect x="166" y="394" width="62" height="40" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+<text x="197" y="410" text-anchor="middle" fill="#B45309" font-size="11">VM-01</text>
+<text x="197" y="426" text-anchor="middle" fill="#B45309" font-size="10">▪ 运行</text>
+<rect x="234" y="394" width="62" height="40" rx="4" fill="#fff5ee" stroke="#B45309" stroke-width="1.5"/>
+<text x="265" y="410" text-anchor="middle" fill="#B45309" font-size="11">VM-02</text>
+<text x="265" y="426" text-anchor="middle" fill="#B45309" font-size="10">▪ 运行</text>
+<rect x="302" y="394" width="62" height="40" rx="4" fill="#f0fff4" stroke="#2E7D32" stroke-width="1.5"/>
+<text x="333" y="410" text-anchor="middle" fill="#2E7D32" font-size="11">VM-04★</text>
+<text x="333" y="426" text-anchor="middle" fill="#2E7D32" font-size="10">★ 扩展</text>
+
+<!-- Arrow VM→memory -->
+<line x1="390" y1="360" x2="430" y2="360" stroke="#888" stroke-width="2" stroke-dasharray="6,4"/>
+<polygon points="428,354 444,360 428,366" fill="#888"/>
+
+<!-- L1 box -->
+<rect x="444" y="290" width="120" height="68" rx="6" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="2"/>
+<rect x="444" y="290" width="120" height="26" rx="6" fill="#1B3A5C"/>
+<rect x="444" y="306" width="120" height="10" fill="#1B3A5C"/>
+<text x="504" y="306" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L1 DRAM</text>
+<rect x="454" y="320" width="12" height="32" rx="2" fill="#3d6090"/>
+<rect x="470" y="320" width="12" height="32" rx="2" fill="#3d6090"/>
+<text x="515" y="344" fill="#1B3A5C" font-size="13" font-weight="bold">热·100ns</text>
+
+<!-- Miss arrow -->
+<line x1="504" y1="358" x2="504" y2="378" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="500,374 504,388 508,374" fill="#888"/>
+
+<!-- L2 box -->
+<rect x="444" y="388" width="120" height="68" rx="6" fill="#eafaf1" stroke="#2E7D32" stroke-width="2"/>
+<rect x="444" y="388" width="120" height="26" rx="6" fill="#2E7D32"/>
+<rect x="444" y="404" width="120" height="10" fill="#2E7D32"/>
+<text x="504" y="404" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L2 UB借用</text>
+<circle cx="464" cy="422" r="14" fill="#2E7D32"/><text x="464" y="427" text-anchor="middle" fill="white" font-size="9">UB</text>
+<circle cx="490" cy="422" r="14" fill="#2E7D32"/><text x="490" y="427" text-anchor="middle" fill="white" font-size="9">UB</text>
+<text x="530" y="444" fill="#1B5E20" font-size="13" font-weight="bold">温·1μs</text>
+
+<!-- Miss arrow -->
+<line x1="504" y1="456" x2="504" y2="476" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3"/>
+<polygon points="500,472 504,486 508,472" fill="#888"/>
+
+<!-- L3 box -->
+<rect x="444" y="486" width="120" height="68" rx="6" fill="#fef9ec" stroke="#B45309" stroke-width="2.5"/>
+<rect x="444" y="486" width="120" height="26" rx="6" fill="#B45309"/>
+<rect x="444" y="502" width="120" height="10" fill="#B45309"/>
+<text x="504" y="502" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L3 NVMe★</text>
+<rect x="454" y="518" width="60" height="30" rx="3" fill="#8B4513"/>
+<rect x="460" y="522" width="48" height="8" rx="2" fill="#c0a060"/>
+<rect x="460" y="534" width="48" height="8" rx="2" fill="#c0a060"/>
+<text x="524" y="538" fill="#7B3800" font-size="12" font-weight="bold">冷·100μs</text>
+
+<!-- Result at bottom -->
+<rect x="36" y="612" width="528" height="46" rx="6" fill="#1B3A5C"/>
+<text x="300" y="641" text-anchor="middle" fill="#fff" font-size="17" font-weight="bold">✓ SMAP 自动调度 · 超分比 1.0× → ↑ 1.8× · 应用透明</text>
+
+<!-- ====== RIGHT: Charts (x:600-1260, y:220-680) ====== -->
+<rect x="600" y="220" width="660" height="460" rx="8" fill="#f9fbfd" stroke="#dce6f0" stroke-width="1.5"/>
+<text x="930" y="254" text-anchor="middle" fill="#1B3A5C" font-size="20" font-weight="bold">超分比对比</text>
+
+<!-- Bar chart -->
+<text x="650" y="290" fill="#888" font-size="15">超分比</text>
+<!-- Y axis -->
+<line x1="660" y1="296" x2="660" y2="476" stroke="#ddd" stroke-width="1.5"/>
+<text x="654" y="306" text-anchor="end" fill="#888" font-size="13">2×</text>
+<text x="654" y="341" text-anchor="end" fill="#888" font-size="13">1.8×</text>
+<text x="654" y="386" text-anchor="end" fill="#888" font-size="13">1.5×</text>
+<text x="654" y="431" text-anchor="end" fill="#888" font-size="13">1.0×</text>
+<text x="654" y="476" text-anchor="end" fill="#888" font-size="13">0</text>
+<line x1="660" y1="296" x2="1240" y2="296" stroke="#f0f0f0" stroke-width="1"/>
+<line x1="660" y1="341" x2="1240" y2="341" stroke="#f0f0f0" stroke-width="1"/>
+<line x1="660" y1="386" x2="1240" y2="386" stroke="#f0f0f0" stroke-width="1"/>
+<line x1="660" y1="431" x2="1240" y2="431" stroke="#f0f0f0" stroke-width="1"/>
+
+<!-- Bar before (red) - height represents 1.0x = 45px from baseline 476 -->
+<rect x="730" y="431" width="180" height="45" rx="4" fill="#e74c3c"/>
+<text x="820" y="425" text-anchor="middle" fill="#c0392b" font-size="18" font-weight="bold">1.0×</text>
+<text x="820" y="494" text-anchor="middle" fill="#555" font-size="16">改造前</text>
+
+<!-- Bar after (green) - height represents 1.8x = 81px from baseline 476 -->
+<rect x="1000" y="341" width="180" height="135" rx="4" fill="#2E7D32"/>
+<text x="1090" y="335" text-anchor="middle" fill="#2E7D32" font-size="22" font-weight="bold">↑ 1.8×</text>
+<text x="1090" y="494" text-anchor="middle" fill="#555" font-size="16">改造后 (SMAP)</text>
+
+<!-- X axis -->
+<line x1="660" y1="476" x2="1240" y2="476" stroke="#888" stroke-width="1.5"/>
+
+<!-- Memory latency table -->
+<text x="930" y="534" text-anchor="middle" fill="#1B3A5C" font-size="20" font-weight="bold">内存分层延迟对比</text>
+<!-- Table header -->
+<rect x="620" y="546" width="620" height="36" rx="4" fill="#1B3A5C"/>
+<text x="720" y="569" text-anchor="middle" fill="white" font-size="16" font-weight="bold">层级</text>
+<text x="850" y="569" text-anchor="middle" fill="white" font-size="16" font-weight="bold">介质</text>
+<text x="1010" y="569" text-anchor="middle" fill="white" font-size="16" font-weight="bold">延迟</text>
+<text x="1150" y="569" text-anchor="middle" fill="white" font-size="16" font-weight="bold">数据类型</text>
+<!-- L1 row -->
+<rect x="620" y="582" width="620" height="36" rx="0" fill="#eaf0f8"/>
+<text x="720" y="606" text-anchor="middle" fill="#1B3A5C" font-size="16" font-weight="bold">L1</text>
+<text x="850" y="606" text-anchor="middle" fill="#555" font-size="16">本地 DRAM</text>
+<text x="1010" y="606" text-anchor="middle" fill="#1B3A5C" font-size="16" font-weight="bold">~100 ns</text>
+<text x="1150" y="606" text-anchor="middle" fill="#555" font-size="16">热数据</text>
+<!-- L2 row -->
+<rect x="620" y="618" width="620" height="36" rx="0" fill="#eafaf1"/>
+<text x="720" y="642" text-anchor="middle" fill="#2E7D32" font-size="16" font-weight="bold">L2</text>
+<text x="850" y="642" text-anchor="middle" fill="#555" font-size="16">UB 借用内存</text>
+<text x="1010" y="642" text-anchor="middle" fill="#2E7D32" font-size="16" font-weight="bold">~1 μs</text>
+<text x="1150" y="642" text-anchor="middle" fill="#555" font-size="16">温数据</text>
+<!-- L3 row -->
+<rect x="620" y="654" width="620" height="36" rx="0" fill="#fef9ec"/>
+<text x="720" y="678" text-anchor="middle" fill="#B45309" font-size="16" font-weight="bold">L3 ★</text>
+<text x="850" y="678" text-anchor="middle" fill="#555" font-size="16">NVMe SSD</text>
+<text x="1010" y="678" text-anchor="middle" fill="#B45309" font-size="16" font-weight="bold">~100 μs</text>
+<text x="1150" y="678" text-anchor="middle" fill="#555" font-size="16">冷数据</text>
+
+</svg>
+</body>
+</html>

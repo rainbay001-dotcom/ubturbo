@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP — 极简大图标</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<!-- Header -->
+<rect width="1280" height="68" fill="#1B3A5C"/>
+<text x="640" y="42" text-anchor="middle" fill="#fff" font-size="26" font-weight="bold">SMAP 内存分层 — openclaw 超分场景</text>
+<text x="640" y="60" text-anchor="middle" fill="#93b4d4" font-size="14">字节火山 AI 平台</text>
+
+<!-- Footer -->
+<rect y="692" width="1280" height="28" fill="#1B3A5C"/>
+<text x="640" y="710" text-anchor="middle" fill="#93b4d4" font-size="13">超分比 1.0× → ↑ 1.8× · VM 承载 3台 → 6台</text>
+
+<!-- ====== LEFT: Caller (x:40-230) ====== -->
+<!-- Giant person icon -->
+<circle cx="140" cy="240" r="60" fill="#1B3A5C"/>
+<circle cx="116" cy="222" r="12" fill="white"/>
+<circle cx="164" cy="222" r="12" fill="white"/>
+<path d="M113,244 Q140,265 167,244" stroke="white" fill="none" stroke-width="4" stroke-linecap="round"/>
+<path d="M68,316 Q68,358 140,368 Q212,358 212,316 Q212,292 183,300 Q140,312 97,300 Q68,292 68,316Z" fill="#2a4e72"/>
+<text x="140" y="414" text-anchor="middle" fill="#1B3A5C" font-size="24" font-weight="bold">调用端</text>
+
+<!-- Request chips (2x3 small) -->
+<rect x="46" y="436" width="90" height="36" rx="6" fill="#1B3A5C"/>
+<text x="91" y="459" text-anchor="middle" fill="#fff" font-size="15">🌐 网页</text>
+<rect x="144" y="436" width="90" height="36" rx="6" fill="#1B3A5C"/>
+<text x="189" y="459" text-anchor="middle" fill="#fff" font-size="15">🖼 图片</text>
+<rect x="46" y="480" width="90" height="36" rx="6" fill="#2a4e72"/>
+<text x="91" y="503" text-anchor="middle" fill="#fff" font-size="15">📜 脚本</text>
+<rect x="144" y="480" width="90" height="36" rx="6" fill="#2a4e72"/>
+<text x="189" y="503" text-anchor="middle" fill="#fff" font-size="15">📊 数据</text>
+<rect x="46" y="524" width="90" height="36" rx="6" fill="#3d6090"/>
+<text x="91" y="547" text-anchor="middle" fill="#fff" font-size="15">🎬 媒体</text>
+<rect x="144" y="524" width="90" height="36" rx="6" fill="#3d6090"/>
+<text x="189" y="547" text-anchor="middle" fill="#fff" font-size="15">🔗 API</text>
+
+<!-- Arrow 1 -->
+<path d="M230,360 Q280,320 330,360" stroke="#1B3A5C" stroke-width="4" fill="none" stroke-linecap="round"/>
+<polygon points="320,352 338,364 326,374" fill="#1B3A5C"/>
+<text x="280" y="310" text-anchor="middle" fill="#1B3A5C" font-size="17" font-weight="bold">触发请求</text>
+
+<!-- ====== CENTER: openclaw VM (x:340-700) ====== -->
+<!-- Giant openclaw browser window -->
+<rect x="340" y="96" width="360" height="290" rx="10" fill="white" stroke="#B45309" stroke-width="3"/>
+<rect x="340" y="96" width="360" height="52" rx="10" fill="#B45309"/>
+<rect x="340" y="134" width="360" height="14" fill="#B45309"/>
+<!-- titlebar elements -->
+<circle cx="366" cy="118" r="9" fill="#ffcc00"/>
+<circle cx="390" cy="118" r="9" fill="#ff6b6b"/>
+<circle cx="414" cy="118" r="9" fill="#51cf66"/>
+<rect x="434" y="108" width="200" height="20" rx="10" fill="rgba(255,255,255,0.85)"/>
+<text x="534" y="122" text-anchor="middle" fill="#666" font-size="12" font-family="monospace">openclaw://batch/render</text>
+
+<!-- GIANT claw icon (main visual) -->
+<path d="M520,172 Q492,210 492,244 Q492,272 520,292" stroke="#B45309" fill="none" stroke-width="14" stroke-linecap="round"/>
+<path d="M520,172 Q548,210 548,244 Q548,272 520,292" stroke="#B45309" fill="none" stroke-width="14" stroke-linecap="round"/>
+<path d="M478,190 Q452,224 458,258" stroke="#d97706" fill="none" stroke-width="9" stroke-linecap="round"/>
+<path d="M562,190 Q588,224 582,258" stroke="#d97706" fill="none" stroke-width="9" stroke-linecap="round"/>
+
+<text x="520" y="352" text-anchor="middle" fill="#B45309" font-size="22" font-weight="bold">openclaw browser</text>
+
+<!-- VM grid below browser -->
+<text x="520" y="408" text-anchor="middle" fill="#7B4000" font-size="18" font-weight="bold">VM 承载</text>
+<rect x="346" y="422" width="100" height="56" rx="6" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+<text x="396" y="446" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">VM-01</text>
+<text x="396" y="466" text-anchor="middle" fill="#B45309" font-size="13">▪ 运行</text>
+<rect x="454" y="422" width="100" height="56" rx="6" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+<text x="504" y="446" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">VM-02</text>
+<text x="504" y="466" text-anchor="middle" fill="#B45309" font-size="13">▪ 运行</text>
+<rect x="562" y="422" width="100" height="56" rx="6" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+<text x="612" y="446" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">VM-03</text>
+<text x="612" y="466" text-anchor="middle" fill="#B45309" font-size="13">▪ 运行</text>
+<rect x="346" y="486" width="100" height="56" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="396" y="508" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-04★</text>
+<text x="396" y="528" text-anchor="middle" fill="#2E7D32" font-size="13">超分扩展</text>
+<rect x="454" y="486" width="100" height="56" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="504" y="508" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-05★</text>
+<text x="504" y="528" text-anchor="middle" fill="#2E7D32" font-size="13">超分扩展</text>
+<rect x="562" y="486" width="100" height="56" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="612" y="508" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-06★</text>
+<text x="612" y="528" text-anchor="middle" fill="#2E7D32" font-size="13">超分扩展</text>
+
+<!-- SMAP status -->
+<rect x="346" y="554" width="350" height="36" rx="6" fill="#1B3A5C"/>
+<text x="521" y="578" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">✓ SMAP 超分比 1.0× → ↑ 1.8×</text>
+
+<!-- Arrow 2 -->
+<path d="M700,360 Q750,320 800,360" stroke="#888" stroke-width="3" fill="none" stroke-dasharray="10,5" stroke-linecap="round"/>
+<polygon points="790,352 808,364 796,374" fill="#888"/>
+<text x="750" y="310" text-anchor="middle" fill="#888" font-size="16">cache miss</text>
+<text x="750" y="332" text-anchor="middle" fill="#888" font-size="14">冷页卸载</text>
+
+<!-- ====== RIGHT: Memory tiers (x:810-1260) ====== -->
+<!-- L1 DRAM (blue, large RAM icon) -->
+<rect x="810" y="96" width="440" height="162" rx="8" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="2"/>
+<rect x="810" y="96" width="440" height="44" rx="8" fill="#1B3A5C"/>
+<rect x="810" y="126" width="440" height="14" fill="#1B3A5C"/>
+<text x="1030" y="126" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">L1 — 本地 DRAM</text>
+<!-- Giant RAM sticks (3) -->
+<rect x="828" y="150" width="36" height="96" rx="4" fill="#3d6090"/>
+<rect x="834" y="156" width="24" height="7" rx="1" fill="white" opacity="0.7"/>
+<rect x="834" y="167" width="24" height="7" rx="1" fill="white" opacity="0.5"/>
+<rect x="834" y="178" width="24" height="7" rx="1" fill="white" opacity="0.3"/>
+<rect x="874" y="150" width="36" height="96" rx="4" fill="#3d6090"/>
+<rect x="880" y="156" width="24" height="7" rx="1" fill="white" opacity="0.7"/>
+<rect x="880" y="167" width="24" height="7" rx="1" fill="white" opacity="0.5"/>
+<rect x="920" y="150" width="36" height="96" rx="4" fill="#5578a8"/>
+<rect x="926" y="156" width="24" height="7" rx="1" fill="white" opacity="0.7"/>
+<rect x="926" y="167" width="24" height="7" rx="1" fill="white" opacity="0.5"/>
+<text x="1090" y="192" text-anchor="middle" fill="#1B3A5C" font-size="26" font-weight="bold">热数据</text>
+<text x="1090" y="224" text-anchor="middle" fill="#555" font-size="20">延迟 ~100 ns</text>
+
+<!-- Miss arrow L1→L2 -->
+<line x1="1030" y1="258" x2="1030" y2="278" stroke="#888" stroke-width="2.5" stroke-dasharray="7,4"/>
+<polygon points="1023,274 1030,290 1037,274" fill="#888"/>
+<text x="1080" y="272" fill="#888" font-size="14">cache miss</text>
+
+<!-- L2 UB (green, larger) -->
+<rect x="810" y="290" width="440" height="162" rx="8" fill="#eafaf1" stroke="#2E7D32" stroke-width="2"/>
+<rect x="810" y="290" width="440" height="44" rx="8" fill="#2E7D32"/>
+<rect x="810" y="320" width="440" height="14" fill="#2E7D32"/>
+<text x="1030" y="320" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">L2 — UB 借用内存</text>
+<!-- Large UB network nodes -->
+<circle cx="878" cy="376" r="38" fill="#2E7D32"/>
+<text x="878" y="382" text-anchor="middle" fill="white" font-size="18" font-weight="bold">UB</text>
+<circle cx="972" cy="376" r="38" fill="#2E7D32"/>
+<text x="972" y="382" text-anchor="middle" fill="white" font-size="18" font-weight="bold">UB</text>
+<line x1="916" y1="376" x2="934" y2="376" stroke="#2E7D32" stroke-width="4"/>
+<polygon points="912,370 926,376 912,382" fill="#2E7D32"/>
+<polygon points="938,370 924,376 938,382" fill="#2E7D32"/>
+<text x="1090" y="368" text-anchor="middle" fill="#1B5E20" font-size="26" font-weight="bold">温数据</text>
+<text x="1090" y="400" text-anchor="middle" fill="#555" font-size="20">延迟 ~1 μs</text>
+<text x="1090" y="428" text-anchor="middle" fill="#888" font-size="15">RDMA 访问</text>
+
+<!-- Miss arrow L2→L3 -->
+<line x1="1030" y1="452" x2="1030" y2="472" stroke="#888" stroke-width="2.5" stroke-dasharray="7,4"/>
+<polygon points="1023,468 1030,484 1037,468" fill="#888"/>
+<text x="1080" y="466" fill="#888" font-size="14">cache miss</text>
+
+<!-- L3 NVMe (orange, highlighted) -->
+<rect x="810" y="484" width="440" height="190" rx="8" fill="#fef9ec" stroke="#B45309" stroke-width="3"/>
+<rect x="810" y="484" width="440" height="44" rx="8" fill="#B45309"/>
+<rect x="810" y="514" width="440" height="14" fill="#B45309"/>
+<text x="1030" y="514" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">L3 — NVMe SSD ★ 核心超分扩展</text>
+<!-- Giant NVMe PCB -->
+<rect x="828" y="536" width="200" height="120" rx="6" fill="#8B4513"/>
+<rect x="842" y="546" width="172" height="18" rx="3" fill="#c0a060"/>
+<rect x="842" y="568" width="172" height="18" rx="3" fill="#c0a060"/>
+<rect x="842" y="590" width="172" height="18" rx="3" fill="#c0a060"/>
+<rect x="842" y="612" width="172" height="18" rx="3" fill="#c0a060"/>
+<rect x="848" y="548" width="30" height="14" rx="2" fill="#333"/>
+<rect x="884" y="548" width="30" height="14" rx="2" fill="#333"/>
+<rect x="920" y="548" width="30" height="14" rx="2" fill="#333"/>
+<text x="1120" y="576" text-anchor="middle" fill="#7B3800" font-size="26" font-weight="bold">冷数据</text>
+<text x="1120" y="610" text-anchor="middle" fill="#555" font-size="20">延迟 ~100 μs</text>
+<text x="1120" y="638" text-anchor="middle" fill="#B45309" font-size="17" font-weight="bold">★ 核心超分扩展</text>
+<text x="1120" y="660" text-anchor="middle" fill="#888" font-size="15">本地 NVMe SSD</text>
+
+</svg>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP — 物理部署全景</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<!-- Header -->
+<rect width="1280" height="68" fill="#1B3A5C"/>
+<text x="640" y="42" text-anchor="middle" fill="#fff" font-size="26" font-weight="bold">SMAP 方案 — 宿主机物理部署视图</text>
+<text x="640" y="60" text-anchor="middle" fill="#93b4d4" font-size="14">字节火山 AI 服务平台 · 单物理宿主机视图</text>
+
+<!-- Footer -->
+<rect y="692" width="1280" height="28" fill="#1B3A5C"/>
+<text x="640" y="710" text-anchor="middle" fill="#93b4d4" font-size="13">L2 通过 RDMA NIC 访问远端 UB 借用内存 · L3 本地 NVMe SSD</text>
+
+<!-- Main chassis rectangle -->
+<rect x="20" y="80" width="1240" height="598" rx="10" fill="#f8faff" stroke="#1B3A5C" stroke-width="2"/>
+<!-- Chassis label -->
+<rect x="20" y="80" width="1240" height="50" rx="10" fill="#1B3A5C"/>
+<rect x="20" y="116" width="1240" height="14" fill="#1B3A5C"/>
+<text x="640" y="112" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">字节火山 AI 平台 · 宿主机</text>
+
+<!-- ====== CPU (x:40-220, y:146-290) ====== -->
+<rect x="40" y="146" width="180" height="144" rx="8" fill="#1B3A5C"/>
+<text x="130" y="188" text-anchor="middle" fill="#fff" font-size="22" font-weight="bold">CPU</text>
+<!-- CPU chip grid -->
+<rect x="60" y="200" width="140" height="80" rx="4" fill="#2a4e72"/>
+<rect x="68" y="208" width="24" height="24" rx="2" fill="#3d6090"/>
+<rect x="98" y="208" width="24" height="24" rx="2" fill="#3d6090"/>
+<rect x="128" y="208" width="24" height="24" rx="2" fill="#3d6090"/>
+<rect x="68" y="238" width="24" height="24" rx="2" fill="#3d6090"/>
+<rect x="98" y="238" width="24" height="24" rx="2" fill="#3d6090"/>
+<rect x="128" y="238" width="24" height="24" rx="2" fill="#3d6090"/>
+<text x="130" y="178" text-anchor="middle" fill="#93b4d4" font-size="17">× 2 颗</text>
+
+<!-- Arrow CPU → VM -->
+<line x1="220" y1="218" x2="254" y2="218" stroke="#1B3A5C" stroke-width="2.5"/>
+<polygon points="252,212 268,218 252,224" fill="#1B3A5C"/>
+
+<!-- ====== VM + openclaw (x:268-688, y:146-438) ====== -->
+<rect x="268" y="146" width="420" height="292" rx="8" fill="white" stroke="#B45309" stroke-width="2.5"/>
+<rect x="268" y="146" width="420" height="42" rx="8" fill="#B45309"/>
+<rect x="268" y="174" width="420" height="14" fill="#B45309"/>
+<text x="478" y="174" text-anchor="middle" fill="#fff" font-size="19" font-weight="bold">VM 虚机层 — openclaw browser</text>
+
+<!-- Large openclaw browser icon centered top of VM area -->
+<rect x="306" y="172" width="220" height="140" rx="6" fill="#fff8f0" stroke="#B45309" stroke-width="1.5"/>
+<rect x="306" y="172" width="220" height="30" rx="6" fill="#B45309" opacity="0.6"/>
+<circle cx="322" cy="183" r="5" fill="#eee"/>
+<circle cx="336" cy="183" r="5" fill="#ddd"/>
+<circle cx="350" cy="183" r="5" fill="#ccc"/>
+<!-- big claw -->
+<path d="M416,212 Q402,232 402,250 Q402,264 416,274" stroke="#B45309" fill="none" stroke-width="8" stroke-linecap="round"/>
+<path d="M416,212 Q430,232 430,250 Q430,264 416,274" stroke="#B45309" fill="none" stroke-width="8" stroke-linecap="round"/>
+<path d="M390,222 Q376,240 380,258" stroke="#d97706" fill="none" stroke-width="5.5" stroke-linecap="round"/>
+<path d="M442,222 Q456,240 452,258" stroke="#d97706" fill="none" stroke-width="5.5" stroke-linecap="round"/>
+<text x="416" y="296" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">openclaw browser</text>
+
+<!-- VM grid (2x3) -->
+<rect x="556" y="172" width="118" height="64" rx="6" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+<text x="615" y="196" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">VM-01</text>
+<text x="615" y="218" text-anchor="middle" fill="#B45309" font-size="13">▪ 运行中</text>
+<text x="615" y="234" text-anchor="middle" fill="#B45309" font-size="11">2v/4G</text>
+
+<rect x="556" y="244" width="118" height="64" rx="6" fill="#fff5ee" stroke="#B45309" stroke-width="2"/>
+<text x="615" y="268" text-anchor="middle" fill="#B45309" font-size="15" font-weight="bold">VM-02</text>
+<text x="615" y="290" text-anchor="middle" fill="#B45309" font-size="13">▪ 运行中</text>
+<text x="615" y="306" text-anchor="middle" fill="#B45309" font-size="11">2v/4G</text>
+
+<rect x="306" y="322" width="118" height="64" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="365" y="344" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-04 ★</text>
+<text x="365" y="366" text-anchor="middle" fill="#2E7D32" font-size="13">▪ 超分扩展</text>
+<text x="365" y="380" text-anchor="middle" fill="#2E7D32" font-size="11">SMAP</text>
+
+<rect x="434" y="322" width="118" height="64" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="493" y="344" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-05 ★</text>
+<text x="493" y="366" text-anchor="middle" fill="#2E7D32" font-size="13">▪ 超分扩展</text>
+<text x="493" y="380" text-anchor="middle" fill="#2E7D32" font-size="11">SMAP</text>
+
+<rect x="556" y="322" width="118" height="64" rx="6" fill="#f0fff4" stroke="#2E7D32" stroke-width="2"/>
+<text x="615" y="344" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">VM-06 ★</text>
+<text x="615" y="366" text-anchor="middle" fill="#2E7D32" font-size="13">▪ 超分扩展</text>
+<text x="615" y="380" text-anchor="middle" fill="#2E7D32" font-size="11">SMAP</text>
+
+<!-- SMAP label -->
+<rect x="306" y="402" width="370" height="30" rx="4" fill="#1B3A5C"/>
+<text x="491" y="422" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold">✓ SMAP 已启用 · 超分比 1.0× → ↑ 1.8×</text>
+
+<!-- Arrows to storage -->
+<line x1="688" y1="292" x2="718" y2="292" stroke="#1B3A5C" stroke-width="2.5"/>
+<polygon points="716,286 732,292 716,298" fill="#1B3A5C"/>
+
+<!-- ====== L1 DRAM (x:732-920, y:146-290) ====== -->
+<rect x="732" y="146" width="188" height="144" rx="8" fill="#eaf0f8" stroke="#1B3A5C" stroke-width="2"/>
+<rect x="732" y="146" width="188" height="38" rx="8" fill="#1B3A5C"/>
+<rect x="732" y="170" width="188" height="14" fill="#1B3A5C"/>
+<text x="826" y="170" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">L1 — 本地 DRAM</text>
+<!-- RAM sticks -->
+<rect x="750" y="192" width="22" height="84" rx="3" fill="#3d6090"/>
+<rect x="753" y="196" width="16" height="5" rx="1" fill="white" opacity="0.7"/>
+<rect x="753" y="205" width="16" height="5" rx="1" fill="white" opacity="0.5"/>
+<rect x="753" y="214" width="16" height="5" rx="1" fill="white" opacity="0.3"/>
+<rect x="780" y="192" width="22" height="84" rx="3" fill="#3d6090"/>
+<rect x="783" y="196" width="16" height="5" rx="1" fill="white" opacity="0.7"/>
+<rect x="783" y="205" width="16" height="5" rx="1" fill="white" opacity="0.5"/>
+<rect x="810" y="192" width="22" height="84" rx="3" fill="#5578a8"/>
+<rect x="813" y="196" width="16" height="5" rx="1" fill="white" opacity="0.7"/>
+<text x="876" y="228" text-anchor="middle" fill="#1B3A5C" font-size="17" font-weight="bold">热数据</text>
+<text x="876" y="252" text-anchor="middle" fill="#555" font-size="15">~100 ns</text>
+<text x="876" y="274" text-anchor="middle" fill="#888" font-size="14">本地访问</text>
+
+<!-- L1 miss arrow down -->
+<line x1="826" y1="290" x2="826" y2="318" stroke="#888" stroke-width="2" stroke-dasharray="6,3"/>
+<polygon points="820,314 826,330 832,314" fill="#888"/>
+<text x="868" y="308" fill="#888" font-size="13">cache miss</text>
+
+<!-- ====== L2 UB (x:732-920, y:330-474) ====== -->
+<rect x="732" y="330" width="188" height="144" rx="8" fill="#eafaf1" stroke="#2E7D32" stroke-width="2"/>
+<rect x="732" y="330" width="188" height="38" rx="8" fill="#2E7D32"/>
+<rect x="732" y="354" width="188" height="14" fill="#2E7D32"/>
+<text x="826" y="354" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">L2 — UB 借用内存</text>
+<!-- UB nodes -->
+<circle cx="772" cy="400" r="26" fill="#2E7D32"/>
+<text x="772" y="406" text-anchor="middle" fill="white" font-size="14" font-weight="bold">UB</text>
+<circle cx="836" cy="400" r="26" fill="#2E7D32"/>
+<text x="836" y="406" text-anchor="middle" fill="white" font-size="14" font-weight="bold">UB</text>
+<line x1="798" y1="400" x2="810" y2="400" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="826" y="448" text-anchor="middle" fill="#1B5E20" font-size="16" font-weight="bold">温数据</text>
+<text x="826" y="466" text-anchor="middle" fill="#555" font-size="14">~1 μs  RDMA</text>
+
+<!-- Arrow to RDMA NIC -->
+<line x1="920" y1="402" x2="956" y2="402" stroke="#2E7D32" stroke-width="2.5"/>
+<polygon points="954,396 970,402 954,408" fill="#2E7D32"/>
+
+<!-- L2 miss arrow down -->
+<line x1="826" y1="474" x2="826" y2="502" stroke="#888" stroke-width="2" stroke-dasharray="6,3"/>
+<polygon points="820,498 826,514 832,498" fill="#888"/>
+<text x="868" y="492" fill="#888" font-size="13">cache miss</text>
+
+<!-- ====== L3 NVMe (x:732-920, y:514-658) ====== -->
+<rect x="732" y="514" width="188" height="144" rx="8" fill="#fef9ec" stroke="#B45309" stroke-width="3"/>
+<rect x="732" y="514" width="188" height="38" rx="8" fill="#B45309"/>
+<rect x="732" y="538" width="188" height="14" fill="#B45309"/>
+<text x="826" y="538" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">L3 — NVMe ★</text>
+<!-- NVMe sticks -->
+<rect x="748" y="560" width="70" height="32" rx="4" fill="#8B4513"/>
+<rect x="756" y="564" width="54" height="8" rx="2" fill="#c0a060"/>
+<rect x="756" y="576" width="54" height="8" rx="2" fill="#c0a060"/>
+<rect x="748" y="596" width="70" height="32" rx="4" fill="#8B4513"/>
+<rect x="756" y="600" width="54" height="8" rx="2" fill="#c0a060"/>
+<rect x="756" y="612" width="54" height="8" rx="2" fill="#c0a060"/>
+<text x="862" y="580" text-anchor="middle" fill="#7B3800" font-size="16" font-weight="bold">冷数据</text>
+<text x="862" y="600" text-anchor="middle" fill="#555" font-size="14">~100 μs</text>
+<text x="862" y="618" text-anchor="middle" fill="#B45309" font-size="14" font-weight="bold">★ 核心</text>
+<text x="862" y="648" text-anchor="middle" fill="#888" font-size="13">本地 NVMe</text>
+
+<!-- ====== RDMA NIC (x:970-1140, y:330-474) ====== -->
+<rect x="970" y="330" width="188" height="144" rx="8" fill="#f0f8f0" stroke="#2E7D32" stroke-width="2"/>
+<rect x="970" y="330" width="188" height="38" rx="8" fill="#2E7D32"/>
+<rect x="970" y="354" width="188" height="14" fill="#2E7D32"/>
+<text x="1064" y="354" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">RDMA NIC</text>
+<!-- NIC card icon -->
+<rect x="988" y="378" width="152" height="78" rx="6" fill="#1e5e1e"/>
+<!-- ports -->
+<rect x="996" y="388" width="20" height="20" rx="3" fill="#555"/>
+<rect x="1022" y="388" width="20" height="20" rx="3" fill="#555"/>
+<rect x="1048" y="388" width="20" height="20" rx="3" fill="#555"/>
+<rect x="1074" y="388" width="20" height="20" rx="3" fill="#555"/>
+<!-- chip -->
+<rect x="1002" y="416" width="50" height="30" rx="3" fill="#0a3f0a"/>
+<text x="1027" y="435" text-anchor="middle" fill="#3aff3a" font-size="10" font-weight="bold">RDMA</text>
+<text x="1064" y="460" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">→ UB 借用池</text>
+
+<!-- Arrows L2→remote -->
+<path d="M1064,474 Q1064,520 1140,540" stroke="#2E7D32" stroke-width="2" stroke-dasharray="6,3" fill="none"/>
+<text x="1140" y="560" text-anchor="middle" fill="#2E7D32" font-size="14">远端 UB 内存池</text>
+<text x="1140" y="578" text-anchor="middle" fill="#888" font-size="13">~1 μs via RDMA</text>
+
+</svg>
+</body>
+</html>

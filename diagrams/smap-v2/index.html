@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>SMAP 场景示意图 · 第七版</title>
+<style>
+  body { margin:0; padding:24px; background:#F1F5F9; font-family:'Microsoft YaHei',Arial,sans-serif; }
+  h1 { color:#1E3A8A; font-size:22px; margin:0 0 8px; }
+  p { color:#64748B; font-size:14px; margin:0 0 24px; }
+  .grid { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; }
+  .card { background:white; border-radius:10px; overflow:hidden; border:2px solid #E2E8F0; transition:border-color .2s; }
+  .card:hover { border-color:#1E3A8A; }
+  .card a { display:block; text-decoration:none; }
+  .card-header { background:#1E3A8A; padding:10px 14px; }
+  .card-num { color:#93C5FD; font-size:11px; margin:0; }
+  .card-title { color:white; font-size:14px; font-weight:bold; margin:4px 0 0; }
+  .card-desc { padding:10px 14px; color:#475569; font-size:12px; line-height:1.5; }
+  .tag { display:inline-block; background:#EFF6FF; color:#1E3A8A; border-radius:4px; padding:2px 7px; font-size:11px; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>SMAP 场景示意图 · v7</h1>
+<p>字节火山 AI 服务平台 · openclaw browser · L2 UB 借用内存 + L3 NVMe 超分关键 · 10 款差异化排版</p>
+<div class="grid">
+  <div class="card">
+    <a href="style01-horizontal-flow.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">01 / 10</p>
+        <p class="card-title">横向流程图</p>
+      </div>
+      <div class="card-desc">
+        用户→VM→SMAP→内存，5节点水平流程。右侧扇出至 L1/L2/L3。底部描述说明。
+        <br><span class="tag">横向流程</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style02-two-column.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">02 / 10</p>
+        <p class="card-title">左右分栏</p>
+      </div>
+      <div class="card-desc">
+        左：VM/openclaw 上下文；右：SMAP+三层内存。中间箭头连接两侧。
+        <br><span class="tag">左右分栏</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style03-top-down.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">03 / 10</p>
+        <p class="card-title">纵向级联</p>
+      </div>
+      <div class="card-desc">
+        平台→VM/openclaw→SMAP→L1/L2/L3 纵向瀑布。三层内存并排底部。
+        <br><span class="tag">纵向级联</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style04-swimlane.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">04 / 10</p>
+        <p class="card-title">泳道图</p>
+      </div>
+      <div class="card-desc">
+        四条泳道：用户层 / VM+openclaw / SMAP / 内存层，横向流程贯穿。
+        <br><span class="tag">泳道流程</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style05-memory-focus.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">05 / 10</p>
+        <p class="card-title">内存架构焦点</p>
+      </div>
+      <div class="card-desc">
+        左栏：VM/openclaw；右侧：L1/L2/L3 纵向叠放，带宽条可视化。L3 超分关键高亮。
+        <br><span class="tag">内存为中心</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style06-quad-grid.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">06 / 10</p>
+        <p class="card-title">四格网格</p>
+      </div>
+      <div class="card-desc">
+        2×2 四格：基础设施/openclaw+SMAP/L1/L2+L3，各格独立信息板块。
+        <br><span class="tag">四格布局</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style07-before-after.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">07 / 10</p>
+        <p class="card-title">前后对比</p>
+      </div>
+      <div class="card-desc">
+        左半：无 SMAP（受限）；右半：部署 SMAP（超分扩展）；中间蓝色分割栏。
+        <br><span class="tag">对比布局</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style08-topology.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">08 / 10</p>
+        <p class="card-title">系统拓扑图</p>
+      </div>
+      <div class="card-desc">
+        节点+连线拓扑：用户→VM→openclaw→SMAP→L1/L2/L3，右侧图例面板。
+        <br><span class="tag">拓扑连线</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style09-layer-bands.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">09 / 10</p>
+        <p class="card-title">横向分层带</p>
+      </div>
+      <div class="card-desc">
+        深色背景，三条全宽横带：应用层/SMAP层/内存层，每层有彩色侧边标签。
+        <br><span class="tag">分层横带</span>
+      </div>
+    </a>
+  </div>
+  <div class="card">
+    <a href="style10-infographic.html" target="_blank">
+      <div class="card-header">
+        <p class="card-num">10 / 10</p>
+        <p class="card-title">侧边信息图</p>
+      </div>
+      <div class="card-desc">
+        深色左侧导航栏+右侧主内容：顶部请求流→底部三列内存卡片。
+        <br><span class="tag">信息图</span>
+      </div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

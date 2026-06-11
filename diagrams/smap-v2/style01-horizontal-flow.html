@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>SMAP 场景示意 · 横向流程图</title>
+</head>
+<body style="margin:0;padding:0;background:#F8FAFC;">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#1E3A8A"/>
+    </marker>
+    <marker id="arrO" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#EA580C"/>
+    </marker>
+    <marker id="arrG" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#059669"/>
+    </marker>
+    <marker id="arrA" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#D97706"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#F8FAFC"/>
+
+  <!-- Header -->
+  <rect width="1280" height="72" fill="#1E3A8A"/>
+  <text x="36" y="30" fill="white" font-size="22" font-weight="bold" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 内存超分 · 场景示意</text>
+  <text x="36" y="56" fill="#93C5FD" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 服务平台 · openclaw Browser · openEuler OLK-6.6</text>
+  <!-- KPI chip -->
+  <rect x="1060" y="10" width="200" height="52" rx="8" fill="#FFF7ED" stroke="#EA580C" stroke-width="2"/>
+  <text x="1160" y="36" fill="#EA580C" font-size="26" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">L3 超分关键</text>
+  <text x="1160" y="55" fill="#92400E" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">NVMe 扩展内存池</text>
+
+  <!-- ── MAIN FLOW ── -->
+  <!-- Step labels (top) -->
+  <text x="130" y="108" fill="#64748B" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">① 用户请求</text>
+  <text x="370" y="108" fill="#EA580C" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">② VM + openclaw</text>
+  <text x="640" y="108" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">③ SMAP 调度</text>
+  <text x="900" y="108" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">④ L1 · DRAM</text>
+  <text x="1100" y="108" fill="#059669" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">⑤ L2 · UB借用</text>
+  <!-- L3 label separate -->
+  <text x="1210" y="108" fill="#D97706" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">⑥ L3 · NVMe</text>
+
+  <!-- Box 1: User -->
+  <rect x="36" y="120" width="188" height="200" rx="12" fill="white" stroke="#CBD5E1" stroke-width="2"/>
+  <rect x="36" y="120" width="188" height="40" rx="12" fill="#F1F5F9"/>
+  <rect x="36" y="148" width="188" height="12" fill="#F1F5F9"/>
+  <text x="130" y="148" fill="#1E3A8A" font-size="16" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">用户</text>
+  <!-- Person icon -->
+  <circle cx="130" cy="195" r="24" fill="#DBEAFE" stroke="#1E3A8A" stroke-width="2"/>
+  <circle cx="130" cy="186" r="10" fill="#1E3A8A"/>
+  <path d="M108 212 Q130 200 152 212 L152 220 Q130 214 108 220 Z" fill="#1E3A8A"/>
+  <text x="130" y="252" fill="#64748B" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">Browser 请求</text>
+  <text x="130" y="272" fill="#64748B" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">触发内存访问</text>
+  <text x="130" y="295" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">request</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="224" y1="220" x2="252" y2="220" stroke="#1E3A8A" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- Box 2: VM + openclaw -->
+  <rect x="256" y="120" width="228" height="200" rx="12" fill="white" stroke="#EA580C" stroke-width="2.5"/>
+  <rect x="256" y="120" width="228" height="40" rx="12" fill="#FFF7ED"/>
+  <rect x="256" y="148" width="228" height="12" fill="#FFF7ED"/>
+  <text x="370" y="148" fill="#EA580C" font-size="16" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">VM · openclaw</text>
+  <!-- Browser icon -->
+  <rect x="300" y="166" width="140" height="88" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5"/>
+  <rect x="300" y="166" width="140" height="22" rx="6" fill="#E2E8F0"/>
+  <rect x="300" y="176" width="140" height="12" fill="#E2E8F0"/>
+  <circle cx="314" cy="177" r="4" fill="#EF4444"/>
+  <circle cx="326" cy="177" r="4" fill="#F59E0B"/>
+  <circle cx="338" cy="177" r="4" fill="#22C55E"/>
+  <rect x="350" y="171" width="82" height="12" rx="6" fill="white" stroke="#CBD5E1" stroke-width="1"/>
+  <text x="370" y="195" fill="#EA580C" font-size="10" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">openclaw://</text>
+  <!-- Lines of content -->
+  <rect x="308" y="198" width="100" height="6" rx="3" fill="#CBD5E1"/>
+  <rect x="308" y="210" width="124" height="6" rx="3" fill="#E2E8F0"/>
+  <rect x="308" y="222" width="84" height="6" rx="3" fill="#E2E8F0"/>
+  <text x="370" y="272" fill="#92400E" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">2vCPU · 4GB</text>
+  <text x="370" y="295" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">2U4G VM instance</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="484" y1="220" x2="510" y2="220" stroke="#EA580C" stroke-width="3" marker-end="url(#arrO)"/>
+
+  <!-- Box 3: SMAP -->
+  <rect x="514" y="120" width="252" height="200" rx="12" fill="white" stroke="#1E3A8A" stroke-width="2"/>
+  <rect x="514" y="120" width="252" height="40" rx="12" fill="#EFF6FF"/>
+  <rect x="514" y="148" width="252" height="12" fill="#EFF6FF"/>
+  <text x="640" y="148" fill="#1E3A8A" font-size="16" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 内存调度器</text>
+  <!-- SMAP diagram - simple boxes -->
+  <text x="640" y="180" fill="#475569" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">内存访问热度检测</text>
+  <rect x="530" y="188" width="220" height="28" rx="6" fill="#DBEAFE"/>
+  <text x="640" y="207" fill="#1E3A8A" font-size="13" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">page reclaim · folio migrate</text>
+  <text x="640" y="237" fill="#475569" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热/温/冷 自动分页</text>
+  <rect x="530" y="244" width="220" height="28" rx="6" fill="#DBEAFE"/>
+  <text x="640" y="263" fill="#1E3A8A" font-size="13" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1 → L2 → L3 迁移策略</text>
+  <text x="640" y="295" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">openEuler OLK-6.6 · UB Stack</text>
+
+  <!-- Arrows 3→4,5,6 (fan out) -->
+  <line x1="766" y1="170" x2="840" y2="170" stroke="#1E3A8A" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="766" y1="220" x2="840" y2="220" stroke="#059669" stroke-width="2.5" marker-end="url(#arrG)"/>
+  <line x1="766" y1="270" x2="840" y2="270" stroke="#D97706" stroke-width="2.5" marker-end="url(#arrA)"/>
+
+  <!-- Box 4: L1 DRAM -->
+  <rect x="844" y="140" width="180" height="62" rx="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/>
+  <text x="934" y="164" fill="#1E3A8A" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1 · DRAM</text>
+  <text x="934" y="184" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热数据 · ~100ns</text>
+
+  <!-- Box 5: L2 UB -->
+  <rect x="844" y="192" width="180" height="62" rx="10" fill="#F0FDF4" stroke="#059669" stroke-width="2"/>
+  <text x="934" y="216" fill="#059669" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L2 · UB 借用</text>
+  <text x="934" y="236" fill="#059669" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">温数据 · ~1μs</text>
+
+  <!-- Box 6: L3 NVMe (highlighted) -->
+  <rect x="844" y="242" width="180" height="62" rx="10" fill="#FFF7ED" stroke="#D97706" stroke-width="2.5"/>
+  <text x="934" y="266" fill="#D97706" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L3 · NVMe SSD</text>
+  <text x="934" y="286" fill="#D97706" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">冷数据 · 超分关键</text>
+
+  <!-- ── BOTTOM SECTION: Description ── -->
+  <rect x="36" y="360" width="1208" height="160" rx="12" fill="white" stroke="#CBD5E1" stroke-width="1.5"/>
+  <!-- Left: Architecture overview -->
+  <text x="72" y="392" fill="#1E3A8A" font-size="16" font-weight="bold" font-family="'Microsoft YaHei',Arial,sans-serif">方案概述</text>
+  <text x="72" y="416" fill="#475569" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP（内存分层管理）在字节火山 AI 平台上利用 L2 UB 借用内存与 L3 NVMe</text>
+  <text x="72" y="438" fill="#475569" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">扩展虚拟机可用内存总量，提升整机 VM 超分比，降低单台实例成本。</text>
+  <text x="72" y="462" fill="#475569" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">openclaw browser 在 VM 内运行，触发内存访问，由 SMAP 自动将冷热页分配至对应层级。</text>
+  <text x="72" y="486" fill="#94A3B8" font-size="13" font-family="'Microsoft YaHei',Arial,sans-serif">workload: openclaw browser · 2vCPU/4GB VM · openEuler OLK-6.6 · UB Stack</text>
+
+  <!-- Right: Key metrics -->
+  <line x1="900" y1="376" x2="900" y2="504" stroke="#E2E8F0" stroke-width="1.5"/>
+  <rect x="924" y="376" width="156" height="112" rx="8" fill="#EFF6FF"/>
+  <text x="1002" y="402" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1 DRAM</text>
+  <text x="1002" y="422" fill="#1E3A8A" font-size="20" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">32 GB</text>
+  <text x="1002" y="440" fill="#64748B" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">物理内存</text>
+  <text x="1002" y="464" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="Arial,sans-serif">100ns 延迟</text>
+  <text x="1002" y="482" fill="#1E3A8A" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热数据常驻</text>
+
+  <rect x="1092" y="376" width="156" height="112" rx="8" fill="#F0FDF4"/>
+  <text x="1170" y="402" fill="#059669" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L2 UB借用</text>
+  <text x="1170" y="422" fill="#059669" font-size="20" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">128 GB</text>
+  <text x="1170" y="440" fill="#64748B" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">借用容量</text>
+  <text x="1170" y="464" fill="#059669" font-size="13" text-anchor="middle" font-family="Arial,sans-serif">~1μs 延迟</text>
+  <text x="1170" y="482" fill="#059669" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">温数据扩展</text>
+
+  <!-- L3 special callout -->
+  <rect x="36" y="536" width="1208" height="100" rx="12" fill="#FFF7ED" stroke="#D97706" stroke-width="2"/>
+  <text x="72" y="564" fill="#D97706" font-size="16" font-weight="bold" font-family="'Microsoft YaHei',Arial,sans-serif">L3 NVMe · 超分关键</text>
+  <text x="72" y="588" fill="#92400E" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">NVMe SSD 作为第三层冷数据存储，大幅扩展单台物理机可承载的 VM 数量，</text>
+  <text x="72" y="610" fill="#92400E" font-size="14" font-family="'Microsoft YaHei',Arial,sans-serif">是实现整机超分比提升的关键层级。SMAP 自动迁移低频冷页至 NVMe 层，保持热路径性能。</text>
+  <rect x="1020" y="548" width="200" height="72" rx="8" fill="white" stroke="#D97706" stroke-width="1.5"/>
+  <text x="1120" y="574" fill="#D97706" font-size="28" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">4 TB</text>
+  <text x="1120" y="598" fill="#92400E" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">NVMe 容量</text>
+  <text x="1120" y="614" fill="#D97706" font-size="13" text-anchor="middle" font-family="Arial,sans-serif">~100μs 延迟</text>
+
+  <!-- Footer -->
+  <rect y="656" width="1280" height="64" fill="#F1F5F9"/>
+  <text x="36" y="692" fill="#64748B" font-size="13" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 服务平台 · SMAP 内存超分方案 · openEuler OLK-6.6 · Style 01 · 横向流程图</text>
+  <text x="1244" y="692" fill="#CBD5E1" font-size="13" text-anchor="end" font-family="Arial,sans-serif">1/10</text>
+</svg>
+</body>
+</html>

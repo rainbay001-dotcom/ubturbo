@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>SMAP 场景示意 · 纵向级联</title>
+</head>
+<body style="margin:0;padding:0;background:#F8FAFC;">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#1E3A8A"/>
+    </marker>
+    <marker id="arrO" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#EA580C"/>
+    </marker>
+    <marker id="arrA" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#D97706"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="720" fill="#F8FAFC"/>
+
+  <!-- Header -->
+  <rect width="1280" height="68" fill="#1E3A8A"/>
+  <text x="640" y="28" fill="white" font-size="20" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP · 内存超分架构</text>
+  <text x="640" y="54" fill="#93C5FD" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 平台 · openclaw browser · L3 NVMe 超分关键 · openEuler OLK-6.6</text>
+
+  <!-- ROW 1: Platform context -->
+  <rect x="200" y="84" width="880" height="68" rx="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="1.5"/>
+  <text x="640" y="112" fill="#1E3A8A" font-size="16" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 服务平台</text>
+  <text x="640" y="136" fill="#3B82F6" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">Bytedance Volcano AI Platform · 业务场景：AI 推理服务 / 在线请求处理</text>
+
+  <!-- Arrow down -->
+  <line x1="640" y1="152" x2="640" y2="172" stroke="#1E3A8A" stroke-width="3" marker-end="url(#arr)"/>
+
+  <!-- ROW 2: VM + openclaw (prominent) -->
+  <rect x="120" y="176" width="1040" height="116" rx="10" fill="#FFF7ED" stroke="#EA580C" stroke-width="2.5"/>
+  <!-- Left side: VM spec -->
+  <rect x="140" y="192" width="220" height="84" rx="8" fill="white" stroke="#EA580C" stroke-width="1.5"/>
+  <text x="250" y="218" fill="#EA580C" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">VM 实例</text>
+  <text x="250" y="240" fill="#92400E" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">2vCPU · 4GB RAM</text>
+  <text x="250" y="260" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">2U4G instance</text>
+
+  <!-- Center: openclaw browser highlight -->
+  <rect x="380" y="192" width="440" height="84" rx="8" fill="#EA580C"/>
+  <text x="600" y="228" fill="white" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">openclaw browser</text>
+  <text x="600" y="256" fill="#FECDD3" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">Web 渲染 · JS 引擎 · 内存热度分布不均匀</text>
+
+  <!-- Right side: user -->
+  <text x="960" y="218" fill="#EA580C" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">请求来源</text>
+  <text x="960" y="240" fill="#92400E" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">用户 HTTP 请求</text>
+  <text x="960" y="262" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">→ VM → openclaw</text>
+
+  <!-- Arrow down -->
+  <line x1="640" y1="292" x2="640" y2="312" stroke="#EA580C" stroke-width="3" marker-end="url(#arrO)"/>
+
+  <!-- ROW 3: SMAP engine -->
+  <rect x="200" y="316" width="880" height="72" rx="10" fill="#1E3A8A"/>
+  <text x="640" y="346" fill="white" font-size="18" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 内存调度引擎</text>
+  <text x="640" y="370" fill="#93C5FD" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热度感知 · page reclaim · folio migrate · 自动分层 · openEuler UB Stack</text>
+
+  <!-- Three arrows down from SMAP -->
+  <line x1="380" y1="388" x2="380" y2="412" stroke="#1E3A8A" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="640" y1="388" x2="640" y2="412" stroke="#059669" stroke-width="2.5" marker-end="url(#arr)"/>
+  <line x1="900" y1="388" x2="900" y2="412" stroke="#D97706" stroke-width="2.5" marker-end="url(#arrA)"/>
+
+  <!-- ROW 4: Three memory tiers -->
+  <!-- L1 DRAM -->
+  <rect x="120" y="416" width="360" height="152" rx="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/>
+  <rect x="120" y="416" width="360" height="40" rx="10" fill="#DBEAFE"/>
+  <rect x="120" y="444" width="360" height="12" fill="#DBEAFE"/>
+  <text x="300" y="444" fill="#1E3A8A" font-size="16" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1 · DRAM · 热数据</text>
+  <text x="192" y="480" fill="#1E3A8A" font-size="28" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">32 GB</text>
+  <text x="192" y="506" fill="#64748B" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">物理内存</text>
+  <text x="380" y="476" fill="#1E3A8A" font-size="20" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">~100ns</text>
+  <text x="380" y="498" fill="#64748B" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">访问延迟</text>
+  <text x="300" y="540" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">活跃页 · 常驻内存 · 最高性能</text>
+
+  <!-- L2 UB -->
+  <rect x="500" y="416" width="280" height="152" rx="10" fill="#F0FDF4" stroke="#059669" stroke-width="2"/>
+  <rect x="500" y="416" width="280" height="40" rx="10" fill="#BBF7D0"/>
+  <rect x="500" y="444" width="280" height="12" fill="#BBF7D0"/>
+  <text x="640" y="444" fill="#059669" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L2 · UB 借用 · 温数据</text>
+  <text x="640" y="484" fill="#059669" font-size="26" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">128 GB</text>
+  <text x="640" y="508" fill="#64748B" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">UB 借用内存</text>
+  <text x="640" y="530" fill="#059669" font-size="18" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">~1μs</text>
+  <text x="640" y="551" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">温热页扩展层</text>
+
+  <!-- L3 NVMe (highlighted) -->
+  <rect x="800" y="416" width="360" height="152" rx="10" fill="#FFF7ED" stroke="#D97706" stroke-width="3"/>
+  <rect x="800" y="416" width="360" height="40" rx="10" fill="#FDE68A"/>
+  <rect x="800" y="444" width="360" height="12" fill="#FDE68A"/>
+  <text x="980" y="438" fill="#92400E" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L3 · NVMe SSD · 冷数据</text>
+  <!-- "超分关键" badge -->
+  <rect x="896" y="450" width="168" height="28" rx="14" fill="#D97706"/>
+  <text x="980" y="469" fill="white" font-size="13" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">⬆ 超分关键</text>
+  <text x="892" y="506" fill="#D97706" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">4 TB</text>
+  <text x="892" y="528" fill="#92400E" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">NVMe 容量</text>
+  <text x="1068" y="500" fill="#D97706" font-size="18" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">~100μs</text>
+  <text x="1068" y="522" fill="#92400E" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">冷页 → NVMe</text>
+  <text x="980" y="551" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">低频冷页迁移至此，释放 DRAM 超分</text>
+
+  <!-- Bottom strip -->
+  <rect x="24" y="584" width="1232" height="72" rx="10" fill="white" stroke="#CBD5E1" stroke-width="1"/>
+  <text x="640" y="608" fill="#1E3A8A" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">方案价值</text>
+  <text x="640" y="632" fill="#475569" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 利用 L2 UB 借用内存与 L3 NVMe 扩展 VM 可用内存，将低频冷页自动迁移至 NVMe，释放 DRAM 供更多 VM 使用，提升整机超分比。</text>
+  <text x="640" y="649" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L2+L3 expand VM memory footprint · SMAP auto-migrates cold pages to NVMe · enables higher VM density</text>
+
+  <!-- Footer -->
+  <rect y="672" width="1280" height="48" fill="#F1F5F9"/>
+  <text x="36" y="701" fill="#64748B" font-size="12" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 平台 · SMAP 内存超分 · Style 03 · 纵向级联</text>
+  <text x="1244" y="701" fill="#CBD5E1" font-size="12" text-anchor="end" font-family="Arial,sans-serif">3/10</text>
+</svg>
+</body>
+</html>

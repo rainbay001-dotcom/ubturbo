@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>SMAP 场景示意 · 泳道图</title>
+</head>
+<body style="margin:0;padding:0;background:#F8FAFC;">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#1E3A8A"/>
+    </marker>
+    <marker id="arrO" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#EA580C"/>
+    </marker>
+    <marker id="arrA" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0,10 3.5,0 7" fill="#D97706"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="720" fill="#F8FAFC"/>
+
+  <!-- Header -->
+  <rect width="1280" height="64" fill="#1E3A8A"/>
+  <text x="36" y="26" fill="white" font-size="20" font-weight="bold" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 内存分层 · 泳道流程</text>
+  <text x="36" y="50" fill="#93C5FD" font-size="13" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 平台 · openclaw browser · L2 UB 借用内存 + L3 NVMe 超分</text>
+  <!-- Step indicators in header -->
+  <text x="520" y="34" fill="#BFDBFE" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">① 触发</text>
+  <text x="680" y="34" fill="#BFDBFE" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">② 处理</text>
+  <text x="840" y="34" fill="#BFDBFE" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">③ 调度</text>
+  <text x="1000" y="34" fill="#BFDBFE" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">④ 分层</text>
+  <text x="1160" y="34" fill="#BFDBFE" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">⑤ 存储</text>
+
+  <!-- Step column dividers -->
+  <line x1="440" y1="64" x2="440" y2="672" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="600" y1="64" x2="600" y2="672" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="760" y1="64" x2="760" y2="672" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="920" y1="64" x2="920" y2="672" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="1080" y1="64" x2="1080" y2="672" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- LANE LABELS (left side) -->
+  <!-- Lane 1: User (y=64..196) -->
+  <rect x="0" y="64" width="124" height="132" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="62" y="108" fill="#64748B" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif" transform="rotate(-90,62,130)">用户层</text>
+  <text x="62" y="134" fill="#64748B" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">用</text>
+  <text x="62" y="154" fill="#64748B" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">户</text>
+  <text x="62" y="174" fill="#64748B" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">层</text>
+
+  <!-- Lane 2: VM/openclaw (y=196..380) -->
+  <rect x="0" y="196" width="124" height="184" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.5"/>
+  <text x="62" y="256" fill="#EA580C" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">V</text>
+  <text x="62" y="276" fill="#EA580C" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">M</text>
+  <text x="62" y="302" fill="#EA580C" font-size="13" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">openclaw</text>
+
+  <!-- Lane 3: SMAP (y=380..484) -->
+  <rect x="0" y="380" width="124" height="104" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="1.5"/>
+  <text x="62" y="420" fill="#1E3A8A" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">S</text>
+  <text x="62" y="440" fill="#1E3A8A" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">M</text>
+  <text x="62" y="460" fill="#1E3A8A" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">A</text>
+  <text x="62" y="476" fill="#1E3A8A" font-size="12" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">P</text>
+
+  <!-- Lane 4: Memory (y=484..648) -->
+  <rect x="0" y="484" width="124" height="164" fill="#FFF8ED" stroke="#D97706" stroke-width="1.5"/>
+  <text x="62" y="536" fill="#D97706" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">内</text>
+  <text x="62" y="556" fill="#D97706" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">存</text>
+  <text x="62" y="576" fill="#D97706" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">层</text>
+  <text x="62" y="600" fill="#D97706" font-size="11" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1/L2/L3</text>
+
+  <!-- Separator lines (horizontal lanes) -->
+  <line x1="124" y1="196" x2="1280" y2="196" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="124" y1="380" x2="1280" y2="380" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="124" y1="484" x2="1280" y2="484" stroke="#E2E8F0" stroke-width="1.5"/>
+  <line x1="124" y1="648" x2="1280" y2="648" stroke="#E2E8F0" stroke-width="1.5"/>
+
+  <!-- LANE 1 CONTENT: User -->
+  <!-- Step 1: User sends request -->
+  <rect x="148" y="82" width="256" height="96" rx="8" fill="white" stroke="#CBD5E1" stroke-width="1.5"/>
+  <circle cx="218" cy="122" r="20" fill="#DBEAFE" stroke="#1E3A8A" stroke-width="2"/>
+  <circle cx="218" cy="114" r="8" fill="#1E3A8A"/>
+  <path d="M200 138 Q218 128 236 138 L236 146 Q218 140 200 146Z" fill="#1E3A8A"/>
+  <text x="310" y="116" fill="#1E3A8A" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">用户</text>
+  <text x="310" y="136" fill="#64748B" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">发出 HTTP 请求</text>
+  <text x="310" y="154" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="Arial,sans-serif">request trigger</text>
+
+  <!-- Arrow from user to VM/openclaw -->
+  <line x1="276" y1="178" x2="276" y2="196" stroke="#1E3A8A" stroke-width="2.5" marker-end="url(#arr)"/>
+
+  <!-- LANE 2 CONTENT: VM + openclaw -->
+  <!-- VM box -->
+  <rect x="148" y="212" width="256" height="152" rx="8" fill="white" stroke="#EA580C" stroke-width="2"/>
+  <text x="276" y="238" fill="#EA580C" font-size="14" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">VM · 2vCPU / 4GB</text>
+  <rect x="168" y="248" width="216" height="100" rx="6" fill="#FFF7ED"/>
+  <!-- Browser mockup -->
+  <rect x="178" y="254" width="196" height="88" rx="6" fill="white" stroke="#EA580C" stroke-width="1.5"/>
+  <rect x="178" y="254" width="196" height="20" rx="6" fill="#F1F5F9"/>
+  <rect x="178" y="262" width="196" height="12" fill="#F1F5F9"/>
+  <circle cx="192" cy="264" r="4" fill="#EF4444"/>
+  <circle cx="204" cy="264" r="4" fill="#F59E0B"/>
+  <circle cx="216" cy="264" r="4" fill="#22C55E"/>
+  <text x="276" y="296" fill="#EA580C" font-size="16" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">openclaw</text>
+  <text x="276" y="318" fill="#92400E" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">browser · 内存访问</text>
+  <text x="276" y="338" fill="#94A3B8" font-size="11" text-anchor="middle" font-family="Arial,sans-serif">page fault · mem access</text>
+
+  <!-- Arrow from openclaw across to smap area -->
+  <line x1="404" y1="296" x2="504" y2="296" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrO)"/>
+  <text x="454" y="286" fill="#EA580C" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">内存请求</text>
+
+  <!-- openclaw label (continuation across lane 2) -->
+  <rect x="520" y="212" width="220" height="152" rx="8" fill="#EA580C"/>
+  <text x="630" y="258" fill="white" font-size="20" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">openclaw</text>
+  <text x="630" y="280" fill="#FECDD3" font-size="14" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">处理 Web 请求</text>
+  <text x="630" y="302" fill="#FECDD3" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">JS / 页面渲染</text>
+  <text x="630" y="324" fill="#FEF3C7" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">触发内存访问</text>
+  <text x="630" y="345" fill="#FEF3C7" font-size="12" text-anchor="middle" font-family="Arial,sans-serif">page fault → SMAP</text>
+
+  <!-- Arrow from openclaw to smap -->
+  <line x1="630" y1="364" x2="630" y2="380" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrO)"/>
+
+  <!-- LANE 3 CONTENT: SMAP -->
+  <rect x="520" y="394" width="220" height="76" rx="8" fill="#1E3A8A"/>
+  <text x="630" y="422" fill="white" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">SMAP 调度引擎</text>
+  <text x="630" y="444" fill="#93C5FD" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热度感知 · 自动分层</text>
+  <text x="630" y="462" fill="#93C5FD" font-size="12" text-anchor="middle" font-family="Arial,sans-serif">page reclaim / migrate</text>
+
+  <!-- Arrows from SMAP to memory tiers -->
+  <line x1="520" y1="432" x2="448" y2="432" stroke="#1E3A8A" stroke-width="2"/>
+  <line x1="448" y1="432" x2="448" y2="484" stroke="#1E3A8A" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="480" y="448" fill="#1E3A8A" font-size="11" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热页→L1</text>
+
+  <line x1="630" y1="470" x2="630" y2="484" stroke="#059669" stroke-width="2" marker-end="url(#arr)"/>
+  <text x="654" y="480" fill="#059669" font-size="11" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">温页→L2</text>
+
+  <line x1="740" y1="432" x2="840" y2="432" stroke="#D97706" stroke-width="2"/>
+  <line x1="840" y1="432" x2="840" y2="484" stroke="#D97706" stroke-width="2" marker-end="url(#arrA)"/>
+  <text x="796" y="448" fill="#D97706" font-size="11" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">冷页→L3</text>
+
+  <!-- LANE 4 CONTENT: Memory tiers -->
+  <!-- L1 DRAM -->
+  <rect x="320" y="498" width="220" height="136" rx="8" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/>
+  <text x="430" y="524" fill="#1E3A8A" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L1 · DRAM</text>
+  <text x="430" y="546" fill="#1E3A8A" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">热数据</text>
+  <text x="430" y="574" fill="#1E3A8A" font-size="24" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">32 GB</text>
+  <text x="430" y="598" fill="#64748B" font-size="13" text-anchor="middle" font-family="Arial,sans-serif">~100ns</text>
+  <text x="430" y="622" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">物理内存</text>
+
+  <!-- L2 UB -->
+  <rect x="556" y="498" width="220" height="136" rx="8" fill="#F0FDF4" stroke="#059669" stroke-width="2"/>
+  <text x="666" y="524" fill="#059669" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L2 · UB 借用</text>
+  <text x="666" y="546" fill="#059669" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">温数据</text>
+  <text x="666" y="574" fill="#059669" font-size="24" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">128 GB</text>
+  <text x="666" y="598" fill="#64748B" font-size="13" text-anchor="middle" font-family="Arial,sans-serif">~1μs</text>
+  <text x="666" y="622" fill="#94A3B8" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">借用内存</text>
+
+  <!-- L3 NVMe (highlighted) -->
+  <rect x="792" y="498" width="272" height="136" rx="8" fill="#FFF7ED" stroke="#D97706" stroke-width="3"/>
+  <rect x="900" y="504" width="156" height="24" rx="12" fill="#D97706"/>
+  <text x="978" y="521" fill="white" font-size="12" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">超分关键</text>
+  <text x="928" y="550" fill="#D97706" font-size="15" font-weight="bold" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">L3 · NVMe SSD</text>
+  <text x="928" y="572" fill="#D97706" font-size="13" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">冷数据</text>
+  <text x="928" y="598" fill="#D97706" font-size="24" font-weight="bold" text-anchor="middle" font-family="Arial,sans-serif">4 TB</text>
+  <text x="928" y="622" fill="#92400E" font-size="12" text-anchor="middle" font-family="'Microsoft YaHei',Arial,sans-serif">~100μs · 超分扩展</text>
+
+  <!-- Footer -->
+  <rect y="652" width="1280" height="68" fill="#F1F5F9"/>
+  <text x="36" y="679" fill="#64748B" font-size="13" font-family="'Microsoft YaHei',Arial,sans-serif">信息流向：用户请求 → VM/openclaw → SMAP 热度调度 → L1/L2/L3 分层存储</text>
+  <text x="36" y="701" fill="#94A3B8" font-size="12" font-family="'Microsoft YaHei',Arial,sans-serif">字节火山 AI 平台 · SMAP 内存超分 · Style 04 · 泳道图</text>
+  <text x="1244" y="701" fill="#CBD5E1" font-size="12" text-anchor="end" font-family="Arial,sans-serif">4/10</text>
+</svg>
+</body>
+</html>

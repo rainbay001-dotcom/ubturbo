@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 矩阵表格</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f5f6f8;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  }
+
+  .page { display: flex; flex-direction: column; height: 100%; }
+
+  .topbar {
+    background: #22303f; padding: 18px 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 2px solid #3a5570;
+  }
+  .topbar h1 { font-size: 23px; color: #dce8f4; font-weight: 600; }
+  .topbar p { font-size: 13px; color: #6a8aa8; margin-top: 3px; }
+  .topbar-right { display: flex; gap: 32px; }
+  .topbar-stat { text-align: center; }
+  .topbar-stat .sv { font-size: 22px; font-weight: 700; color: #9ab8ce; }
+  .topbar-stat .sl { font-size: 11px; color: #5a7a95; margin-top: 2px; }
+
+  .body { flex: 1; display: flex; gap: 0; }
+
+  /* LEFT description */
+  .left { width: 360px; background: #fff; border-right: 1px solid #dde3ea; padding: 28px 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: #7a8fa0; margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid #eef1f5;
+  }
+  .ctx-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .ctx-icon {
+    width: 40px; height: 40px; border-radius: 6px; background: #edf2f8;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #334455; flex-shrink: 0;
+  }
+  .ctx-name { font-size: 14px; font-weight: 600; color: #334455; }
+  .ctx-desc { font-size: 12px; color: #778899; line-height: 1.5; margin-top: 2px; }
+
+  .divider-line { height: 1px; background: #eef1f5; margin: 16px 0; }
+
+  .note-box {
+    background: #f5f7fa; border-left: 3px solid #3a6a9a;
+    padding: 12px 14px; border-radius: 0 4px 4px 0;
+    font-size: 12px; color: #556677; line-height: 1.7;
+  }
+
+  /* RIGHT: main table */
+  .right { flex: 1; padding: 28px 40px; display: flex; flex-direction: column; gap: 20px; }
+
+  .matrix-table { width: 100%; border-collapse: collapse; }
+  .matrix-table th {
+    background: #22303f; color: #c8dce8;
+    padding: 12px 18px; font-size: 13px; font-weight: 600;
+    text-align: left; letter-spacing: 0.5px;
+  }
+  .matrix-table th:first-child { width: 180px; }
+  .matrix-table td {
+    padding: 14px 18px; font-size: 13px; border-bottom: 1px solid #e8edf2;
+    vertical-align: top;
+  }
+  .matrix-table tr:last-child td { border-bottom: none; }
+  .matrix-table tr:nth-child(even) td { background: #fafbfc; }
+  .matrix-table tr:hover td { background: #f0f4f8; }
+
+  .tier-label {
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .tier-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .td-l1 { background: #22303f; color: #fff; }
+  .td-l2 { background: #2e5a3e; color: #fff; }
+  .td-l3 { background: #5a4020; color: #fff; }
+  .tier-name { font-size: 14px; font-weight: 600; color: #334455; }
+  .tier-sub { font-size: 11px; color: #778899; }
+
+  .metric-cell { color: #334455; }
+  .metric-cell strong { color: #22303f; }
+
+  .rating-bar { display: flex; gap: 3px; margin-top: 4px; }
+  .rb { width: 16px; height: 6px; border-radius: 2px; background: #d8dfe8; }
+  .rb.on-l1 { background: #22303f; }
+  .rb.on-l2 { background: #2e5a3e; }
+  .rb.on-l3 { background: #5a4020; }
+
+  .use-tag {
+    display: inline-block; background: #edf2f8; color: #334455;
+    padding: 2px 8px; border-radius: 3px; font-size: 11px; margin: 2px 2px 2px 0;
+  }
+  .ut-green { background: #e0eee6; color: #2a4a32; }
+  .ut-amber { background: #eee8d8; color: #4a3820; }
+
+  /* Bottom: use scenario row */
+  .scenario-strip {
+    background: #fff; border: 1px solid #d8dfe8; border-radius: 6px;
+    padding: 16px 24px; display: flex; gap: 24px; align-items: center;
+  }
+  .sc-title { font-size: 12px; font-weight: 700; color: #7a8fa0; text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0; }
+  .sc-items { display: flex; gap: 16px; flex-wrap: wrap; }
+  .sc-item {
+    background: #f5f7fa; border: 1px solid #d0dae4;
+    border-radius: 4px; padding: 8px 14px;
+    font-size: 13px; color: #334455;
+  }
+  .sc-item strong { display: block; font-size: 14px; color: #22303f; margin-bottom: 2px; }
+
+  .footer {
+    background: #22303f; color: #5a7a95; padding: 8px 56px;
+    font-size: 12px; display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div>
+      <h1>smap 内存分层矩阵 · 技术规格对比</h1>
+      <p>字节跳动火山AI平台 · openclaw browser · 超分比提升方案</p>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-stat"><div class="sv">3</div><div class="sl">内存层级</div></div>
+      <div class="topbar-stat"><div class="sv">4×</div><div class="sl">超分比</div></div>
+      <div class="topbar-stat"><div class="sv">0</div><div class="sl">业务感知</div></div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="section-title">场景说明</div>
+
+      <div class="ctx-row">
+        <div class="ctx-icon">🌋</div>
+        <div>
+          <div class="ctx-name">火山AI服务平台</div>
+          <div class="ctx-desc">字节跳动企业级<br>AI计算基础设施</div>
+        </div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-icon">VM</div>
+        <div>
+          <div class="ctx-name">2U4G 虚机</div>
+          <div class="ctx-desc">2 vCPU · 4 GB 物理<br>内存分配</div>
+        </div>
+      </div>
+      <div class="ctx-row">
+        <div class="ctx-icon">OC</div>
+        <div>
+          <div class="ctx-name">openclaw browser</div>
+          <div class="ctx-desc">页面渲染引擎<br>内存需求波动大</div>
+        </div>
+      </div>
+
+      <div class="divider-line"></div>
+      <div class="section-title">超分目标</div>
+      <div class="note-box">
+        利用 L2 UB借用内存 与 L3 NVMe 两级扩展，将整机内存超分比从 2× 提升至 4×，
+        同时保持 openclaw 业务完全无感知。
+      </div>
+    </div>
+
+    <div class="right">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>内存层级</th>
+            <th>存储介质</th>
+            <th>访问延迟</th>
+            <th>容量范围</th>
+            <th>访问频率适配</th>
+            <th>扩展方式</th>
+            <th>openclaw 适用场景</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="tier-label">
+                <div class="tier-dot td-l1">L1</div>
+                <div>
+                  <div class="tier-name">DRAM</div>
+                  <div class="tier-sub">热数据层</div>
+                </div>
+              </div>
+            </td>
+            <td class="metric-cell"><strong>物理内存</strong><br>DDR4/DDR5</td>
+            <td class="metric-cell">
+              <strong>~10 ns</strong>
+              <div class="rating-bar">
+                <div class="rb on-l1"></div><div class="rb on-l1"></div>
+                <div class="rb on-l1"></div><div class="rb on-l1"></div><div class="rb on-l1"></div>
+              </div>
+              <div style="font-size:11px;color:#99aabb;">最低延迟</div>
+            </td>
+            <td class="metric-cell"><strong>4 GB</strong><br>物理配额固定</td>
+            <td>
+              <span class="use-tag">高频读写</span>
+              <span class="use-tag">活跃工作集</span>
+            </td>
+            <td class="metric-cell">硬件直接访问<br>无需配置</td>
+            <td class="metric-cell">
+              渲染活跃页面、JS 引擎堆、DOM 树热数据
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div class="tier-label">
+                <div class="tier-dot td-l2">L2</div>
+                <div>
+                  <div class="tier-name">UB 借用内存</div>
+                  <div class="tier-sub">温数据层</div>
+                </div>
+              </div>
+            </td>
+            <td class="metric-cell"><strong>跨机DRAM</strong><br>UB协议聚合</td>
+            <td class="metric-cell">
+              <strong>~1 ms</strong>
+              <div class="rating-bar">
+                <div class="rb on-l2"></div><div class="rb on-l2"></div>
+                <div class="rb on-l2"></div><div class="rb"></div><div class="rb"></div>
+              </div>
+              <div style="font-size:11px;color:#99aabb;">中等延迟</div>
+            </td>
+            <td class="metric-cell"><strong>按需扩展</strong><br>弹性借用归还</td>
+            <td>
+              <span class="use-tag ut-green">中频访问</span>
+              <span class="use-tag ut-green">低活跃页</span>
+            </td>
+            <td class="metric-cell">UB 跨机借用<br>动态伸缩</td>
+            <td class="metric-cell">
+              后台标签页、图片缓存、非活跃 JS 上下文
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <div class="tier-label">
+                <div class="tier-dot td-l3">L3</div>
+                <div>
+                  <div class="tier-name">NVMe 存储</div>
+                  <div class="tier-sub">冷数据层</div>
+                </div>
+              </div>
+            </td>
+            <td class="metric-cell"><strong>本地 NVMe SSD</strong><br>持久化存储</td>
+            <td class="metric-cell">
+              <strong>~100 μs</strong>
+              <div class="rating-bar">
+                <div class="rb on-l3"></div><div class="rb on-l3"></div>
+                <div class="rb"></div><div class="rb"></div><div class="rb"></div>
+              </div>
+              <div style="font-size:11px;color:#99aabb;">较高延迟</div>
+            </td>
+            <td class="metric-cell"><strong>TB 级</strong><br>容量最大</td>
+            <td>
+              <span class="use-tag ut-amber">低频访问</span>
+              <span class="use-tag ut-amber">冷数据</span>
+            </td>
+            <td class="metric-cell">本地 SSD 换出<br>大容量低成本</td>
+            <td class="metric-cell">
+              长期不活跃标签、历史会话、预加载缓存
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="scenario-strip">
+        <div class="sc-title">调度路径</div>
+        <div class="sc-items">
+          <div class="sc-item">
+            <strong>写入路径</strong>
+            新数据 → L1 DRAM → 冷却后降级 L2 → 长期冷却降级 L3
+          </div>
+          <div class="sc-item">
+            <strong>读取路径</strong>
+            L3/L2 命中 → 提升至 L1 DRAM → openclaw 透明访问
+          </div>
+          <div class="sc-item">
+            <strong>管理策略</strong>
+            LRU 热度追踪 · 异步迁移 · 预取优化
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动火山AI平台 · smap 内存超分技术方案</span>
+    <span>Layout 05 · Matrix / Comparison Table</span>
+  </div>
+</div>
+</body>
+</html>

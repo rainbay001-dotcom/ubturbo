@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 示意图 v2 · 样式选择</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    background: #f5f7fa; color: #334455;
+    padding: 40px;
+  }
+  h1 { font-size: 24px; color: #1e2d3e; margin-bottom: 6px; }
+  p.subtitle { font-size: 14px; color: #6a8aa0; margin-bottom: 32px; }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  .card {
+    background: #fff; border: 1px solid #d8e0ea;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .card-header {
+    background: #1e2d3e; color: #c8d8ea;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .card-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #2e4a62; color: #a0c0d8;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-layout { font-size: 11px; color: #5a7898; margin-top: 1px; }
+  .card-preview {
+    padding: 14px 16px; background: #fafbfc;
+    border-bottom: 1px solid #e8edf2;
+    font-size: 12px; color: #667788; line-height: 1.6;
+  }
+  .card-link {
+    display: block; text-align: center;
+    padding: 10px; font-size: 13px; font-weight: 600;
+    color: #2e5a8a; text-decoration: none;
+    border-top: 1px solid #e8edf2;
+    background: #f5f8fb;
+  }
+  .card-link:hover { background: #e8f0f8; }
+
+  .features { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .feat {
+    font-size: 11px; padding: 2px 8px; border-radius: 3px;
+    background: #edf2f8; color: #445566;
+  }
+</style>
+</head>
+<body>
+  <h1>smap 场景示意图 v2 · 风格选择</h1>
+  <p class="subtitle">字节跳动火山AI平台 · openclaw browser · L2/L3 内存超分方案 · 10种排版风格</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">01</div>
+        <div>
+          <div class="card-title">纵向流程图</div>
+          <div class="card-layout">Top-Down Flow · 垂直级联排版</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        从平台→虚机→openclaw→smap→内存三层，纵向流程图展示。左侧流程主线，右侧信息面板。
+        <div class="features"><span class="feat">白底</span><span class="feat">分步流程</span><span class="feat">右侧统计</span></div>
+      </div>
+      <a class="card-link" href="style01-topdown-flow.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">02</div>
+        <div>
+          <div class="card-title">左右三栏架构图</div>
+          <div class="card-layout">Left-Right Split · 三区域水平分割</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        左：应用部署栈，中：smap 调度层，右：内存分层结构。三个独立区域横向并排，结构清晰。
+        <div class="features"><span class="feat">三栏</span><span class="feat">横向分割</span><span class="feat">调度策略</span></div>
+      </div>
+      <a class="card-link" href="style02-leftright-split.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">03</div>
+        <div>
+          <div class="card-title">金字塔层级图</div>
+          <div class="card-layout">Pyramid Hierarchy · 内存层级金字塔</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        内存三层以梯形金字塔呈现，L1最窄在顶（热），L3最宽在底（冷）。左右各有标注文字。
+        <div class="features"><span class="feat">金字塔</span><span class="feat">双侧标注</span><span class="feat">层级感强</span></div>
+      </div>
+      <a class="card-link" href="style03-pyramid.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">04</div>
+        <div>
+          <div class="card-title">前后对比图</div>
+          <div class="card-layout">Before / After · 部署前后效果对比</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        左右各半，左侧"未部署smap"展示内存不足问题，右侧"部署后"展示三层扩展和收益。
+        <div class="features"><span class="feat">对比布局</span><span class="feat">问题→方案</span><span class="feat">VM密度可视化</span></div>
+      </div>
+      <a class="card-link" href="style04-before-after.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">05</div>
+        <div>
+          <div class="card-title">矩阵规格对比表</div>
+          <div class="card-layout">Comparison Matrix · 技术规格对照表</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        以表格形式对比 L1/L2/L3 的延迟、容量、适用场景等维度。左侧场景说明，底部调度路径。
+        <div class="features"><span class="feat">表格对比</span><span class="feat">多维度</span><span class="feat">规格清晰</span></div>
+      </div>
+      <a class="card-link" href="style05-table-matrix.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">06</div>
+        <div>
+          <div class="card-title">水平流程图</div>
+          <div class="card-layout">Process Flow · 数据写入/读取路径</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        两行横向步骤流程：上行"写入路径"，下行"读取路径"。底部展示三层内存卡片详情。
+        <div class="features"><span class="feat">双向流程</span><span class="feat">步骤节点</span><span class="feat">路径清晰</span></div>
+      </div>
+      <a class="card-link" href="style06-process-flow.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">07</div>
+        <div>
+          <div class="card-title">网络拓扑图</div>
+          <div class="card-layout">Network Topology · 节点连接关系图</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        组件以节点形式分布，用连线表示调用关系。区分主要路径、借用路径、存储路径，类似系统架构图。
+        <div class="features"><span class="feat">拓扑节点</span><span class="feat">连线关系</span><span class="feat">SVG图形</span></div>
+      </div>
+      <a class="card-link" href="style07-network-topology.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">08</div>
+        <div>
+          <div class="card-title">三列信息图</div>
+          <div class="card-layout">Three-Column Infographic · 信息图列式</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        全页三列等宽布局：左列"部署环境"，中列"smap内存分层"（横向色块），右列"方案收益"。
+        <div class="features"><span class="feat">三列等宽</span><span class="feat">色块层级</span><span class="feat">结构对称</span></div>
+      </div>
+      <a class="card-link" href="style08-infographic-column.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">09</div>
+        <div>
+          <div class="card-title">监控看板风格</div>
+          <div class="card-layout">Dashboard Monitor · 深色运营看板</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        深色背景看板，网格布局展示内存使用柱状图、层级状态、VM密度、关键指标和收益摘要。
+        <div class="features"><span class="feat">深色看板</span><span class="feat">网格布局</span><span class="feat">柱状图</span></div>
+      </div>
+      <a class="card-link" href="style09-dashboard.html" target="_blank">查看 →</a>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-num">10</div>
+        <div>
+          <div class="card-title">工程蓝图风格</div>
+          <div class="card-layout">Engineering Blueprint · 制图规范框图</div>
+        </div>
+      </div>
+      <div class="card-preview">
+        仿工程制图风格：网格背景、组件编号框、标注引线、参考表。黑白灰为主，严谨工程感。
+        <div class="features"><span class="feat">工程制图</span><span class="feat">网格背景</span><span class="feat">标注引线</span></div>
+      </div>
+      <a class="card-link" href="style10-blueprint.html" target="_blank">查看 →</a>
+    </div>
+  </div>
+</body>
+</html>

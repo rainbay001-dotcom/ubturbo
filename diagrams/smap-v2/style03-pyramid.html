@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 金字塔分层</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f7f8fa;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  }
+
+  .header {
+    background: #263547;
+    padding: 20px 60px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 2px solid #3a5068;
+  }
+  .header h1 { font-size: 26px; color: #dce8f2; font-weight: 600; }
+  .header p { font-size: 13px; color: #7a9ab5; margin-top: 4px; }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+  .chip {
+    background: #1c2e3e; border: 1px solid #3a5068;
+    padding: 5px 14px; border-radius: 12px;
+    font-size: 12px; color: #9ab8ce;
+  }
+
+  .body {
+    display: flex; height: 900px; padding: 30px 60px; gap: 40px;
+  }
+
+  /* Left: pyramid */
+  .pyramid-area {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    align-items: center; position: relative;
+  }
+  .pyramid-title {
+    font-size: 13px; color: #7a8fa0; text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 30px;
+  }
+
+  .pyramid-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    width: 100%;
+  }
+
+  .pyramid-tier {
+    display: flex; align-items: stretch;
+    width: 100%; position: relative; margin-bottom: 3px;
+  }
+  .pt-label-left, .pt-label-right {
+    flex: 1; display: flex; align-items: center;
+    font-size: 12px; color: #556677;
+  }
+  .pt-label-left { justify-content: flex-end; padding-right: 18px; text-align: right; }
+  .pt-label-right { padding-left: 18px; }
+  .pt-label-left strong, .pt-label-right strong {
+    display: block; font-size: 13px; font-weight: 600; color: #334455; margin-bottom: 2px;
+  }
+
+  .pt-center {
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; clip-path: none;
+    border-radius: 4px;
+  }
+
+  .tier-top {
+    width: 380px; height: 110px;
+    background: #263547; color: #ecf0f1;
+  }
+  .tier-mid {
+    width: 560px; height: 110px;
+    background: #2e5a3e; color: #ecf0f1;
+  }
+  .tier-bot {
+    width: 740px; height: 110px;
+    background: #5a4a2a; color: #f0e8d8;
+  }
+
+  .pt-center .pc-badge {
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; opacity: 0.7;
+    margin-bottom: 4px;
+  }
+  .pt-center .pc-name { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .pt-center .pc-spec { font-size: 12px; opacity: 0.75; }
+
+  /* Right: info panel */
+  .info-area {
+    width: 560px; display: flex; flex-direction: column; gap: 18px; justify-content: center;
+  }
+
+  .info-section {
+    background: #fff; border: 1px solid #d8dfe8;
+    border-radius: 6px; overflow: hidden;
+  }
+  .info-section-header {
+    background: #263547; color: #c8dce8;
+    padding: 10px 18px; font-size: 12px;
+    font-weight: 600; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .info-section-body { padding: 16px 18px; }
+
+  .app-stack {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #f0f3f7;
+  }
+  .app-stack:last-child { border-bottom: none; }
+  .as-icon {
+    width: 36px; height: 36px; border-radius: 6px;
+    background: #e8edf3; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; font-weight: 700;
+    color: #334455; flex-shrink: 0;
+  }
+  .as-name { font-size: 14px; font-weight: 600; color: #334455; }
+  .as-desc { font-size: 12px; color: #778899; margin-top: 1px; }
+
+  .result-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .result-cell {
+    background: #f5f7fa; border-radius: 4px;
+    padding: 12px 14px; border-left: 3px solid #3a6a9a;
+  }
+  .rc-val { font-size: 22px; font-weight: 700; color: #263547; }
+  .rc-label { font-size: 12px; color: #778899; margin-top: 2px; }
+
+  .footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #263547; color: #7a9ab5;
+    padding: 8px 60px; font-size: 12px;
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>smap 内存分层架构 · 金字塔模型</h1>
+      <p>字节跳动火山AI平台 · openclaw browser 超分方案</p>
+    </div>
+    <div class="header-right">
+      <div class="chip">L1 DRAM</div>
+      <div class="chip">L2 UB借用</div>
+      <div class="chip">L3 NVMe</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="pyramid-area">
+      <div class="pyramid-title">内存层级架构（由上至下：热 → 冷）</div>
+      <div class="pyramid-wrap">
+
+        <!-- L1 top -->
+        <div class="pyramid-tier">
+          <div class="pt-label-left">
+            <div>
+              <strong>最高频访问</strong>
+              纳秒级延迟<br>openclaw 活跃工作集
+            </div>
+          </div>
+          <div class="pt-center tier-top">
+            <div class="pc-badge">L1</div>
+            <div class="pc-name">DRAM 物理内存</div>
+            <div class="pc-spec">4 GB · ~10 ns</div>
+          </div>
+          <div class="pt-label-right">
+            <div>
+              <strong>热层</strong>
+              直接硬件访问<br>无换出延迟
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center; font-size: 18px; color: #aabbcc; margin: 4px 0;">▼</div>
+
+        <!-- L2 mid -->
+        <div class="pyramid-tier">
+          <div class="pt-label-left">
+            <div>
+              <strong>低活跃内存页</strong>
+              毫秒级召回<br>跨机内存聚合
+            </div>
+          </div>
+          <div class="pt-center tier-mid">
+            <div class="pc-badge">L2</div>
+            <div class="pc-name">UB 借用内存</div>
+            <div class="pc-spec">按需扩展 · ~1 ms</div>
+          </div>
+          <div class="pt-label-right">
+            <div>
+              <strong>温层</strong>
+              UB 跨机协议<br>弹性借用归还
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align:center; font-size: 18px; color: #aabbcc; margin: 4px 0;">▼</div>
+
+        <!-- L3 bottom -->
+        <div class="pyramid-tier">
+          <div class="pt-label-left">
+            <div>
+              <strong>长期冷数据</strong>
+              微秒级访问<br>大容量持久化
+            </div>
+          </div>
+          <div class="pt-center tier-bot">
+            <div class="pc-badge">L3</div>
+            <div class="pc-name">NVMe 持久化存储</div>
+            <div class="pc-spec">TB 级容量 · ~100 μs</div>
+          </div>
+          <div class="pt-label-right">
+            <div>
+              <strong>冷层</strong>
+              本地 NVMe SSD<br>成本最低
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right info -->
+    <div class="info-area">
+      <div class="info-section">
+        <div class="info-section-header">应用部署信息</div>
+        <div class="info-section-body">
+          <div class="app-stack">
+            <div class="as-icon">🌋</div>
+            <div>
+              <div class="as-name">字节跳动火山AI服务平台</div>
+              <div class="as-desc">企业级AI计算基础设施 · 统一调度管理</div>
+            </div>
+          </div>
+          <div class="app-stack">
+            <div class="as-icon">VM</div>
+            <div>
+              <div class="as-name">2U4G 标准虚机</div>
+              <div class="as-desc">2 vCPU · 4 GB 物理内存配额</div>
+            </div>
+          </div>
+          <div class="app-stack">
+            <div class="as-icon">OC</div>
+            <div>
+              <div class="as-name">openclaw browser</div>
+              <div class="as-desc">页面渲染进程 · 峰值内存超出物理限制</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-section-header">超分收益</div>
+        <div class="info-section-body">
+          <div class="result-grid">
+            <div class="result-cell">
+              <div class="rc-val">4×</div>
+              <div class="rc-label">整机超分比上限</div>
+            </div>
+            <div class="result-cell">
+              <div class="rc-val">+100%</div>
+              <div class="rc-label">单节点VM密度</div>
+            </div>
+            <div class="result-cell">
+              <div class="rc-val">~40%</div>
+              <div class="rc-label">硬件成本节省</div>
+            </div>
+            <div class="result-cell">
+              <div class="rc-val">0</div>
+              <div class="rc-label">业务感知中断</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-section-header">smap 核心机制</div>
+        <div class="info-section-body" style="font-size: 13px; color: #556677; line-height: 1.8;">
+          smap 通过热度感知算法持续监控内存访问频率，将 openclaw 进程的冷页
+          透明迁移至 L2 UB 借用内存或 L3 NVMe，物理 DRAM 始终保持活跃工作集，
+          实现对上层应用零感知的内存扩容。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动火山AI平台 · smap 内存超分技术方案</span>
+    <span>Layout 03 · Pyramid / Memory Hierarchy</span>
+  </div>
+</body>
+</html>

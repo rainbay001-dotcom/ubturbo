@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 左右分栏架构</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #eef1f6;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .topbar {
+    background: #2c3e50; color: #ecf0f1;
+    padding: 18px 56px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 3px solid #3498db;
+  }
+  .topbar-left h1 { font-size: 24px; font-weight: 600; }
+  .topbar-left p { font-size: 13px; color: #95a5a6; margin-top: 3px; }
+  .topbar-right { display: flex; gap: 20px; }
+  .tag {
+    background: #34495e; border: 1px solid #5d7a8a;
+    padding: 5px 14px; border-radius: 3px;
+    font-size: 12px; color: #b8cdd8;
+  }
+
+  .content {
+    flex: 1; display: flex; gap: 0; padding: 0;
+  }
+
+  /* LEFT: App Stack */
+  .left-pane {
+    width: 520px; background: #fff;
+    border-right: 2px solid #dde3ea;
+    display: flex; flex-direction: column;
+    padding: 28px 32px;
+  }
+  .pane-title {
+    font-size: 12px; font-weight: 600; color: #7f8c8d;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 20px; padding-bottom: 10px;
+    border-bottom: 1px solid #dde3ea;
+  }
+  .stack-box {
+    border: 1px solid #d0d8e0; border-radius: 5px;
+    overflow: hidden; margin-bottom: 14px;
+  }
+  .stack-header {
+    padding: 10px 14px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: #fff;
+  }
+  .sh-platform { background: #2c3e50; }
+  .sh-vm { background: #3d5a73; }
+  .sh-app { background: #1a6a9a; }
+  .stack-body { padding: 12px 14px; background: #fafbfc; }
+  .stack-body .name { font-size: 15px; font-weight: 600; color: #2c3e50; margin-bottom: 4px; }
+  .stack-body .spec { font-size: 12px; color: #7f8c8d; }
+  .stack-body .spec span {
+    display: inline-block; background: #e8edf2;
+    padding: 2px 8px; border-radius: 3px; margin: 2px 4px 2px 0;
+    font-size: 11px; color: #445566;
+  }
+  .arrow-down {
+    text-align: center; color: #95a5a6; font-size: 20px; margin: 2px 0;
+  }
+
+  /* MIDDLE: smap layer */
+  .mid-pane {
+    width: 320px; background: #f0f4f8;
+    border-right: 2px solid #dde3ea;
+    display: flex; flex-direction: column;
+    padding: 28px 24px; align-items: center;
+  }
+  .smap-core {
+    width: 100%; background: #2c3e50;
+    border-radius: 8px; padding: 20px;
+    color: #fff; text-align: center; margin-bottom: 20px;
+  }
+  .smap-core .sc-label { font-size: 11px; color: #95a5a6; letter-spacing: 1px; }
+  .smap-core .sc-title { font-size: 18px; font-weight: 700; margin: 6px 0; }
+  .smap-core .sc-desc { font-size: 12px; color: #bdc3c7; line-height: 1.5; }
+  .smap-arrows {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; margin: 8px 0;
+  }
+  .smap-arrows .arr {
+    font-size: 13px; color: #7f8c8d;
+  }
+  .policy-box {
+    width: 100%; background: #fff; border: 1px solid #d0d8e0;
+    border-radius: 5px; padding: 14px;
+  }
+  .policy-box .pb-title { font-size: 12px; font-weight: 600; color: #2c3e50; margin-bottom: 10px; }
+  .policy-item {
+    font-size: 12px; color: #556677; padding: 4px 0;
+    border-bottom: 1px solid #f0f3f7;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .policy-item:last-child { border-bottom: none; }
+  .pi-dot { width: 6px; height: 6px; background: #3498db; border-radius: 50%; flex-shrink: 0; }
+
+  /* RIGHT: Memory tiers */
+  .right-pane {
+    flex: 1; background: #fff;
+    display: flex; flex-direction: column;
+    padding: 28px 32px; gap: 16px;
+  }
+  .tier-card {
+    flex: 1; border-radius: 6px; padding: 20px 24px;
+    border: 1px solid transparent;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .tc-l1 { background: #f0f4f8; border-color: #b8cdd8; }
+  .tc-l2 { background: #f0f5f1; border-color: #b0cdb8; }
+  .tc-l3 { background: #f5f3ee; border-color: #c8bfa8; }
+  .tier-badge {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .tb-l1 { background: #2c3e50; color: #fff; }
+  .tb-l2 { background: #2e6a4e; color: #fff; }
+  .tb-l3 { background: #5a4a2a; color: #fff; }
+  .tier-info { flex: 1; }
+  .tier-info .ti-name { font-size: 17px; font-weight: 600; color: #2c3e50; margin-bottom: 4px; }
+  .tier-info .ti-sub { font-size: 13px; color: #778899; margin-bottom: 8px; }
+  .tier-info .ti-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ti-tag {
+    font-size: 11px; padding: 3px 10px; border-radius: 3px; font-weight: 500;
+  }
+  .tt-gray { background: #e4e9ef; color: #334455; }
+  .tt-green { background: #dde8e1; color: #2e5a3a; }
+  .tt-amber { background: #e8e2d6; color: #5a4020; }
+  .tier-meta {
+    text-align: right; flex-shrink: 0;
+  }
+  .tier-meta .tm-val { font-size: 22px; font-weight: 700; color: #2c3e50; }
+  .tier-meta .tm-label { font-size: 11px; color: #99aabb; }
+
+  .footer {
+    background: #2c3e50; color: #7f8c8d;
+    padding: 9px 56px; font-size: 12px;
+    display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>smap 三层内存超分 — 场景架构说明</h1>
+      <p>火山AI平台 · openclaw browser · 内存分层管理</p>
+    </div>
+    <div class="topbar-right">
+      <div class="tag">2U4G 虚机</div>
+      <div class="tag">L2 UB借用</div>
+      <div class="tag">L3 NVMe</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- LEFT -->
+    <div class="left-pane">
+      <div class="pane-title">应用部署栈</div>
+
+      <div class="stack-box">
+        <div class="stack-header sh-platform">火山AI服务平台</div>
+        <div class="stack-body">
+          <div class="name">Volcano Engine</div>
+          <div class="spec">
+            <span>企业级AI基础设施</span>
+            <span>统一调度</span>
+            <span>弹性伸缩</span>
+          </div>
+        </div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="stack-box">
+        <div class="stack-header sh-vm">虚拟机实例</div>
+        <div class="stack-body">
+          <div class="name">标准型 2U4G</div>
+          <div class="spec">
+            <span>2 vCPU</span>
+            <span>4 GB RAM</span>
+            <span>CentOS 7.9</span>
+          </div>
+        </div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="stack-box">
+        <div class="stack-header sh-app">业务进程</div>
+        <div class="stack-body">
+          <div class="name">openclaw browser</div>
+          <div class="spec">
+            <span>页面渲染</span>
+            <span>内存波动大</span>
+            <span>峰值 >4 GB</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: auto; padding-top: 16px; background: #f8f9fb; border-radius: 5px; padding: 14px; border: 1px solid #dde3ea;">
+        <div style="font-size: 12px; font-weight: 600; color: #2c3e50; margin-bottom: 8px;">问题定义</div>
+        <div style="font-size: 12px; color: #667788; line-height: 1.7;">
+          openclaw 单实例峰值内存需求超出 4 GB 物理限制，
+          且大量实例并发导致整机内存成为资源瓶颈，
+          直接制约了火山平台的虚机部署密度。
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE -->
+    <div class="mid-pane">
+      <div class="pane-title" style="width: 100%;">smap 调度层</div>
+      <div class="smap-core">
+        <div class="sc-label">MEMORY MANAGER</div>
+        <div class="sc-title">smap</div>
+        <div class="sc-desc">透明内存分层<br>热度感知自动调度</div>
+      </div>
+      <div class="smap-arrows">
+        <div class="arr">↑ 热页提升</div>
+        <div class="arr">↓ 冷页降级</div>
+      </div>
+      <div class="policy-box">
+        <div class="pb-title">调度策略</div>
+        <div class="policy-item"><div class="pi-dot"></div>访问频率监控</div>
+        <div class="policy-item"><div class="pi-dot"></div>LRU 冷热判断</div>
+        <div class="policy-item"><div class="pi-dot"></div>按需预取 L2→L1</div>
+        <div class="policy-item"><div class="pi-dot"></div>异步换出 L1→L3</div>
+        <div class="policy-item"><div class="pi-dot"></div>对应用层零感知</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right-pane">
+      <div class="pane-title">内存分层结构</div>
+
+      <div class="tier-card tc-l1">
+        <div class="tier-badge tb-l1">L1</div>
+        <div class="tier-info">
+          <div class="ti-name">DRAM — 热数据层</div>
+          <div class="ti-sub">物理内存直接访问，openclaw 活跃工作集常驻</div>
+          <div class="ti-tags">
+            <span class="ti-tag tt-gray">~10 ns 延迟</span>
+            <span class="ti-tag tt-gray">4 GB 物理</span>
+            <span class="ti-tag tt-gray">高频读写</span>
+          </div>
+        </div>
+        <div class="tier-meta">
+          <div class="tm-val">4 GB</div>
+          <div class="tm-label">物理容量</div>
+        </div>
+      </div>
+
+      <div class="tier-card tc-l2">
+        <div class="tier-badge tb-l2">L2</div>
+        <div class="tier-info">
+          <div class="ti-name">UB 借用内存 — 温数据层</div>
+          <div class="ti-sub">跨机内存聚合，低活跃页迁移至此，需要时快速召回</div>
+          <div class="ti-tags">
+            <span class="ti-tag tt-green">~1 ms 延迟</span>
+            <span class="ti-tag tt-green">跨机扩展</span>
+            <span class="ti-tag tt-green">按需借用</span>
+          </div>
+        </div>
+        <div class="tier-meta">
+          <div class="tm-val">×2</div>
+          <div class="tm-label">容量扩展</div>
+        </div>
+      </div>
+
+      <div class="tier-card tc-l3">
+        <div class="tier-badge tb-l3">L3</div>
+        <div class="tier-info">
+          <div class="ti-name">NVMe — 冷数据层</div>
+          <div class="ti-sub">长期不访问的冷页持久化换出，容量最大成本最低</div>
+          <div class="ti-tags">
+            <span class="ti-tag tt-amber">~100 μs 延迟</span>
+            <span class="ti-tag tt-amber">本地 NVMe</span>
+            <span class="ti-tag tt-amber">TB 级扩容</span>
+          </div>
+        </div>
+        <div class="tier-meta">
+          <div class="tm-val">×8</div>
+          <div class="tm-label">容量扩展</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动火山AI平台 · smap 内存超分技术方案</span>
+    <span>Layout 02 · Left-Right Split</span>
+  </div>
+</body>
+</html>

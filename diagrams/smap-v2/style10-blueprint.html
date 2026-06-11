@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 工程蓝图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f8f9fa;
+    font-family: 'Courier New', 'Consolas', 'Microsoft YaHei', monospace;
+  }
+
+  /* Blueprint-style: white background with precise engineering grid lines */
+  .blueprint {
+    width: 100%; height: 100%;
+    position: relative;
+    background-image:
+      linear-gradient(rgba(40,80,140,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(40,80,140,0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Title block - engineering drawing style */
+  .title-block {
+    position: absolute; top: 0; left: 0; right: 0;
+    border-bottom: 2px solid #283c5a;
+    background: #fff; padding: 14px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .tb-main h1 { font-size: 20px; font-weight: 700; color: #1a2a3e; letter-spacing: 2px; text-transform: uppercase; }
+  .tb-main p { font-size: 12px; color: #4a6080; margin-top: 4px; letter-spacing: 1px; }
+  .tb-meta { display: flex; gap: 0; border: 1px solid #283c5a; }
+  .tb-meta-cell {
+    padding: 6px 16px; border-right: 1px solid #283c5a; text-align: center;
+    font-size: 11px; color: #1a2a3e;
+  }
+  .tb-meta-cell:last-child { border-right: none; }
+  .tb-meta-cell .mc-label { color: #6a8aaa; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .tb-meta-cell .mc-val { font-weight: 700; margin-top: 2px; font-size: 13px; }
+
+  /* Drawing area */
+  .drawing { position: absolute; top: 80px; left: 0; right: 0; bottom: 36px; }
+
+  svg.main-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  /* Component boxes */
+  .component {
+    position: absolute; background: #fff;
+    border: 1.5px solid #283c5a;
+  }
+  .comp-header {
+    background: #1a2a3e; color: #c8d8ea;
+    padding: 7px 12px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .comp-body { padding: 10px 12px; }
+  .comp-name { font-size: 15px; font-weight: 700; color: #1a2a3e; margin-bottom: 4px; letter-spacing: 0.5px; }
+  .comp-spec { font-size: 11px; color: #4a6080; line-height: 1.6; }
+  .comp-spec span { display: block; }
+
+  /* Platform */
+  .c-platform { left: 48px; top: 30px; width: 320px; }
+
+  /* VM */
+  .c-vm { left: 48px; top: 230px; width: 320px; }
+
+  /* openclaw - highlighted with heavier border */
+  .c-openclaw { left: 48px; top: 420px; width: 320px; border: 2px solid #1a4a8a; border-top-width: 1px; }
+  .c-openclaw .comp-header { background: #1a3a6a; }
+
+  /* smap controller */
+  .c-smap { left: 500px; top: 270px; width: 300px; border: 2px solid #283c5a; }
+  .c-smap .comp-header { background: #283c5a; }
+
+  /* L1 */
+  .c-l1 { left: 940px; top: 60px; width: 300px; }
+
+  /* L2 */
+  .c-l2 { left: 940px; top: 310px; width: 300px; border-color: #2a5a3c; }
+  .c-l2 .comp-header { background: #1e4030; }
+
+  /* L3 */
+  .c-l3 { left: 940px; top: 560px; width: 300px; border-color: #5a4020; }
+  .c-l3 .comp-header { background: #4a3010; color: #d8c8a0; }
+
+  /* UB cluster */
+  .c-ub { left: 1380px; top: 280px; width: 260px; background: #f8f9fa; }
+  .c-ub .comp-header { background: #2a4a3a; }
+
+  /* Results box */
+  .c-results { left: 1380px; top: 550px; width: 260px; }
+
+  /* Annotation style */
+  .annot {
+    position: absolute; font-size: 11px; color: #3a5a8a;
+    letter-spacing: 0.5px; background: transparent;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* Dimension line markers */
+  .dim-mark {
+    position: absolute; border: 1px solid #aabbcc;
+    background: transparent;
+  }
+
+  /* Footer border */
+  .footer-strip {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: #1a2a3e; color: #4a6880;
+    padding: 7px 48px; font-size: 11px; height: 36px;
+    display: flex; align-items: center; justify-content: space-between;
+    letter-spacing: 1px;
+  }
+
+  /* Call-out labels */
+  .callout {
+    position: absolute; background: #eef2f8;
+    border: 1px solid #283c5a; border-radius: 0;
+    padding: 8px 12px; font-size: 11px; color: #1a2a3e;
+    max-width: 200px; line-height: 1.5;
+  }
+  .callout::before {
+    content: '▶'; font-size: 9px; color: #283c5a; margin-right: 4px;
+  }
+
+  /* Reference table - bottom right */
+  .ref-table {
+    position: absolute; right: 48px; bottom: 50px;
+    width: 300px;
+    border: 1.5px solid #283c5a; background: #fff;
+    font-size: 11px;
+  }
+  .rt-header {
+    background: #1a2a3e; color: #c8d8ea; padding: 6px 12px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    font-size: 10px;
+  }
+  .rt-row {
+    display: flex; border-bottom: 1px solid #d8e0ea;
+    font-size: 11px; color: #1a2a3e;
+  }
+  .rt-row:last-child { border-bottom: none; }
+  .rt-cell { padding: 5px 10px; border-right: 1px solid #d8e0ea; flex: 1; }
+  .rt-cell:last-child { border-right: none; }
+  .rt-cell.rt-label { color: #4a6080; font-size: 10px; flex: 0 0 80px; }
+</style>
+</head>
+<body>
+<div class="blueprint">
+  <div class="title-block">
+    <div class="tb-main">
+      <h1>SMAP · 内存超分架构 · 工程设计图</h1>
+      <p>BYTEDANCE VOLCANO AI PLATFORM · OPENCLAW BROWSER · L2/L3 MEMORY OVERCOMMIT</p>
+    </div>
+    <div class="tb-meta">
+      <div class="tb-meta-cell"><div class="mc-label">规格</div><div class="mc-val">2U4G VM</div></div>
+      <div class="tb-meta-cell"><div class="mc-label">超分比</div><div class="mc-val">4×</div></div>
+      <div class="tb-meta-cell"><div class="mc-label">分层数</div><div class="mc-val">L1/L2/L3</div></div>
+      <div class="tb-meta-cell"><div class="mc-label">版本</div><div class="mc-val">v2.0</div></div>
+    </div>
+  </div>
+
+  <div class="drawing">
+    <!-- SVG connections -->
+    <svg class="main-svg" xmlns="http://www.w3.org/2000/svg">
+      <!-- Platform → VM -->
+      <line x1="208" y1="170" x2="208" y2="230" stroke="#283c5a" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <polygon points="202,224 208,236 214,224" fill="#283c5a"/>
+
+      <!-- VM → openclaw -->
+      <line x1="208" y1="378" x2="208" y2="420" stroke="#283c5a" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <polygon points="202,414 208,426 214,414" fill="#283c5a"/>
+
+      <!-- openclaw → smap -->
+      <line x1="368" y1="490" x2="500" y2="390" stroke="#1a4a8a" stroke-width="2"/>
+      <polygon points="493,384 506,397 494,400" fill="#1a4a8a"/>
+
+      <!-- smap → L1 -->
+      <line x1="800" y1="330" x2="940" y2="160" stroke="#283c5a" stroke-width="1.5"/>
+      <polygon points="933,154 946,167 934,170" fill="#283c5a"/>
+
+      <!-- smap → L2 -->
+      <line x1="800" y1="380" x2="940" y2="380" stroke="#2a5a3c" stroke-width="1.5"/>
+      <polygon points="933,374 946,380 933,386" fill="#2a5a3c"/>
+
+      <!-- smap → L3 -->
+      <line x1="800" y1="430" x2="940" y2="620" stroke="#5a4020" stroke-width="1.5"/>
+      <polygon points="933,614 946,627 934,630" fill="#5a4020"/>
+
+      <!-- L2 → UB cluster -->
+      <line x1="1240" y1="390" x2="1380" y2="390" stroke="#2a5a3c" stroke-width="1.5" stroke-dasharray="8,4"/>
+      <polygon points="1373,384 1386,390 1373,396" fill="#2a5a3c"/>
+
+      <!-- L1 annotation line -->
+      <line x1="1090" y1="55" x2="1090" y2="60" stroke="#aabbcc" stroke-width="1"/>
+      <line x1="1090" y1="55" x2="1240" y2="55" stroke="#aabbcc" stroke-width="1"/>
+
+      <!-- Dimension markers -->
+      <line x1="48" y1="30" x2="48" y2="570" stroke="#aabbcc" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <line x1="940" y1="30" x2="940" y2="900" stroke="#aabbcc" stroke-width="0.5" stroke-dasharray="4,4"/>
+      <line x1="1380" y1="30" x2="1380" y2="900" stroke="#aabbcc" stroke-width="0.5" stroke-dasharray="4,4"/>
+
+      <!-- Bracket for "smap scope" -->
+      <path d="M 460 120 L 440 120 L 440 780 L 460 780" stroke="#3a5a8a" stroke-width="1.5" fill="none"/>
+    </svg>
+
+    <!-- Components -->
+    <div class="component c-platform">
+      <div class="comp-header">
+        <span>INFRA · PLATFORM</span><span>01</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">VOLCANO AI PLATFORM</div>
+        <div class="comp-spec">
+          <span>字节跳动火山AI服务平台</span>
+          <span>企业级AI计算基础设施</span>
+          <span>统一调度 · 弹性伸缩</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-vm">
+      <div class="comp-header">
+        <span>COMPUTE · VM</span><span>02</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">STD-2U4G INSTANCE</div>
+        <div class="comp-spec">
+          <span>2 vCPU · 4 GB DRAM</span>
+          <span>Linux CentOS 7.9</span>
+          <span>smap agent 内核模块</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-openclaw">
+      <div class="comp-header">
+        <span>APP · BROWSER</span><span>03 ★</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">OPENCLAW BROWSER</div>
+        <div class="comp-spec">
+          <span>页面渲染引擎 · JS 运行时</span>
+          <span>峰值内存: 7-8 GB</span>
+          <span>smap 透明超分保护</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-smap">
+      <div class="comp-header">
+        <span>CTRL · MEMORY MGR</span><span>04</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">SMAP CONTROLLER</div>
+        <div class="comp-spec">
+          <span>内核热度感知调度</span>
+          <span>LRU 页面追踪</span>
+          <span>L1 ⇌ L2 ⇌ L3 自动迁移</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-l1">
+      <div class="comp-header">
+        <span>MEM · L1 · HOT</span><span>05</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">DRAM</div>
+        <div class="comp-spec">
+          <span>容量: 4 GB (物理)</span>
+          <span>延迟: ~10 ns</span>
+          <span>热数据 · 活跃工作集</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-l2">
+      <div class="comp-header">
+        <span>MEM · L2 · WARM</span><span>06</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">UB BORROWED MEMORY</div>
+        <div class="comp-spec">
+          <span>容量: 动态扩展</span>
+          <span>延迟: ~1 ms</span>
+          <span>跨机内存聚合 · 温数据</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-l3">
+      <div class="comp-header">
+        <span>STOR · L3 · COLD</span><span>07</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">NVME SSD</div>
+        <div class="comp-spec">
+          <span>容量: TB 级</span>
+          <span>延迟: ~100 μs</span>
+          <span>冷数据换出 · 最低成本</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="component c-ub">
+      <div class="comp-header">
+        <span>NET · UB CLUSTER</span><span>08</span>
+      </div>
+      <div class="comp-body">
+        <div class="comp-name">UB NODE POOL</div>
+        <div class="comp-spec">
+          <span>集群闲置DRAM提供方</span>
+          <span>UB协议传输</span>
+          <span>弹性借用归还</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- smap bracket annotation -->
+    <div class="annot" style="left: 400px; top: 440px; transform: rotate(-90deg); transform-origin: left top; white-space: nowrap;">
+      SMAP SCOPE — 透明内存分层管理
+    </div>
+
+    <!-- Reference table -->
+    <div class="ref-table">
+      <div class="rt-header">超分收益 · OVERCOMMIT BENEFIT</div>
+      <div class="rt-row">
+        <div class="rt-cell rt-label">超分比</div>
+        <div class="rt-cell">2× → 4×</div>
+      </div>
+      <div class="rt-row">
+        <div class="rt-cell rt-label">VM密度</div>
+        <div class="rt-cell">+100%</div>
+      </div>
+      <div class="rt-row">
+        <div class="rt-cell rt-label">成本节省</div>
+        <div class="rt-cell">~40%</div>
+      </div>
+      <div class="rt-row">
+        <div class="rt-cell rt-label">业务中断</div>
+        <div class="rt-cell">0（透明）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-strip">
+    <span>字节跳动火山AI平台 · SMAP 内存超分技术方案 · CONFIDENTIAL</span>
+    <span>Layout 10 · Engineering Blueprint</span>
+  </div>
+</div>
+</body>
+</html>

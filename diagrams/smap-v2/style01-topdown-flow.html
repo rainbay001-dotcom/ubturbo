@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 纵向流程图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f4f6f9;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 22px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header-title { font-size: 28px; font-weight: 600; letter-spacing: 1px; }
+  .header-sub { font-size: 15px; color: #a8c4e0; margin-top: 4px; }
+  .header-badge {
+    background: #2c5282; border: 1px solid #4a7bb7;
+    padding: 6px 18px; border-radius: 4px;
+    font-size: 13px; color: #c8dff0;
+  }
+  .main {
+    flex: 1; display: flex; padding: 28px 48px 20px;
+    gap: 32px;
+  }
+  .flow-col {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; gap: 0;
+  }
+  .flow-node {
+    width: 100%; background: #fff;
+    border: 1px solid #d0d8e4; border-radius: 6px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .flow-node .label {
+    font-size: 11px; color: #7a8fa6; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .flow-node .title {
+    font-size: 17px; font-weight: 600; color: #1e3a5f; margin-bottom: 4px;
+  }
+  .flow-node .desc { font-size: 13px; color: #556677; line-height: 1.5; }
+  .flow-arrow {
+    width: 2px; height: 28px; background: #b0c4d8;
+    position: relative; flex-shrink: 0;
+  }
+  .flow-arrow::after {
+    content: '';
+    position: absolute; bottom: -6px; left: -5px;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #b0c4d8;
+  }
+  .highlight { border-left: 4px solid #2e6da4; }
+  .highlight .title { color: #2e6da4; }
+
+  .right-panel {
+    width: 380px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel-card {
+    background: #fff; border: 1px solid #d0d8e4;
+    border-radius: 6px; padding: 18px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .panel-card h3 {
+    font-size: 13px; color: #7a8fa6; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 12px;
+    border-bottom: 1px solid #eef1f5; padding-bottom: 8px;
+  }
+  .metric-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid #f0f3f7;
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-name { font-size: 13px; color: #445566; }
+  .metric-val { font-size: 15px; font-weight: 600; color: #2e6da4; }
+  .tier-row {
+    display: flex; align-items: center; gap: 12px; padding: 8px 0;
+    border-bottom: 1px solid #f0f3f7;
+  }
+  .tier-row:last-child { border-bottom: none; }
+  .tier-badge {
+    width: 32px; height: 22px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0;
+  }
+  .t1 { background: #dde8f5; color: #2e6da4; }
+  .t2 { background: #ddf0e8; color: #2a6a4a; }
+  .t3 { background: #e8e4d8; color: #5a4a2a; }
+  .tier-info .tn { font-size: 13px; font-weight: 600; color: #334455; }
+  .tier-info .td { font-size: 12px; color: #778899; margin-top: 1px; }
+
+  .footer {
+    background: #1e3a5f; color: #a8c4e0;
+    padding: 10px 48px; font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="header-title">smap 内存超分架构 — 字节跳动火山AI平台</div>
+      <div class="header-sub">业务场景：openclaw browser 容器化部署 · 整机超分比提升方案</div>
+    </div>
+    <div class="header-badge">技术架构说明</div>
+  </div>
+
+  <div class="main">
+    <div class="flow-col">
+      <div class="flow-node">
+        <div class="label">基础设施层</div>
+        <div class="title">字节跳动火山AI服务平台</div>
+        <div class="desc">Volcano Engine · 企业级AI计算基础设施 · 统一资源调度</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node">
+        <div class="label">虚机规格</div>
+        <div class="title">2U4G 标准虚机</div>
+        <div class="desc">2 vCPU · 4 GB 内存分配 · 运行 openclaw browser 进程</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node highlight">
+        <div class="label">核心组件</div>
+        <div class="title">openclaw browser</div>
+        <div class="desc">页面渲染引擎 · 内存占用波动大 · 峰值超出物理内存上限</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node">
+        <div class="label">内存管理</div>
+        <div class="title">smap 内存超分管理层</div>
+        <div class="desc">透明代理物理/扩展内存 · 按访问热度自动分层 · 对上层应用无感知</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node">
+        <div class="label">L1 热层</div>
+        <div class="title">DRAM 物理内存</div>
+        <div class="desc">高频访问数据 · 纳秒级延迟 · 4 GB 物理容量</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node">
+        <div class="label">L2 温层</div>
+        <div class="title">UB 借用内存（跨机聚合）</div>
+        <div class="desc">低活跃度内存页迁移 · 毫秒级延迟 · 按需扩容</div>
+      </div>
+      <div class="flow-arrow"></div>
+      <div class="flow-node">
+        <div class="label">L3 冷层</div>
+        <div class="title">NVMe 持久化存储</div>
+        <div class="desc">冷数据持久化换出 · 微秒级延迟 · TB 级扩展容量</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="panel-card">
+        <h3>超分收益指标</h3>
+        <div class="metric-row">
+          <span class="metric-name">整机内存超分比</span>
+          <span class="metric-val">2× → 4×</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">单机虚机密度</span>
+          <span class="metric-val">+100%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">硬件成本节省</span>
+          <span class="metric-val">~40%</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-name">业务感知中断</span>
+          <span class="metric-val">无</span>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>内存分层结构</h3>
+        <div class="tier-row">
+          <div class="tier-badge t1">L1</div>
+          <div class="tier-info">
+            <div class="tn">DRAM — 热数据层</div>
+            <div class="td">纳秒级 · 物理内存 · 直接访问</div>
+          </div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-badge t2">L2</div>
+          <div class="tier-info">
+            <div class="tn">UB借用 — 温数据层</div>
+            <div class="td">毫秒级 · 跨机聚合 · 透明扩展</div>
+          </div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-badge t3">L3</div>
+          <div class="tier-info">
+            <div class="tn">NVMe — 冷数据层</div>
+            <div class="td">微秒级 · 本地SSD · 大容量</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>部署架构说明</h3>
+        <div style="font-size: 13px; color: #556677; line-height: 1.8;">
+          openclaw browser 在 2U4G 虚机内运行，实际内存需求峰值可达物理配额的 2-3 倍。
+          smap 通过 L2 UB 借用内存与 L3 NVMe 无感知扩展可用内存空间，使整机超分比从
+          2x 提升至 4x，显著提升火山平台单节点服务密度。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动火山AI平台 · smap 内存超分技术方案</span>
+    <span>Layout 01 · Top-Down Flow</span>
+  </div>
+</body>
+</html>

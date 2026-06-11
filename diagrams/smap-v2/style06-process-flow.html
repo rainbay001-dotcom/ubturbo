@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 - 水平流程图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f3f5f8;
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #243342; padding: 22px 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 3px solid #3e5878;
+  }
+  .header h1 { font-size: 24px; color: #d4e4f0; font-weight: 600; }
+  .header p { font-size: 13px; color: #6888a8; margin-top: 4px; }
+  .header-stats { display: flex; gap: 28px; }
+  .hs { text-align: right; }
+  .hs .hv { font-size: 20px; font-weight: 700; color: #a0c4e0; }
+  .hs .hl { font-size: 11px; color: #5a7898; margin-top: 1px; }
+
+  /* Middle section: flow */
+  .flow-section {
+    padding: 32px 56px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .flow-label { font-size: 11px; color: #7a8fa0; text-transform: uppercase; letter-spacing: 1.5px; }
+
+  .flow-row { display: flex; align-items: stretch; gap: 0; }
+
+  .flow-step {
+    flex: 1; background: #fff; border: 1px solid #d0dae4;
+    border-radius: 0; padding: 20px 18px;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+  }
+  .flow-step:first-child { border-radius: 6px 0 0 6px; }
+  .flow-step:last-child { border-radius: 0 6px 6px 0; }
+
+  .flow-step .step-num {
+    font-size: 11px; font-weight: 700; color: #aabbcc;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .flow-step .step-title {
+    font-size: 15px; font-weight: 600; color: #243342; margin-bottom: 5px;
+  }
+  .flow-step .step-desc {
+    font-size: 12px; color: #667788; line-height: 1.5;
+  }
+
+  .flow-arrow {
+    width: 32px; background: #f0f4f8;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #8aa8c4; flex-shrink: 0;
+    border-top: 1px solid #d0dae4; border-bottom: 1px solid #d0dae4;
+  }
+
+  .highlight-step {
+    border-color: #3a6a9a; border-width: 2px;
+    background: #f0f5fb;
+  }
+  .highlight-step .step-title { color: #2a5a8a; }
+
+  /* Bottom: memory tier visualization */
+  .tier-section {
+    flex: 1; padding: 0 56px 24px;
+    display: flex; gap: 20px;
+  }
+
+  .tier-card {
+    flex: 1; border-radius: 8px; padding: 24px 28px;
+    display: flex; flex-direction: column;
+    border: 1px solid transparent;
+  }
+  .tc-dram { background: #fff; border-color: #c0d0e0; }
+  .tc-ub { background: #fff; border-color: #b0c8b8; }
+  .tc-nvme { background: #fff; border-color: #c0b898; }
+
+  .tc-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .tc-badge {
+    width: 44px; height: 44px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .tcd { background: #243342; }
+  .tcu { background: #2e5a3e; }
+  .tcn { background: #5a4020; }
+  .tc-header-text .tct { font-size: 16px; font-weight: 600; color: #243342; }
+  .tc-header-text .tcs { font-size: 12px; color: #7a8fa0; margin-top: 2px; }
+
+  .tc-specs {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .tc-spec {
+    font-size: 11px; padding: 3px 10px; border-radius: 3px; background: #f0f4f8; color: #445566;
+  }
+  .tcs-green { background: #e8f0ea; color: #2a4a34; }
+  .tcs-amber { background: #f0ece0; color: #4a3820; }
+
+  .tc-bar-wrap { margin-top: auto; }
+  .tc-bar-label { font-size: 11px; color: #99aabb; margin-bottom: 4px; }
+  .tc-bar-bg { background: #eef1f5; border-radius: 3px; height: 8px; overflow: hidden; }
+  .tc-bar-fill { height: 100%; border-radius: 3px; }
+  .bf-dram { background: #243342; width: 30%; }
+  .bf-ub { background: #2e5a3e; width: 60%; }
+  .bf-nvme { background: #5a4020; width: 100%; }
+
+  .tc-desc { font-size: 12px; color: #667788; line-height: 1.6; margin-top: 10px; }
+
+  .footer {
+    background: #243342; color: #5a7898; padding: 9px 56px;
+    font-size: 12px; display: flex; justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>smap 内存管理 · 数据流程图</h1>
+      <p>字节跳动火山AI平台 · openclaw browser 内存分层调度路径</p>
+    </div>
+    <div class="header-stats">
+      <div class="hs"><div class="hv">火山AI</div><div class="hl">基础设施</div></div>
+      <div class="hs"><div class="hv">2U4G</div><div class="hl">虚机规格</div></div>
+      <div class="hs"><div class="hv">L1+L2+L3</div><div class="hl">三层内存</div></div>
+    </div>
+  </div>
+
+  <div class="flow-section">
+    <div class="flow-label">数据写入路径（从应用到存储）</div>
+    <div class="flow-row">
+      <div class="flow-step highlight-step">
+        <div class="step-num">Step 1</div>
+        <div class="step-title">openclaw browser</div>
+        <div class="step-desc">页面渲染请求内存分配<br>JS引擎、DOM树写入</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 2</div>
+        <div class="step-title">内存分配请求</div>
+        <div class="step-desc">smap 拦截 malloc/mmap<br>透明代理分配</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 3</div>
+        <div class="step-title">写入 L1 DRAM</div>
+        <div class="step-desc">新分配数据写入物理内存<br>标记访问计数器</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 4</div>
+        <div class="step-title">热度评估</div>
+        <div class="step-desc">LRU 周期扫描<br>冷热页分类判定</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 5</div>
+        <div class="step-title">降级至 L2</div>
+        <div class="step-desc">低活跃页迁移<br>至 UB 借用内存</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 6</div>
+        <div class="step-title">降级至 L3</div>
+        <div class="step-desc">长期冷页换出<br>至 NVMe 持久化</div>
+      </div>
+    </div>
+
+    <div class="flow-label" style="margin-top: 4px;">数据读取路径（缺页时提升）</div>
+    <div class="flow-row" style="flex-direction: row-reverse;">
+      <div class="flow-step highlight-step">
+        <div class="step-num">Step 1</div>
+        <div class="step-title">openclaw 读取请求</div>
+        <div class="step-desc">访问某内存地址<br>触发缺页中断</div>
+      </div>
+      <div class="flow-arrow" style="transform: scaleX(-1);">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 2</div>
+        <div class="step-title">L1 命中检查</div>
+        <div class="step-desc">DRAM 中直接返回<br>纳秒级响应</div>
+      </div>
+      <div class="flow-arrow" style="transform: scaleX(-1);">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 3</div>
+        <div class="step-title">L2 命中召回</div>
+        <div class="step-desc">从 UB 内存预取<br>提升至 L1</div>
+      </div>
+      <div class="flow-arrow" style="transform: scaleX(-1);">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 4</div>
+        <div class="step-title">L3 命中召回</div>
+        <div class="step-desc">从 NVMe 读取<br>逐级提升至 L1</div>
+      </div>
+      <div class="flow-arrow" style="transform: scaleX(-1);">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 5</div>
+        <div class="step-title">更新热度标记</div>
+        <div class="step-desc">重置访问计数器<br>加入活跃工作集</div>
+      </div>
+      <div class="flow-arrow" style="transform: scaleX(-1);">→</div>
+      <div class="flow-step">
+        <div class="step-num">Step 6</div>
+        <div class="step-title">返回数据</div>
+        <div class="step-desc">openclaw 透明接收<br>无感知延迟</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tier-section">
+    <div class="tier-card tc-dram">
+      <div class="tc-header">
+        <div class="tc-badge tcd">L1</div>
+        <div class="tc-header-text">
+          <div class="tct">DRAM · 热数据层</div>
+          <div class="tcs">物理内存 · 直接访问</div>
+        </div>
+      </div>
+      <div class="tc-specs">
+        <span class="tc-spec">~10 ns 延迟</span>
+        <span class="tc-spec">4 GB 容量</span>
+        <span class="tc-spec">高频读写</span>
+      </div>
+      <div class="tc-bar-wrap">
+        <div class="tc-bar-label">容量占比（扩展后）</div>
+        <div class="tc-bar-bg"><div class="tc-bar-fill bf-dram"></div></div>
+      </div>
+      <div class="tc-desc">openclaw 活跃工作集常驻于此，包括 JS 引擎运行时和活跃 DOM 数据。</div>
+    </div>
+
+    <div class="tier-card tc-ub">
+      <div class="tc-header">
+        <div class="tc-badge tcu">L2</div>
+        <div class="tc-header-text">
+          <div class="tct">UB 借用内存 · 温数据层</div>
+          <div class="tcs">跨机内存聚合 · 弹性借用</div>
+        </div>
+      </div>
+      <div class="tc-specs">
+        <span class="tc-spec tcs-green">~1 ms 延迟</span>
+        <span class="tc-spec tcs-green">按需扩展</span>
+        <span class="tc-spec tcs-green">透明管理</span>
+      </div>
+      <div class="tc-bar-wrap">
+        <div class="tc-bar-label">容量占比（扩展后）</div>
+        <div class="tc-bar-bg"><div class="tc-bar-fill bf-ub"></div></div>
+      </div>
+      <div class="tc-desc">低活跃页迁移至此，UB 协议跨机聚合闲置内存，需要时毫秒级召回。</div>
+    </div>
+
+    <div class="tier-card tc-nvme">
+      <div class="tc-header">
+        <div class="tc-badge tcn">L3</div>
+        <div class="tc-header-text">
+          <div class="tct">NVMe · 冷数据层</div>
+          <div class="tcs">本地 SSD 持久化换出</div>
+        </div>
+      </div>
+      <div class="tc-specs">
+        <span class="tc-spec tcs-amber">~100 μs 延迟</span>
+        <span class="tc-spec tcs-amber">TB 级容量</span>
+        <span class="tc-spec tcs-amber">最低成本</span>
+      </div>
+      <div class="tc-bar-wrap">
+        <div class="tc-bar-label">容量占比（扩展后）</div>
+        <div class="tc-bar-bg"><div class="tc-bar-fill bf-nvme"></div></div>
+      </div>
+      <div class="tc-desc">长期冷数据持久化换出，提供最大扩展容量，整机超分比可达 4×。</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动火山AI平台 · smap 内存超分技术方案</span>
+    <span>Layout 06 · Horizontal Process Flow</span>
+  </div>
+</body>
+</html>

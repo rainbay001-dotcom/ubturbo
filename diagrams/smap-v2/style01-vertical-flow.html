@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 纵向流程</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f5f6f8;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1a2540;
+    color: #fff;
+    padding: 22px 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 32px; font-weight: 600; letter-spacing: 2px; }
+  .header .badge {
+    background: #2563eb; color: #fff; padding: 6px 18px;
+    border-radius: 4px; font-size: 16px;
+  }
+  .main {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 0; padding: 30px 60px;
+  }
+  /* flow column */
+  .flow {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0; width: 340px;
+  }
+  .node {
+    width: 300px; padding: 18px 24px; border-radius: 8px;
+    text-align: center; position: relative;
+  }
+  .node-label { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .node-title { font-size: 22px; font-weight: 700; }
+  .node-sub { font-size: 14px; margin-top: 4px; }
+  .node-user { background: #e8ecf3; border: 2px solid #9daabf; }
+  .node-user .node-title { color: #1a2540; }
+  .node-vm { background: #dbeafe; border: 2px solid #3b82f6; }
+  .node-vm .node-title { color: #1e40af; }
+  .node-openclaw {
+    background: #1a2540; border: 3px solid #2563eb;
+    box-shadow: 0 0 0 4px #bfdbfe;
+    width: 340px;
+  }
+  .node-openclaw .node-label { color: #93c5fd; }
+  .node-openclaw .node-title { color: #fff; font-size: 26px; }
+  .node-openclaw .node-sub { color: #93c5fd; font-size: 15px; }
+  .node-smap { background: #f0fdf4; border: 2px solid #22c55e; }
+  .node-smap .node-title { color: #166534; }
+
+  .arrow {
+    width: 2px; height: 36px; background: #9daabf;
+    position: relative;
+  }
+  .arrow::after {
+    content: '';
+    position: absolute; bottom: -8px; left: -5px;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 9px solid #9daabf;
+  }
+  .arrow.highlight { background: #2563eb; }
+  .arrow.highlight::after { border-top-color: #2563eb; }
+
+  /* memory tiers */
+  .mem-panel {
+    flex: 1; margin-left: 60px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .mem-title { font-size: 18px; font-weight: 700; color: #1a2540; margin-bottom: 6px; }
+  .tier {
+    display: flex; align-items: center; gap: 20px;
+    padding: 20px 28px; border-radius: 8px; border-left: 6px solid;
+  }
+  .tier-icon { font-size: 32px; }
+  .tier-content { flex: 1; }
+  .tier-name { font-size: 20px; font-weight: 700; }
+  .tier-desc { font-size: 14px; margin-top: 3px; }
+  .tier-badge {
+    padding: 4px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+  }
+  .l1 { background: #f0f4ff; border-color: #6b7db3; }
+  .l1 .tier-name { color: #374785; }
+  .l1 .tier-badge { background: #e0e7ff; color: #374785; }
+  .l2 { background: #f0f9ff; border-color: #0ea5e9; }
+  .l2 .tier-name { color: #0369a1; }
+  .l2 .tier-badge { background: #e0f2fe; color: #0369a1; }
+  .l3 {
+    background: #fff7ed; border-color: #f59e0b;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.2);
+  }
+  .l3 .tier-name { color: #92400e; }
+  .l3 .tier-badge { background: #fef3c7; color: #92400e; }
+  .l3-note {
+    margin-top: 6px; font-size: 13px; color: #b45309; font-weight: 600;
+  }
+
+  /* callout */
+  .callout {
+    margin-top: 20px; background: #1a2540; color: #fff;
+    padding: 16px 24px; border-radius: 8px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .callout-icon { font-size: 28px; }
+  .callout-text { font-size: 16px; line-height: 1.6; }
+  .callout-text strong { color: #fbbf24; font-size: 18px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>smap 内存超分方案 — 字节火山 AI 平台</h1>
+    <div class="badge">架构示意图</div>
+  </div>
+  <div class="main">
+    <!-- Left: flow -->
+    <div class="flow">
+      <div class="node node-user">
+        <div class="node-label">触发端</div>
+        <div class="node-title">用户请求</div>
+        <div class="node-sub">字节火山 AI 平台调度</div>
+      </div>
+      <div class="arrow highlight"></div>
+
+      <div class="node node-vm">
+        <div class="node-label">虚拟机</div>
+        <div class="node-title">2U4G VM</div>
+        <div class="node-sub">轻量化容器环境</div>
+      </div>
+      <div class="arrow highlight"></div>
+
+      <div class="node node-openclaw">
+        <div class="node-label">核心组件</div>
+        <div class="node-title">openclaw browser</div>
+        <div class="node-sub">内存访问代理 · 冷热感知</div>
+      </div>
+      <div class="arrow highlight"></div>
+
+      <div class="node node-smap">
+        <div class="node-label">内存管理</div>
+        <div class="node-title">smap 调度层</div>
+        <div class="node-sub">L1 / L2 / L3 分层路由</div>
+      </div>
+    </div>
+
+    <!-- Right: memory tiers -->
+    <div class="mem-panel">
+      <div class="mem-title">smap 三层内存体系</div>
+
+      <div class="tier l1">
+        <div class="tier-icon">🧠</div>
+        <div class="tier-content">
+          <div class="tier-name">L1 — 本地 DRAM</div>
+          <div class="tier-desc">宿主机物理内存，最低延迟</div>
+        </div>
+        <div class="tier-badge">热数据</div>
+      </div>
+
+      <div class="tier l2">
+        <div class="tier-icon">🔗</div>
+        <div class="tier-content">
+          <div class="tier-name">L2 — UB 借用内存</div>
+          <div class="tier-desc">跨节点内存池，RDMA 低延迟互联</div>
+        </div>
+        <div class="tier-badge">温数据</div>
+      </div>
+
+      <div class="tier l3">
+        <div class="tier-icon">💾</div>
+        <div class="tier-content">
+          <div class="tier-name">L3 — NVMe SSD</div>
+          <div class="tier-desc">本地高速闪存，持久化冷页</div>
+          <div class="l3-note">▲ L3 扩展使整机超分比显著提升</div>
+        </div>
+        <div class="tier-badge">冷数据</div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-icon">📊</div>
+        <div class="callout-text">
+          引入 L3（NVMe）后，单机可承载更多 VM 实例<br>
+          <strong>整机内存超分比提升</strong> ——openclaw 负责冷热识别与换页决策
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

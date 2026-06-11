@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 工程蓝图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #1a2744;
+    font-family: 'Consolas', 'Courier New', 'PingFang SC', monospace;
+    color: #cdd9f5;
+  }
+  .slide { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+  /* Grid background */
+  .bg-grid {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(100,149,237,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100,149,237,0.08) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .slide > * { position: relative; z-index: 1; }
+
+  /* Header */
+  .hdr {
+    height: 70px; border-bottom: 2px solid #2d4a7a;
+    display: flex; align-items: center; padding: 0 60px; gap: 20px;
+  }
+  .hdr-ref { font-size: 12px; color: #4a6694; letter-spacing: 2px; }
+  .hdr h1 { font-size: 28px; font-weight: 700; color: #e8edf8; letter-spacing: 2px; }
+  .hdr-rev { margin-left: auto; font-size: 13px; color: #4a6694; }
+  .hdr-border {
+    width: 2px; height: 32px; background: #6495ed;
+  }
+
+  /* Body */
+  .body { flex: 1; display: flex; padding: 32px 60px; gap: 48px; }
+
+  /* Left: main diagram */
+  .diag { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+
+  /* Title box */
+  .title-box {
+    border: 1px solid #2d4a7a; border-radius: 0;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .tb-id { font-size: 20px; color: #4a6694; font-weight: 700; }
+  .tb-name { font-size: 22px; font-weight: 700; color: #e8edf8; }
+  .tb-sub { font-size: 14px; color: #6495ed; margin-left: 8px; }
+
+  /* Component boxes */
+  .comp-row { display: flex; align-items: center; gap: 0; }
+  .comp {
+    border: 2px solid; border-radius: 2px;
+    padding: 16px 22px; text-align: center;
+    position: relative;
+  }
+  .comp-id {
+    position: absolute; top: -10px; left: 10px;
+    background: #1a2744; padding: 0 6px;
+    font-size: 11px; color: #4a6694; letter-spacing: 1px;
+  }
+  .comp-name { font-size: 18px; font-weight: 700; }
+  .comp-type { font-size: 12px; margin-top: 3px; }
+
+  .c-user { border-color: #4a6694; min-width: 180px; }
+  .c-user .comp-name { color: #8fa8d4; }
+  .c-user .comp-type { color: #4a6694; }
+
+  .c-vm { border-color: #6495ed; min-width: 180px; }
+  .c-vm .comp-name { color: #6495ed; }
+  .c-vm .comp-type { color: #4a66a8; }
+
+  .c-oc {
+    border-color: #6495ed; border-width: 3px;
+    min-width: 300px; padding: 20px 36px;
+    background: rgba(100,149,237,0.08);
+    box-shadow: 0 0 0 4px rgba(100,149,237,0.1), 0 0 20px rgba(100,149,237,0.15);
+  }
+  .c-oc .comp-name { color: #e8edf8; font-size: 22px; }
+  .c-oc .comp-type { color: #6495ed; }
+  .c-oc-label {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: #6495ed; color: #fff; padding: 2px 12px; border-radius: 2px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+
+  .c-smap { border-color: #3a7a5a; min-width: 180px; }
+  .c-smap .comp-name { color: #6ec8a0; }
+  .c-smap .comp-type { color: #3a7a5a; }
+
+  /* Connector lines */
+  .wire {
+    flex: 1; max-width: 60px; height: 2px; background: #4a6694;
+    position: relative; margin: 0 4px;
+  }
+  .wire::after {
+    content: ''; position: absolute; right: -6px; top: -3.5px;
+    border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent;
+    border-left: 7px solid #4a6694;
+  }
+  .wire.active { background: #6495ed; }
+  .wire.active::after { border-left-color: #6495ed; }
+
+  /* Memory tier row */
+  .mem-row { display: flex; gap: 16px; margin-top: 8px; }
+  .mem-tier {
+    flex: 1; border: 1px solid; border-radius: 2px; padding: 16px 20px;
+    position: relative;
+  }
+  .mt-id {
+    position: absolute; top: -10px; left: 10px;
+    background: #1a2744; padding: 0 6px;
+    font-size: 11px; letter-spacing: 1px;
+  }
+  .mt-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .mt-detail { font-size: 12px; }
+  .mt-spec { margin-top: 8px; font-size: 12px; }
+
+  .ml1 { border-color: #3a4a6a; }
+  .ml1 .mt-id { color: #4a6694; }
+  .ml1 .mt-name { color: #8fa8d4; }
+  .ml1 .mt-detail { color: #4a6694; }
+
+  .ml2 { border-color: #1a5080; }
+  .ml2 .mt-id { color: #4a90c0; }
+  .ml2 .mt-name { color: #6ab0e0; }
+  .ml2 .mt-detail { color: #4a7090; }
+
+  .ml3 {
+    border-color: #805020; flex: 1.3;
+    background: rgba(128,80,32,0.08);
+    box-shadow: 0 0 12px rgba(180,120,40,0.15);
+  }
+  .ml3 .mt-id { color: #c08040; }
+  .ml3 .mt-name { color: #d4a040; font-size: 20px; }
+  .ml3 .mt-detail { color: #906030; }
+  .ml3-note {
+    margin-top: 8px; border: 1px solid #805020; padding: 6px 10px;
+    font-size: 12px; color: #c08040; font-weight: 700;
+  }
+
+  /* Flow annotation overlay */
+  .flow-label {
+    font-size: 12px; color: #4a6694;
+    text-align: center; margin: 0 4px;
+  }
+
+  /* Right: spec panel */
+  .spec-panel {
+    width: 340px; border: 1px solid #2d4a7a; border-radius: 0;
+    display: flex; flex-direction: column;
+  }
+  .sp-header {
+    background: #1e3560; padding: 14px 20px;
+    border-bottom: 1px solid #2d4a7a;
+  }
+  .sp-header h3 { font-size: 14px; color: #8fa8d4; letter-spacing: 2px; font-weight: 700; }
+  .sp-body { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .sp-item { }
+  .sp-label { font-size: 11px; color: #4a6694; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+  .sp-value { font-size: 15px; color: #cdd9f5; font-weight: 600; }
+  .sp-value.blue { color: #6495ed; }
+  .sp-value.amber { color: #d4a040; }
+  .sp-divider { height: 1px; background: #2d4a7a; }
+
+  .sp-note {
+    margin-top: 4px; padding: 12px 16px; border: 1px solid #2d4a7a;
+    font-size: 13px; color: #8fa8d4; line-height: 1.6;
+  }
+  .sp-note strong { color: #6495ed; }
+
+  .sp-l3-box {
+    padding: 12px 16px; border: 1px solid #805020;
+    background: rgba(128,80,32,0.12);
+    font-size: 13px; color: #d4a040; line-height: 1.6;
+  }
+  .sp-l3-box strong { color: #f0b840; }
+
+  /* Footer */
+  .footer {
+    height: 44px; border-top: 1px solid #2d4a7a;
+    display: flex; align-items: center; padding: 0 60px; gap: 40px;
+  }
+  .footer-item { display: flex; align-items: center; gap: 8px; }
+  .fi-sym { font-size: 12px; color: #4a6694; }
+  .fi-txt { font-size: 12px; color: #6a82a8; }
+  .fi-txt strong { color: #8fa8d4; }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="slide">
+  <div class="hdr">
+    <div class="hdr-ref">DOC-SMAP-002</div>
+    <div class="hdr-border"></div>
+    <h1>smap 分层内存调度架构</h1>
+    <div class="hdr-rev">REV B · 字节火山 AI 平台</div>
+  </div>
+
+  <div class="body">
+    <div class="diag">
+      <!-- Title box -->
+      <div class="title-box">
+        <div class="tb-id">[SYS]</div>
+        <div class="tb-name">系统概述</div>
+        <div class="tb-sub">利用 L3 NVMe 提升整机超分比</div>
+      </div>
+
+      <!-- Main flow row -->
+      <div class="comp-row">
+        <div class="comp c-user">
+          <div class="comp-id">[USR-01]</div>
+          <div class="comp-name">用户请求</div>
+          <div class="comp-type">火山平台调度</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div class="wire active"></div>
+          <div class="flow-label">请求</div>
+        </div>
+        <div class="comp c-vm">
+          <div class="comp-id">[VM-01]</div>
+          <div class="comp-name">2U4G VM</div>
+          <div class="comp-type">内存缺页触发</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div class="wire active"></div>
+          <div class="flow-label">缺页</div>
+        </div>
+        <div class="comp c-oc">
+          <div class="c-oc-label">★ CORE COMPONENT</div>
+          <div class="comp-name">openclaw browser</div>
+          <div class="comp-type">冷热感知 · 换页决策引擎</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center;">
+          <div class="wire"></div>
+          <div class="flow-label">路由</div>
+        </div>
+        <div class="comp c-smap">
+          <div class="comp-id">[SMAP-01]</div>
+          <div class="comp-name">smap</div>
+          <div class="comp-type">分层调度执行</div>
+        </div>
+      </div>
+
+      <!-- Connector line from smap to mem -->
+      <div style="display:flex; padding: 0 8px;">
+        <div style="flex:1;"></div>
+        <div style="flex:1;"></div>
+        <div style="flex:1;"></div>
+        <div style="flex:1;"></div>
+        <div style="width:200px; text-align:center;">
+          <div style="margin-left:90px; height:20px; width:2px; background:#3a4a6a; display:inline-block;"></div>
+        </div>
+      </div>
+
+      <!-- Memory tiers -->
+      <div class="mem-row">
+        <div class="mem-tier ml1">
+          <div class="mt-id">[L1-DRAM]</div>
+          <div class="mt-name">本地 DRAM</div>
+          <div class="mt-detail">热页 · 最低延迟 · 直接访问</div>
+        </div>
+        <div class="mem-tier ml2">
+          <div class="mt-id">[L2-UB]</div>
+          <div class="mt-name">UB 借用内存</div>
+          <div class="mt-detail">温页 · RDMA 跨节点池</div>
+        </div>
+        <div class="mem-tier ml3">
+          <div class="mt-id">[L3-NVME] ★超分关键</div>
+          <div class="mt-name">NVMe SSD</div>
+          <div class="mt-detail">冷页 · 高速闪存 · 大容量缓冲</div>
+          <div class="ml3-note">冷页换出 → 释放 DRAM → 整机超分比↑</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spec panel -->
+    <div class="spec-panel">
+      <div class="sp-header">
+        <h3>SYSTEM SPEC</h3>
+      </div>
+      <div class="sp-body">
+        <div class="sp-item">
+          <div class="sp-label">PLATFORM</div>
+          <div class="sp-value">字节跳动 · 火山 AI 服务平台</div>
+        </div>
+        <div class="sp-divider"></div>
+        <div class="sp-item">
+          <div class="sp-label">VM SPEC</div>
+          <div class="sp-value blue">2U4G 虚拟机</div>
+        </div>
+        <div class="sp-divider"></div>
+        <div class="sp-item">
+          <div class="sp-label">CORE PROCESS</div>
+          <div class="sp-value blue">openclaw browser</div>
+        </div>
+        <div class="sp-divider"></div>
+        <div class="sp-item">
+          <div class="sp-label">OBJECTIVE</div>
+          <div class="sp-value amber">L2 + L3 超分比提升</div>
+        </div>
+        <div class="sp-divider"></div>
+
+        <div class="sp-note">
+          <strong>openclaw</strong> 实时感知 VM 内存冷热状态，驱动 smap 路由至最优层级，对上层透明。
+        </div>
+
+        <div class="sp-l3-box">
+          <strong>[L3 超分原理]</strong><br>
+          冷页卸载至 NVMe，DRAM 空闲容量可承载更多 VM，实现整机超分比提升。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-item">
+      <div class="fi-sym">—</div>
+      <div class="fi-txt"><strong>实线</strong> 主请求流</div>
+    </div>
+    <div class="footer-item">
+      <div class="fi-sym">★</div>
+      <div class="fi-txt"><strong>openclaw</strong> 核心换页决策</div>
+    </div>
+    <div class="footer-item">
+      <div class="fi-sym">[L3]</div>
+      <div class="fi-txt"><strong>NVMe</strong> 超分比提升关键层</div>
+    </div>
+    <div style="margin-left:auto;">
+      <div class="fi-txt">smap-arch · 字节火山 AI 平台</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

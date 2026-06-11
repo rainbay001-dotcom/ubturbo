@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 泳道图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f8fafc;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .slide { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+  .hdr {
+    background: #1e293b; height: 72px;
+    display: flex; align-items: center; padding: 0 56px;
+    gap: 0;
+  }
+  .hdr-line { width: 5px; height: 36px; background: #3b82f6; border-radius: 3px; margin-right: 20px; }
+  .hdr h1 { color: #fff; font-size: 28px; font-weight: 700; }
+  .hdr-badge {
+    margin-left: auto; border: 1px solid #334155; color: #94a3b8;
+    padding: 4px 16px; border-radius: 20px; font-size: 14px;
+  }
+
+  .body { flex: 1; display: flex; padding: 28px 56px; gap: 0; }
+
+  /* Lane labels column */
+  .lanes-label {
+    width: 140px; display: flex; flex-direction: column;
+    border-right: 2px solid #e2e8f0;
+    padding-right: 0;
+  }
+  .lane-label {
+    flex: 1; display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 18px;
+    font-size: 14px; font-weight: 600; color: #64748b;
+    letter-spacing: 1px; text-transform: uppercase;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .lane-label:last-child { border-bottom: none; }
+  .lane-label.hl { color: #1d4ed8; }
+
+  /* Swimlanes content */
+  .lanes-content {
+    flex: 1; display: flex; flex-direction: column;
+  }
+  .lane {
+    flex: 1; display: flex; align-items: center;
+    border-bottom: 1px solid #e2e8f0; padding: 0 24px;
+    gap: 0;
+  }
+  .lane:last-child { border-bottom: none; }
+  .lane.openclaw-lane { background: #eff6ff; }
+
+  /* Step box */
+  .step {
+    padding: 12px 20px; border-radius: 8px; text-align: center;
+    min-width: 180px;
+  }
+  .step-name { font-size: 17px; font-weight: 700; }
+  .step-desc { font-size: 12px; margin-top: 3px; color: #64748b; }
+
+  .step-plain { background: #fff; border: 2px solid #cbd5e1; }
+  .step-plain .step-name { color: #1e293b; }
+  .step-vm { background: #fff; border: 2px solid #93c5fd; }
+  .step-vm .step-name { color: #1e40af; }
+  .step-oc {
+    background: #1e293b; border: 2px solid #3b82f6;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.3);
+  }
+  .step-oc .step-name { color: #fff; font-size: 20px; }
+  .step-oc .step-desc { color: #93c5fd; }
+  .step-smap { background: #fff; border: 2px solid #6ee7b7; }
+  .step-smap .step-name { color: #065f46; }
+  .step-mem-l1 { background: #f8fafc; border: 2px solid #94a3b8; min-width: 140px; }
+  .step-mem-l2 { background: #f0f9ff; border: 2px solid #7dd3fc; min-width: 140px; }
+  .step-mem-l3 {
+    background: #fff7ed; border: 2px solid #fbbf24; min-width: 140px;
+    box-shadow: 0 0 0 2px #fef3c7;
+  }
+  .step-mem-l3 .step-name { color: #92400e; }
+  .step-mem-l3 .step-desc { color: #b45309; font-weight: 600; }
+
+  /* Arrow connector */
+  .conn {
+    flex: 1; height: 2px; position: relative;
+    max-width: 80px;
+  }
+  .conn-line {
+    height: 2px; background: #94a3b8; width: 100%;
+  }
+  .conn-line::after {
+    content: '';
+    position: absolute; right: -7px; top: -4px;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    border-left: 8px solid #94a3b8;
+  }
+  .conn.blue .conn-line { background: #3b82f6; }
+  .conn.blue .conn-line::after { border-left-color: #3b82f6; }
+
+  /* Vertical arrows between lanes */
+  .v-arrow {
+    position: absolute; width: 2px; background: #3b82f6;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  .footer {
+    height: 60px; background: #1e293b;
+    display: flex; align-items: center; padding: 0 56px; gap: 40px;
+  }
+  .fi { display: flex; align-items: center; gap: 10px; }
+  .fi-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .fi-text { color: #cbd5e1; font-size: 14px; }
+  .fi-text strong { color: #fff; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="hdr">
+    <div class="hdr-line"></div>
+    <h1>smap 请求处理流程 — 泳道视图</h1>
+    <div class="hdr-badge">字节火山 AI 平台</div>
+  </div>
+
+  <div class="body">
+    <!-- Lane labels -->
+    <div class="lanes-label">
+      <div class="lane-label">用户 / 平台</div>
+      <div class="lane-label">虚拟机</div>
+      <div class="lane-label hl">openclaw</div>
+      <div class="lane-label">smap</div>
+      <div class="lane-label">内存层</div>
+    </div>
+
+    <!-- Lanes content -->
+    <div class="lanes-content">
+      <!-- Lane 1: User -->
+      <div class="lane">
+        <div class="step step-plain">
+          <div class="step-name">发起请求</div>
+          <div class="step-desc">AI 业务触发</div>
+        </div>
+        <div class="conn blue"><div class="conn-line"></div></div>
+        <div class="step step-plain">
+          <div class="step-name">调度分配</div>
+          <div class="step-desc">火山平台路由</div>
+        </div>
+      </div>
+
+      <!-- Lane 2: VM -->
+      <div class="lane">
+        <div style="width:260px;"></div>
+        <div class="step step-vm">
+          <div class="step-name">2U4G 虚机</div>
+          <div class="step-desc">接收请求 · 内存访问</div>
+        </div>
+        <div class="conn blue"><div class="conn-line"></div></div>
+        <div class="step step-vm">
+          <div class="step-name">缺页触发</div>
+          <div class="step-desc">内存页不在本地</div>
+        </div>
+      </div>
+
+      <!-- Lane 3: openclaw (highlighted) -->
+      <div class="lane openclaw-lane">
+        <div style="width:520px;"></div>
+        <div class="step step-oc">
+          <div class="step-name">openclaw browser</div>
+          <div class="step-desc">冷热识别 · 换页决策</div>
+        </div>
+        <div class="conn blue"><div class="conn-line"></div></div>
+        <div class="step step-oc">
+          <div class="step-name">页面路由</div>
+          <div class="step-desc">指派目标内存层</div>
+        </div>
+      </div>
+
+      <!-- Lane 4: smap -->
+      <div class="lane">
+        <div style="width:780px;"></div>
+        <div class="step step-smap">
+          <div class="step-name">smap 调度</div>
+          <div class="step-desc">执行换入 / 换出操作</div>
+        </div>
+        <div class="conn"><div class="conn-line"></div></div>
+        <div class="step step-smap">
+          <div class="step-name">数据迁移</div>
+          <div class="step-desc">跨层数据移动</div>
+        </div>
+      </div>
+
+      <!-- Lane 5: Memory tiers -->
+      <div class="lane" style="gap:20px;">
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:20px;">
+          <div class="step step-mem-l1">
+            <div class="step-name">L1 DRAM</div>
+            <div class="step-desc">热页</div>
+          </div>
+          <div class="step step-mem-l2">
+            <div class="step-name">L2 UB 内存</div>
+            <div class="step-desc">温页</div>
+          </div>
+          <div class="step step-mem-l3">
+            <div class="step-name">L3 NVMe</div>
+            <div class="step-desc">冷页 · 超分关键</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="fi">
+      <div class="fi-dot" style="background:#3b82f6;"></div>
+      <div class="fi-text"><strong>openclaw</strong> 负责全程冷热感知与换页决策</div>
+    </div>
+    <div class="fi">
+      <div class="fi-dot" style="background:#fbbf24;"></div>
+      <div class="fi-text"><strong>L3 NVMe</strong> 扩展冷页容量，提升整机超分比</div>
+    </div>
+    <div class="fi">
+      <div class="fi-dot" style="background:#6ee7b7;"></div>
+      <div class="fi-text">smap 统一管理三层内存，对 VM 透明</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

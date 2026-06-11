@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 层级堆叠</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #0f172a;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    color: #e2e8f0;
+  }
+  .slide { width: 100%; height: 100%; display: flex; flex-direction: column; padding: 40px 72px; gap: 28px; }
+
+  .title-row { display: flex; align-items: flex-end; gap: 20px; }
+  .title-row h1 { font-size: 34px; font-weight: 700; color: #f1f5f9; }
+  .title-row .sub { font-size: 18px; color: #64748b; margin-bottom: 4px; }
+
+  .content { flex: 1; display: flex; gap: 48px; }
+
+  /* Left: stack diagram */
+  .stack { width: 680px; display: flex; flex-direction: column; gap: 0; }
+  .stack-title { font-size: 14px; color: #64748b; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+
+  /* Each layer in stack */
+  .layer {
+    border-radius: 0; padding: 18px 28px;
+    display: flex; align-items: center; gap: 20px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .layer:first-of-type { border-radius: 10px 10px 0 0; }
+  .layer:last-of-type { border-radius: 0 0 10px 10px; }
+  .layer + .layer { margin-top: 2px; }
+
+  .layer-user { background: #1e293b; border-color: #334155; }
+  .layer-vm { background: #1e293b; border-color: #334155; }
+  .layer-oc {
+    background: #1e3a6e; border-color: #2563eb;
+    box-shadow: 0 0 20px rgba(37,99,235,0.3);
+    z-index: 2;
+  }
+  .layer-smap { background: #1e293b; border-color: #334155; }
+  .layer-l1 { background: #1a2540; border-color: #374151; }
+  .layer-l2 { background: #0c2340; border-color: #0369a1; }
+  .layer-l3 {
+    background: #2d1a00; border-color: #d97706;
+    box-shadow: 0 0 16px rgba(217,119,6,0.25);
+  }
+
+  .layer-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; flex-shrink: 0;
+  }
+  .layer-info { flex: 1; }
+  .layer-name { font-size: 20px; font-weight: 700; }
+  .layer-desc { font-size: 13px; color: #94a3b8; margin-top: 2px; }
+  .layer-badge {
+    font-size: 12px; padding: 3px 12px; border-radius: 20px;
+    font-weight: 600;
+  }
+
+  /* Arrow between layers */
+  .layer-arrow {
+    text-align: center; color: #3b82f6; font-size: 18px; line-height: 1.2;
+    margin: 2px 0;
+  }
+  .layer-arrow.dim { color: #334155; }
+
+  /* Right: info panels */
+  .right { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+
+  .info-card {
+    background: #1e293b; border-radius: 10px; padding: 20px 24px;
+    border-left: 4px solid;
+  }
+  .info-card.blue { border-color: #2563eb; }
+  .info-card.amber { border-color: #d97706; }
+  .info-card.slate { border-color: #475569; }
+
+  .ic-title { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 10px; }
+  .ic-body { font-size: 15px; color: #94a3b8; line-height: 1.7; }
+  .ic-body strong { color: #e2e8f0; }
+  .ic-body .hl { color: #fbbf24; font-weight: 700; }
+
+  .flow-mini {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .flow-step {
+    padding: 6px 14px; border-radius: 6px; font-size: 14px; font-weight: 600;
+  }
+  .flow-arrow-s { color: #3b82f6; font-size: 18px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="title-row">
+    <h1>smap 分层内存架构</h1>
+    <div class="sub">字节火山 AI 平台 · L3 NVMe 超分方案</div>
+  </div>
+
+  <div class="content">
+    <!-- Left: layer stack -->
+    <div class="stack">
+      <div class="stack-title">系统层级（从上到下）</div>
+
+      <div class="layer layer-user">
+        <div class="layer-num" style="background:#334155; color:#94a3b8;">1</div>
+        <div class="layer-info">
+          <div class="layer-name" style="color:#f1f5f9;">用户请求</div>
+          <div class="layer-desc">字节火山 AI 平台业务触发</div>
+        </div>
+        <div class="layer-badge" style="background:#1e293b; color:#64748b; border:1px solid #334155;">入口</div>
+      </div>
+
+      <div class="layer-arrow">↓</div>
+
+      <div class="layer layer-vm">
+        <div class="layer-num" style="background:#1d4ed8; color:#fff;">2</div>
+        <div class="layer-info">
+          <div class="layer-name" style="color:#93c5fd;">2U4G 虚拟机</div>
+          <div class="layer-desc">轻量化容器实例</div>
+        </div>
+        <div class="layer-badge" style="background:#1e3a5f; color:#60a5fa; border:1px solid #2563eb;">VM</div>
+      </div>
+
+      <div class="layer-arrow" style="font-size:22px; color:#2563eb;">↓</div>
+
+      <div class="layer layer-oc">
+        <div class="layer-num" style="background:#2563eb; color:#fff; font-size:16px;">★</div>
+        <div class="layer-info">
+          <div class="layer-name" style="color:#fff; font-size:22px;">openclaw browser</div>
+          <div class="layer-desc" style="color:#93c5fd;">冷热感知 · 换页决策中枢</div>
+        </div>
+        <div class="layer-badge" style="background:#2563eb; color:#fff;">核心</div>
+      </div>
+
+      <div class="layer-arrow" style="color:#2563eb;">↓</div>
+
+      <div class="layer layer-smap">
+        <div class="layer-num" style="background:#064e3b; color:#6ee7b7;">3</div>
+        <div class="layer-info">
+          <div class="layer-name" style="color:#6ee7b7;">smap 调度层</div>
+          <div class="layer-desc">统一内存分层管理</div>
+        </div>
+        <div class="layer-badge" style="background:#064e3b; color:#6ee7b7; border:1px solid #065f46;">调度</div>
+      </div>
+
+      <div class="layer-arrow dim">↓↓↓（分流路由）</div>
+
+      <div style="display:flex; gap:2px;">
+        <div class="layer layer-l1" style="flex:1; border-radius:10px 0 0 10px;">
+          <div class="layer-info">
+            <div class="layer-name" style="color:#94a3b8; font-size:16px;">L1 DRAM</div>
+            <div class="layer-desc">热页</div>
+          </div>
+        </div>
+        <div class="layer layer-l2" style="flex:1; border-radius:0;">
+          <div class="layer-info">
+            <div class="layer-name" style="color:#38bdf8; font-size:16px;">L2 UB 内存</div>
+            <div class="layer-desc">温页</div>
+          </div>
+        </div>
+        <div class="layer layer-l3" style="flex:1; border-radius:0 10px 10px 0;">
+          <div class="layer-info">
+            <div class="layer-name" style="color:#fbbf24; font-size:16px;">L3 NVMe</div>
+            <div class="layer-desc" style="color:#d97706;">冷页 · 超分关键</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: info -->
+    <div class="right">
+      <div class="info-card blue">
+        <div class="ic-title">信息流向</div>
+        <div class="ic-body">
+          <div class="flow-mini">
+            <div class="flow-step" style="background:#334155; color:#e2e8f0;">用户请求</div>
+            <div class="flow-arrow-s">→</div>
+            <div class="flow-step" style="background:#1e3a5f; color:#93c5fd;">2U4G VM</div>
+            <div class="flow-arrow-s">→</div>
+            <div class="flow-step" style="background:#2563eb; color:#fff;">openclaw</div>
+            <div class="flow-arrow-s">→</div>
+            <div class="flow-step" style="background:#064e3b; color:#6ee7b7;">smap</div>
+            <div class="flow-arrow-s">→</div>
+            <div class="flow-step" style="background:#78350f; color:#fbbf24;">L1/L2/L3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-card blue">
+        <div class="ic-title">openclaw browser 职责</div>
+        <div class="ic-body">
+          · <strong>实时监测</strong>页面冷热温度<br>
+          · 驱动 smap 在三层间执行<strong>换入 / 换出</strong><br>
+          · 对上层 VM 完全透明，无需感知
+        </div>
+      </div>
+
+      <div class="info-card amber">
+        <div class="ic-title">L3 NVMe — 超分比提升原理</div>
+        <div class="ic-body">
+          冷页换出至 NVMe，释放 DRAM 承载更多 VM<br>
+          <span class="hl">同等物理内存下，可运行 VM 数量显著增加</span><br>
+          · L3 容量远超 DRAM，成为超分缓冲池
+        </div>
+      </div>
+
+      <div class="info-card slate">
+        <div class="ic-title">部署环境</div>
+        <div class="ic-body">
+          <strong>平台：</strong>字节跳动 · 火山 AI 服务平台<br>
+          <strong>规格：</strong>2U4G 虚机 · 运行 openclaw browser<br>
+          <strong>目标：</strong>利用 L2 + L3 提升整机超分比
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

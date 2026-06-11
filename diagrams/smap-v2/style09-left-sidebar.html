@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 侧边栏布局</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f8f9fa;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .slide { width: 100%; height: 100%; display: flex; }
+
+  /* Left sidebar */
+  .sidebar {
+    width: 360px; background: #1c1c2e;
+    display: flex; flex-direction: column;
+    padding: 0;
+  }
+  .sb-logo {
+    padding: 32px 32px 24px;
+    border-bottom: 1px solid #2d2d44;
+  }
+  .sb-logo-title { font-size: 36px; font-weight: 900; color: #fff; letter-spacing: 1px; }
+  .sb-logo-sub { font-size: 15px; color: #6b6b8a; margin-top: 4px; }
+  .sb-logo-tag {
+    margin-top: 12px; display: inline-block;
+    background: #1d4ed8; color: #fff;
+    padding: 4px 14px; border-radius: 4px; font-size: 13px;
+  }
+
+  .sb-section { padding: 24px 32px; border-bottom: 1px solid #2d2d44; }
+  .sb-section:last-child { border-bottom: none; flex: 1; }
+  .ss-label { font-size: 11px; font-weight: 700; color: #4b4b70; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
+
+  .sb-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .sb-item:last-child { margin-bottom: 0; }
+  .si-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .si-text { font-size: 15px; color: #a0a0c0; line-height: 1.5; }
+  .si-text strong { color: #e2e2f0; }
+
+  /* Main content */
+  .main { flex: 1; display: flex; flex-direction: column; padding: 40px 52px; gap: 28px; }
+
+  .main-title { font-size: 26px; font-weight: 700; color: #1c1c2e; }
+  .main-title span { color: #2563eb; }
+
+  /* Flow diagram */
+  .flow-diagram {
+    display: flex; align-items: center; gap: 0;
+    background: #fff; border-radius: 14px; padding: 28px 36px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;
+  }
+
+  .fd-node { text-align: center; }
+  .fd-icon { font-size: 32px; margin-bottom: 8px; }
+  .fd-name { font-size: 18px; font-weight: 700; }
+  .fd-sub { font-size: 12px; margin-top: 3px; }
+
+  .fd-user .fd-name { color: #374151; }
+  .fd-vm .fd-name { color: #1e40af; }
+  .fd-oc {
+    background: #0c2340; border-radius: 12px; padding: 20px 32px;
+    border: 2px solid #2563eb;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.25);
+  }
+  .fd-oc .fd-name { color: #fff; font-size: 22px; }
+  .fd-oc .fd-sub { color: #93c5fd; }
+  .fd-smap .fd-name { color: #065f46; }
+
+  .fd-arrow {
+    flex: 1; max-width: 60px;
+    height: 2px; background: #3b82f6; position: relative;
+    margin: 0 8px;
+  }
+  .fd-arrow::after {
+    content: ''; position: absolute; right: -7px; top: -4px;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    border-left: 8px solid #3b82f6;
+  }
+  .fd-arrow.slim { background: #94a3b8; }
+  .fd-arrow.slim::after { border-left-color: #94a3b8; }
+
+  /* Memory section */
+  .mem-section { display: flex; gap: 20px; flex: 1; }
+  .mem-card {
+    flex: 1; border-radius: 12px; padding: 22px 24px;
+    border: 2px solid; display: flex; flex-direction: column; gap: 10px;
+  }
+  .mc-l { font-size: 11px; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; }
+  .mc-n { font-size: 22px; font-weight: 700; }
+  .mc-d { font-size: 13px; line-height: 1.5; }
+  .mc-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mc-pill { font-size: 12px; padding: 3px 10px; border-radius: 10px; }
+
+  .mc-l1 { border-color: #d1d5db; background: #f9fafb; }
+  .mc-l1 .mc-l { color: #6b7280; }
+  .mc-l1 .mc-n { color: #1f2937; }
+  .mc-l1 .mc-d { color: #6b7280; }
+  .mc-l1 .mc-pill { background: #f3f4f6; color: #374151; }
+
+  .mc-l2 { border-color: #7dd3fc; background: #f0f9ff; }
+  .mc-l2 .mc-l { color: #0284c7; }
+  .mc-l2 .mc-n { color: #0369a1; }
+  .mc-l2 .mc-d { color: #0284c7; }
+  .mc-l2 .mc-pill { background: #e0f2fe; color: #0369a1; }
+
+  .mc-l3 {
+    border-color: #f59e0b; background: #fffbeb;
+    flex: 1.4;
+    box-shadow: 0 3px 12px rgba(245,158,11,0.18);
+  }
+  .mc-l3 .mc-l { color: #b45309; }
+  .mc-l3 .mc-n { color: #92400e; font-size: 24px; }
+  .mc-l3 .mc-d { color: #b45309; }
+  .mc-l3 .mc-pill { background: #fef3c7; color: #92400e; }
+  .l3-banner {
+    background: #92400e; color: #fff; padding: 8px 14px; border-radius: 6px;
+    font-size: 14px; font-weight: 700; margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-title">smap</div>
+      <div class="sb-logo-sub">内存超分调度方案</div>
+      <div class="sb-logo-tag">字节火山 AI 平台</div>
+    </div>
+
+    <div class="sb-section">
+      <div class="ss-label">核心组件</div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#3b82f6;"></div>
+        <div class="si-text"><strong>openclaw browser</strong><br>冷热感知 · 换页决策引擎</div>
+      </div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#22c55e;"></div>
+        <div class="si-text"><strong>smap 调度层</strong><br>统一内存分层路由管理</div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="ss-label">内存层级</div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#94a3b8;"></div>
+        <div class="si-text"><strong>L1</strong> — 本地 DRAM（热页）</div>
+      </div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#0ea5e9;"></div>
+        <div class="si-text"><strong>L2</strong> — UB 借用内存（温页）</div>
+      </div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#f59e0b;"></div>
+        <div class="si-text"><strong>L3</strong> — NVMe SSD（冷页）<br><strong style="color:#f59e0b;">超分比提升关键</strong></div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="ss-label">部署规格</div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#6b6b8a;"></div>
+        <div class="si-text">虚机规格：<strong>2U4G</strong></div>
+      </div>
+      <div class="sb-item">
+        <div class="si-dot" style="background:#6b6b8a;"></div>
+        <div class="si-text">业务：openclaw browser 命令</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+    <div class="main-title">
+      请求流向 · <span>openclaw</span> 驱动分层内存调度
+    </div>
+
+    <!-- Flow diagram -->
+    <div class="flow-diagram">
+      <div class="fd-node fd-user">
+        <div class="fd-icon">👤</div>
+        <div class="fd-name">用户请求</div>
+        <div class="fd-sub" style="color:#6b7280;">火山平台</div>
+      </div>
+      <div class="fd-arrow"></div>
+
+      <div class="fd-node fd-vm">
+        <div class="fd-icon">🖥</div>
+        <div class="fd-name">2U4G VM</div>
+        <div class="fd-sub" style="color:#3b82f6;">内存缺页触发</div>
+      </div>
+      <div class="fd-arrow"></div>
+
+      <div class="fd-node fd-oc">
+        <div class="fd-icon" style="font-size:28px;">★</div>
+        <div class="fd-name">openclaw browser</div>
+        <div class="fd-sub">冷热感知 · 决策路由</div>
+      </div>
+      <div class="fd-arrow slim"></div>
+
+      <div class="fd-node fd-smap">
+        <div class="fd-icon">⚙️</div>
+        <div class="fd-name">smap</div>
+        <div class="fd-sub" style="color:#065f46;">执行迁移</div>
+      </div>
+      <div class="fd-arrow slim"></div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; text-align:center;">
+        <div style="padding:8px 16px; border-radius:6px; background:#f3f4f6; border:1px solid #d1d5db; font-weight:700; color:#374151; font-size:15px;">L1</div>
+        <div style="padding:8px 16px; border-radius:6px; background:#e0f2fe; border:1px solid #7dd3fc; font-weight:700; color:#0369a1; font-size:15px;">L2</div>
+        <div style="padding:8px 16px; border-radius:6px; background:#fef3c7; border:2px solid #f59e0b; font-weight:800; color:#92400e; font-size:15px;">L3 ↑超分</div>
+      </div>
+    </div>
+
+    <!-- Memory tier cards -->
+    <div class="mem-section">
+      <div class="mem-card mc-l1">
+        <div class="mc-l">L1</div>
+        <div class="mc-n">本地 DRAM</div>
+        <div class="mc-d">最低延迟，热页常驻宿主机物理内存</div>
+        <div class="mc-pills">
+          <div class="mc-pill">热页</div>
+          <div class="mc-pill">纳秒延迟</div>
+        </div>
+      </div>
+      <div class="mem-card mc-l2">
+        <div class="mc-l">L2</div>
+        <div class="mc-n">UB 借用内存</div>
+        <div class="mc-d">RDMA 跨节点内存池，温页迁移目标</div>
+        <div class="mc-pills">
+          <div class="mc-pill">温页</div>
+          <div class="mc-pill">RDMA</div>
+        </div>
+      </div>
+      <div class="mem-card mc-l3">
+        <div class="mc-l">L3 — 超分关键层</div>
+        <div class="mc-n">NVMe SSD</div>
+        <div class="mc-d">冷页换出至本地闪存，容量大幅超越 DRAM，释放物理内存承载更多 VM</div>
+        <div class="mc-pills">
+          <div class="mc-pill">冷页</div>
+          <div class="mc-pill">大容量</div>
+          <div class="mc-pill">μs延迟</div>
+        </div>
+        <div class="l3-banner">整机 VM 超分比显著提升</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

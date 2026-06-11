@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 示意图 v4 — 样式预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f1f5f9; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 40px; }
+  h1 { font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+  .sub { font-size: 16px; color: #64748b; margin-bottom: 36px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+  .card {
+    background: #fff; border-radius: 10px; overflow: hidden;
+    border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    text-decoration: none; display: block;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateY(-2px); }
+  .card-num {
+    height: 100px; display: flex; align-items: center; justify-content: center;
+    font-size: 48px; font-weight: 900;
+  }
+  .card-info { padding: 16px; border-top: 1px solid #f1f5f9; }
+  .card-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .card-desc { font-size: 13px; color: #64748b; }
+</style>
+</head>
+<body>
+  <h1>smap 场景示意图 v4</h1>
+  <div class="sub">10 款 PPT 风格 · 重点：信息流向 · openclaw 核心 · L3 超分</div>
+  <div class="grid">
+    <a class="card" href="style01-vertical-flow.html" target="_blank">
+      <div class="card-num" style="background:#eff6ff; color:#1d4ed8;">01</div>
+      <div class="card-info">
+        <div class="card-name">纵向流程</div>
+        <div class="card-desc">左侧级联流 + 右侧内存层</div>
+      </div>
+    </a>
+    <a class="card" href="style02-horizontal-topology.html" target="_blank">
+      <div class="card-num" style="background:#f0f9ff; color:#0369a1;">02</div>
+      <div class="card-info">
+        <div class="card-name">水平拓扑</div>
+        <div class="card-desc">横向箭头连接所有组件</div>
+      </div>
+    </a>
+    <a class="card" href="style03-swimlane.html" target="_blank">
+      <div class="card-num" style="background:#f0fdf4; color:#166534;">03</div>
+      <div class="card-info">
+        <div class="card-name">泳道图</div>
+        <div class="card-desc">按角色分层，展示处理路径</div>
+      </div>
+    </a>
+    <a class="card" href="style04-layer-stack.html" target="_blank">
+      <div class="card-num" style="background:#0f172a; color:#3b82f6;">04</div>
+      <div class="card-info">
+        <div class="card-name">层级堆叠</div>
+        <div class="card-desc">深色风格，系统层级可视化</div>
+      </div>
+    </a>
+    <a class="card" href="style05-central-hub.html" target="_blank">
+      <div class="card-num" style="background:#eff6ff; color:#1e3a5f;">05</div>
+      <div class="card-info">
+        <div class="card-name">中心辐射</div>
+        <div class="card-desc">openclaw 居中，连接四端</div>
+      </div>
+    </a>
+    <a class="card" href="style06-timeline.html" target="_blank">
+      <div class="card-num" style="background:#18181b; color:#60a5fa;">06</div>
+      <div class="card-info">
+        <div class="card-name">时序步骤</div>
+        <div class="card-desc">带编号的流程步骤图</div>
+      </div>
+    </a>
+    <a class="card" href="style07-svg-topology.html" target="_blank">
+      <div class="card-num" style="background:#f1f5f9; color:#0f172a;">07</div>
+      <div class="card-info">
+        <div class="card-name">SVG 拓扑</div>
+        <div class="card-desc">精细连线，带侧边图例面板</div>
+      </div>
+    </a>
+    <a class="card" href="style08-split-view.html" target="_blank">
+      <div class="card-num" style="background:#f8fafc; color:#0c2340;">08</div>
+      <div class="card-info">
+        <div class="card-name">上下分区</div>
+        <div class="card-desc">上：请求流 / 下：内存体系</div>
+      </div>
+    </a>
+    <a class="card" href="style09-left-sidebar.html" target="_blank">
+      <div class="card-num" style="background:#1c1c2e; color:#6495ed;">09</div>
+      <div class="card-info">
+        <div class="card-name">侧边栏布局</div>
+        <div class="card-desc">左侧导航区 + 右侧主图</div>
+      </div>
+    </a>
+    <a class="card" href="style10-blueprint.html" target="_blank">
+      <div class="card-num" style="background:#1a2744; color:#6495ed;">10</div>
+      <div class="card-info">
+        <div class="card-name">工程蓝图</div>
+        <div class="card-desc">技术制图风格，网格背景</div>
+      </div>
+    </a>
+  </div>
+</body>
+</html>

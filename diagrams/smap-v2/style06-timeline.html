@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - 时序步骤</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #fff;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .slide { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+  /* Header */
+  .hdr {
+    height: 80px; background: #18181b;
+    display: flex; align-items: center; padding: 0 64px; gap: 16px;
+  }
+  .hdr-num { font-size: 40px; font-weight: 900; color: #3f3f46; line-height: 1; }
+  .hdr-vline { width: 3px; height: 40px; background: #3b82f6; }
+  .hdr-titles { display: flex; flex-direction: column; }
+  .hdr-t1 { font-size: 26px; font-weight: 700; color: #fff; }
+  .hdr-t2 { font-size: 14px; color: #71717a; margin-top: 1px; }
+  .hdr-right {
+    margin-left: auto; display: flex; gap: 12px; align-items: center;
+  }
+  .hdr-chip {
+    padding: 5px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  }
+  .chip-blue { background: #1d4ed8; color: #fff; }
+  .chip-slate { background: #27272a; color: #a1a1aa; border: 1px solid #3f3f46; }
+
+  /* Body: two sections */
+  .body { flex: 1; display: flex; flex-direction: column; padding: 32px 64px 0; gap: 28px; }
+
+  /* Top: timeline steps */
+  .timeline { display: flex; align-items: flex-start; gap: 0; }
+  .tl-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .tl-bubble {
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; flex-shrink: 0;
+  }
+  .tl-content { text-align: center; margin-top: 12px; }
+  .tl-name { font-size: 18px; font-weight: 700; }
+  .tl-desc { font-size: 13px; color: #64748b; margin-top: 3px; }
+
+  .tl-connector {
+    flex: 0.4; align-self: center; height: 2px;
+    margin-top: -28px; /* align with bubbles */
+    position: relative;
+  }
+  .tl-connector .cl { height: 2px; }
+  .tl-connector .cl::after {
+    content: ''; position: absolute; right: -7px; top: -4px;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+    border-left: 8px solid;
+  }
+
+  /* Bubbles */
+  .b-user { background: #e2e8f0; }
+  .b-user .n { color: #475569; }
+  .b-vm { background: #dbeafe; }
+  .b-vm .n { color: #1e40af; }
+  .b-oc { background: #2563eb; box-shadow: 0 0 0 6px rgba(37,99,235,0.2); }
+  .b-oc .n { color: #fff; }
+  .b-smap { background: #d1fae5; }
+  .b-smap .n { color: #065f46; }
+  .b-l3 { background: #fef3c7; border: 2px solid #f59e0b; }
+  .b-l3 .n { color: #92400e; }
+
+  /* Connectors */
+  .c-blue { background: #3b82f6; }
+  .c-blue::after { border-left-color: #3b82f6 !important; }
+  .c-gray { background: #94a3b8; }
+  .c-gray::after { border-left-color: #94a3b8 !important; }
+  .c-amber { background: #f59e0b; }
+  .c-amber::after { border-left-color: #f59e0b !important; }
+
+  /* Bottom: memory arch */
+  .mem-arch { display: flex; gap: 0; }
+  .mem-card {
+    flex: 1; padding: 22px 28px; border-radius: 0;
+    border-top: 5px solid; border-right: 1px solid #e5e7eb;
+  }
+  .mem-card:first-child { border-radius: 10px 0 0 10px; }
+  .mem-card:last-child { border-radius: 0 10px 10px 0; border-right: none; }
+  .mc-tag { font-size: 11px; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+  .mc-name { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .mc-body { font-size: 14px; color: #64748b; line-height: 1.5; }
+  .mc-note { margin-top: 8px; font-size: 13px; font-weight: 600; padding: 4px 12px; border-radius: 4px; display: inline-block; }
+
+  .ml1 { background: #f8fafc; border-color: #94a3b8; }
+  .ml1 .mc-tag { color: #64748b; }
+  .ml1 .mc-name { color: #374151; }
+  .ml2 { background: #f0f9ff; border-color: #0ea5e9; }
+  .ml2 .mc-tag { color: #0369a1; }
+  .ml2 .mc-name { color: #0369a1; }
+  .ml3 { background: #fffbeb; border-color: #f59e0b; }
+  .ml3 .mc-tag { color: #b45309; }
+  .ml3 .mc-name { color: #92400e; }
+  .ml3 .mc-note { background: #fef3c7; color: #92400e; }
+
+  .footer { height: 56px; background: #18181b; display: flex; align-items: center; padding: 0 64px; }
+  .footer-note { color: #71717a; font-size: 14px; }
+  .footer-note strong { color: #a1a1aa; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="hdr">
+    <div class="hdr-num">smap</div>
+    <div class="hdr-vline"></div>
+    <div class="hdr-titles">
+      <div class="hdr-t1">内存超分请求处理流程</div>
+      <div class="hdr-t2">字节火山 AI 平台 · L3 NVMe 超分方案</div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-chip chip-blue">openclaw 核心</div>
+      <div class="hdr-chip chip-slate">2U4G VM</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Timeline -->
+    <div class="timeline">
+      <!-- Step 1 -->
+      <div class="tl-step">
+        <div class="tl-bubble b-user"><span class="n">①</span></div>
+        <div class="tl-content">
+          <div class="tl-name">用户请求</div>
+          <div class="tl-desc">火山平台触发</div>
+        </div>
+      </div>
+
+      <div class="tl-connector">
+        <div class="cl c-blue"></div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="tl-step">
+        <div class="tl-bubble b-vm"><span class="n" style="color:#1e40af;">②</span></div>
+        <div class="tl-content">
+          <div class="tl-name" style="color:#1e40af;">2U4G VM</div>
+          <div class="tl-desc">接收请求</div>
+        </div>
+      </div>
+
+      <div class="tl-connector">
+        <div class="cl c-blue"></div>
+      </div>
+
+      <!-- Step 3: openclaw (highlighted) -->
+      <div class="tl-step" style="flex: 1.5;">
+        <div class="tl-bubble b-oc" style="width:72px; height:72px;">
+          <span class="n" style="font-size:14px; line-height:1.2; text-align:center;">open<br>claw</span>
+        </div>
+        <div class="tl-content">
+          <div class="tl-name" style="color:#1d4ed8; font-size:20px;">openclaw browser</div>
+          <div class="tl-desc">冷热感知 · 决策换页目标层</div>
+        </div>
+      </div>
+
+      <div class="tl-connector">
+        <div class="cl c-gray"></div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="tl-step">
+        <div class="tl-bubble b-smap"><span class="n" style="color:#065f46;">④</span></div>
+        <div class="tl-content">
+          <div class="tl-name" style="color:#065f46;">smap 调度</div>
+          <div class="tl-desc">执行页面迁移</div>
+        </div>
+      </div>
+
+      <div class="tl-connector">
+        <div class="cl c-amber"></div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="tl-step">
+        <div class="tl-bubble b-l3"><span class="n">⑤</span></div>
+        <div class="tl-content">
+          <div class="tl-name" style="color:#92400e;">L3 NVMe</div>
+          <div class="tl-desc">冷页落盘 · 超分实现</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory tiers -->
+    <div class="mem-arch">
+      <div class="mem-card ml1">
+        <div class="mc-tag">L1</div>
+        <div class="mc-name">本地 DRAM</div>
+        <div class="mc-body">热页常驻 · 纳秒级延迟</div>
+      </div>
+      <div class="mem-card ml2">
+        <div class="mc-tag">L2</div>
+        <div class="mc-name">UB 借用内存</div>
+        <div class="mc-body">RDMA 跨节点池 · 温页迁移目标</div>
+      </div>
+      <div class="mem-card ml3">
+        <div class="mc-tag">L3 — 超分关键</div>
+        <div class="mc-name">NVMe SSD</div>
+        <div class="mc-body">冷页换出目标 · 大幅扩展可用内存上限</div>
+        <div class="mc-note">↑ 整机 VM 超分比提升核心</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-note">
+      <strong>openclaw browser</strong> 在步骤③实时做出冷热判断，决定每个页面进入 L1 / L2 / L3，对 VM 完全透明
+    </div>
+  </div>
+</div>
+</body>
+</html>

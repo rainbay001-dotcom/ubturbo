@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>smap 架构 - SVG 拓扑</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: #f1f5f9;
+    font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  }
+  .slide { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .hdr {
+    height: 72px; background: #0f172a;
+    display: flex; align-items: center; padding: 0 60px; gap: 20px;
+  }
+  .hdr h1 { color: #f8fafc; font-size: 28px; font-weight: 700; }
+  .hdr-sep { width: 2px; height: 28px; background: #1e293b; }
+  .hdr-sub { color: #64748b; font-size: 16px; }
+  .hdr-tag { margin-left: auto; background: #1e293b; color: #94a3b8; padding: 4px 16px; border-radius: 4px; font-size: 14px; border: 1px solid #334155; }
+
+  .body { flex: 1; display: flex; align-items: stretch; }
+
+  .topo-area { flex: 1; position: relative; }
+  .topo-svg { width: 100%; height: 100%; }
+
+  /* Legend + info panel */
+  .panel {
+    width: 360px; background: #fff; border-left: 1px solid #e2e8f0;
+    padding: 32px 28px; display: flex; flex-direction: column; gap: 20px;
+  }
+  .panel-section { }
+  .ps-title { font-size: 13px; font-weight: 700; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .legend-text { font-size: 15px; color: #1e293b; }
+  .legend-text .sub { font-size: 12px; color: #64748b; display: block; }
+
+  .fact-item { padding: 12px 16px; background: #f8fafc; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid; }
+  .fact-item .f-head { font-size: 15px; font-weight: 700; }
+  .fact-item .f-body { font-size: 13px; color: #64748b; margin-top: 3px; }
+  .fi-oc { border-color: #2563eb; }
+  .fi-oc .f-head { color: #1e40af; }
+  .fi-l3 { border-color: #f59e0b; }
+  .fi-l3 .f-head { color: #92400e; }
+
+  .footer {
+    height: 52px; background: #0f172a;
+    display: flex; align-items: center; padding: 0 60px;
+  }
+  .footer-text { color: #475569; font-size: 14px; }
+  .footer-text strong { color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="hdr">
+    <h1>smap 系统拓扑</h1>
+    <div class="hdr-sep"></div>
+    <div class="hdr-sub">字节火山 AI 平台 · 请求路径可视化</div>
+    <div class="hdr-tag">SVG 拓扑图</div>
+  </div>
+
+  <div class="body">
+    <div class="topo-area">
+      <svg class="topo-svg" viewBox="0 0 1540 936" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
+          </marker>
+          <marker id="arr-gray" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+          </marker>
+          <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b"/>
+          </marker>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- Background grid (subtle) -->
+        <rect width="1540" height="936" fill="#f1f5f9"/>
+        <defs>
+          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#e2e8f0" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="1540" height="936" fill="url(#grid)"/>
+
+        <!-- ===== USER NODE ===== -->
+        <rect x="60" y="380" width="200" height="100" rx="10" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+        <text x="160" y="415" font-family="PingFang SC,sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle" letter-spacing="1">触发端</text>
+        <text x="160" y="445" font-family="PingFang SC,sans-serif" font-size="22" font-weight="700" fill="#0f172a" text-anchor="middle">用户请求</text>
+        <text x="160" y="465" font-family="PingFang SC,sans-serif" font-size="13" fill="#64748b" text-anchor="middle">火山平台调度</text>
+
+        <!-- Arrow: user → vm -->
+        <line x1="262" y1="430" x2="348" y2="430" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-blue)"/>
+        <text x="305" y="420" font-family="PingFang SC,sans-serif" font-size="12" fill="#3b82f6" text-anchor="middle">请求</text>
+
+        <!-- ===== VM NODE ===== -->
+        <rect x="350" y="360" width="220" height="140" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="2"/>
+        <text x="460" y="395" font-family="PingFang SC,sans-serif" font-size="12" fill="#3b82f6" text-anchor="middle" letter-spacing="1">虚拟机</text>
+        <text x="460" y="427" font-family="PingFang SC,sans-serif" font-size="22" font-weight="700" fill="#1e40af" text-anchor="middle">2U4G VM</text>
+        <text x="460" y="450" font-family="PingFang SC,sans-serif" font-size="13" fill="#3b82f6" text-anchor="middle">轻量容器实例</text>
+        <text x="460" y="470" font-family="PingFang SC,sans-serif" font-size="12" fill="#93c5fd" text-anchor="middle">内存缺页触发</text>
+
+        <!-- Arrow: vm → openclaw -->
+        <line x1="572" y1="430" x2="648" y2="430" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-blue)"/>
+        <text x="610" y="420" font-family="PingFang SC,sans-serif" font-size="12" fill="#3b82f6" text-anchor="middle">缺页</text>
+
+        <!-- ===== OPENCLAW NODE (prominent) ===== -->
+        <rect x="650" y="300" width="300" height="260" rx="14" fill="#1e3a5f" stroke="#2563eb" stroke-width="3.5" filter="url(#glow)"/>
+        <!-- Glow border extra ring -->
+        <rect x="643" y="293" width="314" height="274" rx="18" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.3"/>
+        <text x="800" y="345" font-family="PingFang SC,sans-serif" font-size="13" fill="#60a5fa" text-anchor="middle" letter-spacing="2">★ 核心处理组件</text>
+        <text x="800" y="390" font-family="PingFang SC,sans-serif" font-size="30" font-weight="800" fill="#ffffff" text-anchor="middle">openclaw</text>
+        <text x="800" y="422" font-family="PingFang SC,sans-serif" font-size="22" font-weight="700" fill="#93c5fd" text-anchor="middle">browser</text>
+        <line x1="680" y1="445" x2="920" y2="445" stroke="#334155" stroke-width="1"/>
+        <text x="800" y="468" font-family="PingFang SC,sans-serif" font-size="14" fill="#93c5fd" text-anchor="middle">冷热感知 · 换页决策</text>
+        <text x="800" y="490" font-family="PingFang SC,sans-serif" font-size="13" fill="#475569" text-anchor="middle">路由指令 → smap</text>
+        <text x="800" y="510" font-family="PingFang SC,sans-serif" font-size="13" fill="#475569" text-anchor="middle">对 VM 完全透明</text>
+        <text x="800" y="535" font-family="PingFang SC,sans-serif" font-size="13" fill="#334155" text-anchor="middle">──────────────</text>
+
+        <!-- Arrow: openclaw → smap -->
+        <line x1="952" y1="430" x2="1038" y2="430" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arr-gray)"/>
+        <text x="995" y="420" font-family="PingFang SC,sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">路由</text>
+
+        <!-- ===== SMAP NODE ===== -->
+        <rect x="1040" y="360" width="220" height="140" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+        <text x="1150" y="395" font-family="PingFang SC,sans-serif" font-size="12" fill="#22c55e" text-anchor="middle" letter-spacing="1">调度层</text>
+        <text x="1150" y="428" font-family="PingFang SC,sans-serif" font-size="26" font-weight="700" fill="#166534" text-anchor="middle">smap</text>
+        <text x="1150" y="453" font-family="PingFang SC,sans-serif" font-size="14" fill="#166534" text-anchor="middle">分层内存管理</text>
+        <text x="1150" y="472" font-family="PingFang SC,sans-serif" font-size="12" fill="#86efac" text-anchor="middle">执行换入/换出</text>
+
+        <!-- Arrow: smap → L1 -->
+        <line x1="1200" y1="390" x2="1296" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-gray)"/>
+        <text x="1245" y="345" font-family="PingFang SC,sans-serif" font-size="12" fill="#94a3b8" text-anchor="middle">热页</text>
+
+        <!-- Arrow: smap → L2 -->
+        <line x1="1262" y1="430" x2="1298" y2="430" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-gray)"/>
+        <text x="1280" y="420" font-family="PingFang SC,sans-serif" font-size="12" fill="#0ea5e9" text-anchor="middle">温页</text>
+
+        <!-- Arrow: smap → L3 -->
+        <line x1="1200" y1="470" x2="1296" y2="560" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#arr-amber)"/>
+        <text x="1248" y="530" font-family="PingFang SC,sans-serif" font-size="12" fill="#f59e0b" text-anchor="middle">冷页</text>
+
+        <!-- ===== L1 DRAM ===== -->
+        <rect x="1300" y="220" width="200" height="90" rx="8" fill="#f8fafc" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="1400" y="255" font-family="PingFang SC,sans-serif" font-size="13" fill="#64748b" text-anchor="middle" letter-spacing="1">L1</text>
+        <text x="1400" y="282" font-family="PingFang SC,sans-serif" font-size="18" font-weight="700" fill="#374151" text-anchor="middle">本地 DRAM</text>
+        <text x="1400" y="298" font-family="PingFang SC,sans-serif" font-size="12" fill="#9ca3af" text-anchor="middle">热页常驻</text>
+
+        <!-- ===== L2 UB ===== -->
+        <rect x="1300" y="385" width="200" height="90" rx="8" fill="#f0f9ff" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="1400" y="420" font-family="PingFang SC,sans-serif" font-size="13" fill="#0ea5e9" text-anchor="middle" letter-spacing="1">L2</text>
+        <text x="1400" y="447" font-family="PingFang SC,sans-serif" font-size="17" font-weight="700" fill="#0369a1" text-anchor="middle">UB 借用内存</text>
+        <text x="1400" y="463" font-family="PingFang SC,sans-serif" font-size="12" fill="#7dd3fc" text-anchor="middle">温页迁移目标</text>
+
+        <!-- ===== L3 NVME (highlighted) ===== -->
+        <rect x="1293" y="550" width="214" height="120" rx="10" fill="#fff7ed" stroke="#f59e0b" stroke-width="3"/>
+        <rect x="1286" y="543" width="228" height="134" rx="14" fill="none" stroke="#fde68a" stroke-width="1" opacity="0.6"/>
+        <text x="1400" y="592" font-family="PingFang SC,sans-serif" font-size="13" fill="#b45309" text-anchor="middle" letter-spacing="1" font-weight="700">L3 — 超分关键</text>
+        <text x="1400" y="623" font-family="PingFang SC,sans-serif" font-size="20" font-weight="700" fill="#92400e" text-anchor="middle">NVMe SSD</text>
+        <text x="1400" y="645" font-family="PingFang SC,sans-serif" font-size="13" fill="#b45309" text-anchor="middle">冷页换出 · 整机超分比↑</text>
+        <text x="1400" y="661" font-family="PingFang SC,sans-serif" font-size="12" fill="#d97706" text-anchor="middle">大幅扩展可用内存上限</text>
+
+        <!-- Platform label -->
+        <rect x="60" y="760" width="380" height="60" rx="8" fill="#1e293b"/>
+        <text x="250" y="790" font-family="PingFang SC,sans-serif" font-size="14" fill="#94a3b8" text-anchor="middle">部署平台</text>
+        <text x="250" y="810" font-family="PingFang SC,sans-serif" font-size="18" font-weight="700" fill="#e2e8f0" text-anchor="middle">字节跳动 · 火山 AI 服务平台</text>
+      </svg>
+    </div>
+
+    <!-- Right panel -->
+    <div class="panel">
+      <div class="panel-section">
+        <div class="ps-title">图例</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#1e3a5f; border:2px solid #2563eb;"></div>
+          <div class="legend-text">openclaw browser<span class="sub">冷热感知核心 · 换页决策</span></div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#eff6ff; border:2px solid #93c5fd;"></div>
+          <div class="legend-text">2U4G 虚拟机<span class="sub">AI 业务载体</span></div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f0fdf4; border:2px solid #86efac;"></div>
+          <div class="legend-text">smap 调度层<span class="sub">统一内存分层管理</span></div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#fff7ed; border:2px solid #f59e0b;"></div>
+          <div class="legend-text">L3 NVMe<span class="sub">超分比提升关键</span></div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="ps-title">关键路径</div>
+        <div class="fact-item fi-oc">
+          <div class="f-head">openclaw 职责</div>
+          <div class="f-body">实时识别页面冷热温度，决定路由目标（L1/L2/L3），对 VM 透明</div>
+        </div>
+        <div class="fact-item fi-l3">
+          <div class="f-head">L3 NVMe 超分原理</div>
+          <div class="f-body">冷页换出至 NVMe，释放 DRAM 容量，同等物理内存可承载更多 VM</div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="ps-title">箭头说明</div>
+        <div class="legend-item">
+          <div style="width:28px; height:2px; background:#3b82f6;"></div>
+          <div class="legend-text" style="font-size:13px;">请求 / 缺页流</div>
+        </div>
+        <div class="legend-item">
+          <div style="width:28px; height:2px; background:#f59e0b;"></div>
+          <div class="legend-text" style="font-size:13px;">冷页换出（→ L3）</div>
+        </div>
+        <div class="legend-item">
+          <div style="width:28px; height:1px; background:#94a3b8; border-top:2px dashed #94a3b8;"></div>
+          <div class="legend-text" style="font-size:13px;">热/温页路由</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">
+      <strong>smap</strong> = L1 本地 DRAM + L2 UB 借用内存 + <strong>L3 NVMe（超分关键）</strong> · openclaw browser 驱动全链路冷热调度
+    </div>
+  </div>
+</div>
+</body>
+</html>

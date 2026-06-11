@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 绿色数据中心风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: #060e0a;
+    font-family: 'Consolas', 'Courier New', monospace;
+    color: #b2dfb2;
+    overflow: hidden;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+    padding: 0;
+    position: relative;
+  }
+  /* Scanline overlay */
+  .slide::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      180deg, transparent 0px, transparent 3px,
+      rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none; z-index: 100;
+  }
+  /* Top status bar */
+  .statusbar {
+    height: 36px;
+    background: #0a1a0d;
+    border-bottom: 1px solid #1a4020;
+    display: flex; align-items: center;
+    padding: 0 30px;
+    gap: 24px;
+    font-size: 11px;
+    color: #4a7a50;
+  }
+  .sb-item { display: flex; gap: 6px; }
+  .sb-key { color: #2a5a30; }
+  .sb-val { color: #69f0ae; }
+  .sb-sep { color: #1a4020; }
+  .sb-right { margin-left: auto; }
+
+  /* Header */
+  .header {
+    padding: 18px 50px 14px;
+    background: #070f09;
+    border-bottom: 2px solid #1a4020;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .title-group {}
+  .title { font-size: 32px; font-weight: 700; color: #69f0ae; letter-spacing: 3px; }
+  .title span { color: #00c853; }
+  .subtitle { font-size: 14px; color: #4a7a50; margin-top: 4px; letter-spacing: 1px; }
+  .hbadge {
+    font-size: 12px;
+    color: #2a5a30;
+    border: 1px solid #1a4020;
+    padding: 6px 16px;
+    border-radius: 2px;
+    text-align: right;
+    line-height: 1.9;
+  }
+  .hbadge span { color: #69f0ae; }
+
+  /* Body */
+  .body {
+    flex: 1;
+    display: flex;
+    padding: 20px 50px;
+    gap: 30px;
+    min-height: 0;
+  }
+
+  /* Dashboard left: VM monitoring */
+  .vm-monitor {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .section-label {
+    font-size: 11px; color: #2a5a30; letter-spacing: 2px;
+    border-bottom: 1px solid #1a4020;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+  .vm-row {
+    background: #0a1a0d;
+    border: 1px solid #1a4020;
+    border-radius: 4px;
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .vm-row.highlight { border-color: #00c853; }
+  .vm-id-col { width: 60px; font-size: 13px; color: #69f0ae; font-weight: 700; }
+  .vm-spec-col { width: 80px; font-size: 11px; color: #4a7a50; }
+  .openclaw-col {
+    flex: 1;
+    background: rgba(0,200,83,0.08);
+    border: 1px solid rgba(0,200,83,0.2);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-size: 12px; color: #69f0ae;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .oc-dot { width: 6px; height: 6px; border-radius: 50%; background: #00c853; }
+  .mem-col { width: 200px; }
+  .mem-label { font-size: 10px; color: #2a5a30; margin-bottom: 3px; }
+  .mem-bar-outer { height: 8px; background: #0f230f; border-radius: 2px; }
+  .mem-bar-inner {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #00c853, #69f0ae);
+  }
+  .mem-pct { font-size: 11px; color: #69f0ae; margin-top: 2px; }
+  .status-col { width: 70px; font-size: 11px; }
+  .st-ok { color: #00c853; }
+  .st-dim { color: #2a5a30; }
+
+  /* Center: smap */
+  .smap-center {
+    flex: 1.3;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .smap-engine-panel {
+    background: #08140a;
+    border: 1px solid #00c853;
+    border-radius: 4px;
+    padding: 16px;
+    flex: 1;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .engine-header {
+    font-size: 16px; font-weight: 700;
+    color: #00c853; letter-spacing: 2px;
+    text-align: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1a4020;
+  }
+  .mem-layer-row {
+    display: flex; align-items: stretch; gap: 10px;
+    flex: 1;
+  }
+  .layer-card {
+    flex: 1;
+    border-radius: 3px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .lc-l1 { background: rgba(0,150,50,0.1); border: 1px solid rgba(0,150,50,0.35); }
+  .lc-l2 { background: rgba(0,200,83,0.12); border: 2px solid rgba(0,200,83,0.6); }
+  .lc-l3 { background: rgba(100,200,50,0.07); border: 1px solid rgba(100,200,50,0.25); }
+  .lcard-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .lnum { font-size: 22px; font-weight: 900; }
+  .lc-l1 .lnum { color: #69f0ae; }
+  .lc-l2 .lnum { color: #00e676; }
+  .lc-l3 .lnum { color: #b2dfb2; }
+  .lname { font-size: 13px; font-weight: 700; }
+  .lc-l1 .lname { color: #a5d6a7; }
+  .lc-l2 .lname { color: #69f0ae; }
+  .lc-l3 .lname { color: #b2dfb2; }
+  .lcard-detail { font-size: 11px; color: #4a7a50; line-height: 1.7; }
+  .lcard-badge {
+    display: inline-block;
+    background: rgba(0,200,83,0.2);
+    border: 1px solid rgba(0,200,83,0.5);
+    border-radius: 2px;
+    padding: 2px 8px;
+    font-size: 10px; color: #00e676;
+    font-weight: 700; letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .lcard-meter { height: 4px; border-radius: 2px; background: #0f230f; margin-top: 6px; }
+  .lcard-meter-fill { height: 100%; border-radius: 2px; }
+  .lc-l1 .lcard-meter-fill { background: rgba(105,240,174,0.5); width: 70%; }
+  .lc-l2 .lcard-meter-fill { background: rgba(0,230,118,0.7); width: 45%; }
+  .lc-l3 .lcard-meter-fill { background: rgba(178,223,178,0.4); width: 15%; }
+
+  /* Result row */
+  .result-bar {
+    background: rgba(0,200,83,0.08);
+    border: 1px solid rgba(0,200,83,0.3);
+    border-radius: 3px;
+    padding: 10px 16px;
+    font-size: 13px; color: #69f0ae;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+  .result-bar strong { color: #00e676; }
+
+  /* Right: stats + notes */
+  .right-stats {
+    flex: 0.8;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-box {
+    background: #0a1a0d;
+    border: 1px solid #1a4020;
+    border-radius: 4px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-val { font-size: 28px; font-weight: 900; color: #00c853; }
+  .stat-unit { font-size: 12px; color: #4a7a50; margin-top: 2px; }
+
+  .note-box {
+    background: #0a1a0d;
+    border: 1px solid #1a4020;
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-size: 12px; color: #4a7a50;
+    line-height: 1.9;
+    flex: 1;
+  }
+  .note-box .hl { color: #69f0ae; }
+  .note-box .hl2 { color: #00c853; }
+  .note-title { color: #2a5a30; font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; border-bottom: 1px solid #1a4020; padding-bottom: 6px; }
+
+  /* Footer */
+  .footer {
+    padding: 10px 50px;
+    background: #070f09;
+    border-top: 1px solid #1a4020;
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: #2a5a30;
+  }
+  .footer span { color: #4a7a50; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="statusbar">
+    <div class="sb-item"><span class="sb-key">HOST</span><span class="sb-val">volcano-node-0421</span></div>
+    <div class="sb-sep">|</div>
+    <div class="sb-item"><span class="sb-key">UPTIME</span><span class="sb-val">72d 14h</span></div>
+    <div class="sb-sep">|</div>
+    <div class="sb-item"><span class="sb-key">SMAP</span><span class="sb-val">ACTIVE</span></div>
+    <div class="sb-sep">|</div>
+    <div class="sb-item"><span class="sb-key">L2-BORROW</span><span class="sb-val">48GB/96GB</span></div>
+    <div class="sb-sep">|</div>
+    <div class="sb-item"><span class="sb-key">L3-NVMe</span><span class="sb-val">320GB/2TB</span></div>
+    <div class="sb-sep">|</div>
+    <div class="sb-item"><span class="sb-key">VM-OVERCOMMIT</span><span class="sb-val">2.4x ↑</span></div>
+    <div class="sb-right sb-item"><span class="sb-key">Style</span><span class="sb-val">07/10 绿色数据中心</span></div>
+  </div>
+
+  <div class="header">
+    <div class="title-group">
+      <div class="title"><span>smap</span> 内存超分监控视图</div>
+      <div class="subtitle">字节火山AI服务平台 · openclaw browser 超分场景 · L2 UB借用 + L3 NVMe</div>
+    </div>
+    <div class="hbadge">
+      PLATFORM: <span>字节火山AI</span><br>
+      KERNEL: <span>OLK-6.6</span><br>
+      SMAP: <span>v2.4.1</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- VM Monitor -->
+    <div class="vm-monitor">
+      <div class="section-label">// VM CLUSTER MONITOR</div>
+      <div class="vm-row highlight">
+        <div class="vm-id-col">VM-01</div>
+        <div class="vm-spec-col">2U/4G</div>
+        <div class="openclaw-col"><div class="oc-dot"></div>openclaw browser</div>
+        <div class="mem-col">
+          <div class="mem-label">MEM USAGE</div>
+          <div class="mem-bar-outer"><div class="mem-bar-inner" style="width:78%"></div></div>
+          <div class="mem-pct">78% · 3.12GB</div>
+        </div>
+        <div class="status-col st-ok">● RUNNING</div>
+      </div>
+      <div class="vm-row highlight">
+        <div class="vm-id-col">VM-02</div>
+        <div class="vm-spec-col">2U/4G</div>
+        <div class="openclaw-col"><div class="oc-dot"></div>openclaw browser</div>
+        <div class="mem-col">
+          <div class="mem-label">MEM USAGE</div>
+          <div class="mem-bar-outer"><div class="mem-bar-inner" style="width:62%"></div></div>
+          <div class="mem-pct">62% · 2.48GB</div>
+        </div>
+        <div class="status-col st-ok">● RUNNING</div>
+      </div>
+      <div class="vm-row highlight">
+        <div class="vm-id-col">VM-03</div>
+        <div class="vm-spec-col">2U/4G</div>
+        <div class="openclaw-col"><div class="oc-dot"></div>openclaw browser</div>
+        <div class="mem-col">
+          <div class="mem-label">MEM USAGE</div>
+          <div class="mem-bar-outer"><div class="mem-bar-inner" style="width:55%"></div></div>
+          <div class="mem-pct">55% · 2.20GB</div>
+        </div>
+        <div class="status-col st-ok">● RUNNING</div>
+      </div>
+      <div class="vm-row">
+        <div class="vm-id-col">VM-04</div>
+        <div class="vm-spec-col">2U/4G</div>
+        <div class="openclaw-col"><div class="oc-dot" style="opacity:0.4"></div>openclaw browser</div>
+        <div class="mem-col">
+          <div class="mem-label">MEM USAGE</div>
+          <div class="mem-bar-outer"><div class="mem-bar-inner" style="width:45%"></div></div>
+          <div class="mem-pct">45% · 1.80GB</div>
+        </div>
+        <div class="status-col st-ok">● RUNNING</div>
+      </div>
+      <div class="vm-row" style="opacity:0.35">
+        <div class="vm-id-col" style="color:#2a5a30">VM-N</div>
+        <div class="vm-spec-col">2U/4G</div>
+        <div class="openclaw-col" style="opacity:0.5">openclaw browser ···</div>
+        <div class="mem-col">
+          <div class="mem-label">MEM USAGE</div>
+          <div class="mem-bar-outer"><div class="mem-bar-inner" style="width:30%;opacity:0.4"></div></div>
+          <div class="mem-pct" style="color:#2a5a30">更多VM实例</div>
+        </div>
+        <div class="status-col st-dim">· · ·</div>
+      </div>
+    </div>
+
+    <!-- smap center -->
+    <div class="smap-center">
+      <div class="section-label">// smap ENGINE - 三层内存架构</div>
+      <div class="smap-engine-panel">
+        <div class="engine-header">[ ⚡ smap 内存管理引擎 ]</div>
+        <div class="mem-layer-row">
+          <div class="layer-card lc-l1">
+            <div class="lcard-header">
+              <span class="lnum">L1</span>
+              <span class="lname">本地 DRAM</span>
+            </div>
+            <div class="lcard-detail">
+              优先级: HIGHEST<br>
+              热页直接映射<br>
+              延迟: &lt;100ns<br>
+              类型: 物理内存
+            </div>
+            <div class="lcard-meter"><div class="lcard-meter-fill"></div></div>
+            <div style="font-size:10px;color:#4a7a50;margin-top:3px">HOT 70%</div>
+          </div>
+          <div class="layer-card lc-l2">
+            <div class="lcard-header">
+              <span class="lnum">L2</span>
+              <span class="lname">UB 借用内存</span>
+            </div>
+            <div class="lcard-detail">
+              优先级: HIGH<br>
+              RDMA跨节点借用<br>
+              延迟: &lt;5μs<br>
+              弹性扩容/收缩
+            </div>
+            <span class="lcard-badge">★ OVERCOMMIT</span>
+            <div class="lcard-meter"><div class="lcard-meter-fill"></div></div>
+            <div style="font-size:10px;color:#4a7a50;margin-top:3px">WARM 45%</div>
+          </div>
+          <div class="layer-card lc-l3">
+            <div class="lcard-header">
+              <span class="lnum">L3</span>
+              <span class="lname">NVMe SSD</span>
+            </div>
+            <div class="lcard-detail">
+              优先级: FALLBACK<br>
+              冷页换出后备<br>
+              延迟: &lt;100μs<br>
+              大容量持久化
+            </div>
+            <div class="lcard-meter"><div class="lcard-meter-fill"></div></div>
+            <div style="font-size:10px;color:#4a7a50;margin-top:3px">COLD 15%</div>
+          </div>
+        </div>
+        <div class="result-bar">
+          L2(UB借用) + L3(NVMe) → 扩展内存池 → <strong>openclaw</strong> VM实例密度 ↑ → <strong>整机超分比 2.4x</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right stats -->
+    <div class="right-stats">
+      <div class="section-label">// OVERCOMMIT METRICS</div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-val">2.4x</div>
+          <div class="stat-unit">超分比</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">+33%</div>
+          <div class="stat-unit">VM密度</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">94%</div>
+          <div class="stat-unit">L2命中率</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val">&lt;5μs</div>
+          <div class="stat-unit">L2延迟</div>
+        </div>
+      </div>
+      <div class="note-box">
+        <div class="note-title">// ARCHITECTURE NOTES</div>
+        <span style="color:#69f0ae">平台:</span> <span class="hl">字节火山AI服务平台</span><br>
+        <span style="color:#69f0ae">工作负载:</span> <span class="hl2">openclaw browser</span><br>
+        <span style="color:#69f0ae">VM规格:</span> <span class="hl">2vCPU · 4G vRAM</span><br>
+        <span style="color:#69f0ae">L2来源:</span> <span class="hl">UB借用内存 (RDMA)</span><br>
+        <span style="color:#69f0ae">L3来源:</span> <span class="hl">本地NVMe SSD</span><br>
+        <span style="color:#69f0ae">业务感知:</span> <span class="hl2">透明 · 零改造</span><br>
+        <span style="color:#69f0ae">超分目标:</span> <span class="hl">整机超分比提升</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动基础架构 · UB超分技术</span>
+    <span>smap · L2 UB借用内存 · L3 NVMe · openclaw browser · Style 07/10</span>
+    <span>绿色数据中心风</span>
+  </div>
+</div>
+</body>
+</html>

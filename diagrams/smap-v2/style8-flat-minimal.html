@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 扁平化简约风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: #f0f2f5;
+    font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    color: #1c2030;
+    overflow: hidden;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+  }
+
+  /* Left colored sidebar */
+  .layout {
+    flex: 1;
+    display: flex;
+  }
+  .sidebar {
+    width: 320px;
+    background: #2563eb;
+    display: flex; flex-direction: column;
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  .sidebar::before {
+    content: '';
+    position: absolute;
+    top: -80px; left: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .sb-logo { font-size: 40px; margin-bottom: 20px; }
+  .sb-title { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 12px; }
+  .sb-title span { color: #93c5fd; }
+  .sb-sub { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.7; margin-bottom: 30px; }
+  .sb-divider { width: 40px; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; margin-bottom: 24px; }
+  .sb-tag { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 1px; margin-bottom: 8px; }
+  .sb-item { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .sb-item-text { font-size: 13px; color: rgba(255,255,255,0.75); }
+  .sb-bottom { margin-top: auto; font-size: 12px; color: rgba(255,255,255,0.3); }
+  .sb-style { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    padding: 36px 48px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+  .main-header {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .main-title { font-size: 22px; font-weight: 700; color: #1c2030; }
+  .breadcrumb { font-size: 13px; color: #94a3b8; display: flex; gap: 8px; }
+  .breadcrumb span { color: #2563eb; }
+
+  /* Architecture diagram */
+  .arch-row {
+    display: flex; gap: 0; align-items: stretch;
+    flex: 1;
+  }
+
+  /* VM section */
+  .vm-section {
+    display: flex; flex-direction: column; gap: 12px;
+    width: 380px;
+    flex-shrink: 0;
+  }
+  .section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 2px; color: #94a3b8;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .vm-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative;
+  }
+  .vm-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+    background: #2563eb;
+  }
+  .vc-header { display: flex; justify-content: space-between; align-items: center; }
+  .vc-name { font-size: 14px; font-weight: 700; color: #1c2030; }
+  .vc-spec {
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 3px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 600;
+  }
+  .oc-pill {
+    background: #faf5ff;
+    border: 1.5px solid #c4b5fd;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px; font-weight: 700; color: #7c3aed;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .oc-icon { width: 18px; height: 18px; background: #7c3aed; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; }
+  .mb-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #94a3b8; }
+  .mb { height: 4px; border-radius: 2px; background: #f1f5f9; overflow: hidden; flex: 1; margin: 0 8px; }
+  .mbf { height: 100%; border-radius: 2px; background: #2563eb; }
+
+  /* Arrow connector */
+  .connector-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 16px;
+    padding-top: 32px;
+    gap: 4px;
+  }
+  .conn-line {
+    width: 2px;
+    background: #e2e8f0;
+    flex: 1;
+    max-height: 400px;
+    position: relative;
+  }
+  .conn-arrow { font-size: 18px; color: #2563eb; }
+  .conn-label { font-size: 10px; color: #94a3b8; writing-mode: vertical-rl; letter-spacing: 1px; }
+
+  /* smap section */
+  .smap-section {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 12px;
+    padding-left: 16px;
+  }
+  .smap-card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.08), 0 8px 24px rgba(37,99,235,0.04);
+    border: 1.5px solid #bfdbfe;
+    padding: 20px 24px;
+    flex: 1;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .smap-header {
+    font-size: 16px; font-weight: 800; color: #2563eb;
+    display: flex; align-items: center; gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #eff6ff;
+  }
+  .layers-grid {
+    display: grid; grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 14px;
+    flex: 1;
+  }
+  .layer-flat {
+    border-radius: 10px;
+    padding: 16px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .lf-l1 { background: #f0fdf4; border: 1.5px solid #86efac; }
+  .lf-l2 { background: #eff6ff; border: 2px solid #2563eb; }
+  .lf-l3 { background: #fffbeb; border: 1.5px solid #fbbf24; }
+  .lf-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    font-size: 16px; font-weight: 900;
+    margin-bottom: 4px;
+  }
+  .lf-l1 .lf-tag { background: #dcfce7; color: #16a34a; }
+  .lf-l2 .lf-tag { background: #dbeafe; color: #2563eb; }
+  .lf-l3 .lf-tag { background: #fef3c7; color: #d97706; }
+  .lf-name { font-size: 14px; font-weight: 700; }
+  .lf-l1 .lf-name { color: #15803d; }
+  .lf-l2 .lf-name { color: #1d4ed8; }
+  .lf-l3 .lf-name { color: #b45309; }
+  .lf-sub { font-size: 12px; color: #64748b; line-height: 1.6; }
+  .lf-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: #2563eb; color: #fff;
+    font-size: 10px; font-weight: 700; padding: 2px 8px;
+    border-radius: 10px; letter-spacing: 0.5px;
+  }
+  .lf-meter { height: 4px; border-radius: 2px; background: rgba(0,0,0,0.06); margin-top: 6px; overflow: hidden; }
+  .lf-mfill { height: 100%; border-radius: 2px; }
+  .lf-l1 .lf-mfill { background: #4ade80; width: 70%; }
+  .lf-l2 .lf-mfill { background: #2563eb; width: 45%; }
+  .lf-l3 .lf-mfill { background: #f59e0b; width: 15%; }
+
+  /* Result row */
+  .result-flat {
+    background: linear-gradient(90deg, #eff6ff, #faf5ff);
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    font-size: 14px; font-weight: 600;
+  }
+  .res-item { display: flex; align-items: center; gap: 6px; color: #1c2030; }
+  .res-arrow { color: #94a3b8; font-size: 18px; }
+  .res-hl { color: #2563eb; }
+  .res-hl2 { color: #7c3aed; }
+
+  /* Metrics bar at bottom */
+  .metrics-strip {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 14px 24px;
+    display: flex; gap: 0;
+    border: 1px solid #e2e8f0;
+  }
+  .metric-item {
+    flex: 1;
+    text-align: center;
+    padding: 0 12px;
+    border-right: 1px solid #f1f5f9;
+  }
+  .metric-item:last-child { border-right: none; }
+  .mi-val { font-size: 26px; font-weight: 900; color: #2563eb; }
+  .mi-label { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-logo">⚡</div>
+      <div class="sb-title"><span>smap</span><br>超分架构</div>
+      <div class="sb-sub">字节火山AI平台<br>openclaw browser<br>L2 UB借用 + L3 NVMe</div>
+      <div class="sb-divider"></div>
+      <div class="sb-tag">关键要素</div>
+      <div class="sb-item">
+        <div class="sb-dot" style="background:#60a5fa"></div>
+        <div class="sb-item-text">字节火山AI服务平台</div>
+      </div>
+      <div class="sb-item">
+        <div class="sb-dot" style="background:#a78bfa"></div>
+        <div class="sb-item-text">openclaw browser 负载</div>
+      </div>
+      <div class="sb-item">
+        <div class="sb-dot" style="background:#34d399"></div>
+        <div class="sb-item-text">2U4G 虚机实例</div>
+      </div>
+      <div class="sb-item">
+        <div class="sb-dot" style="background:#f59e0b"></div>
+        <div class="sb-item-text">L2 UB借用内存</div>
+      </div>
+      <div class="sb-item">
+        <div class="sb-dot" style="background:#f87171"></div>
+        <div class="sb-item-text">L3 NVMe 后备存储</div>
+      </div>
+      <div class="sb-bottom">
+        <div class="sb-style">扁平化简约风 · Style 08/10</div>
+        字节跳动基础架构
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="main-header">
+        <div class="main-title">smap 内存超分架构总览</div>
+        <div class="breadcrumb">
+          <span>字节火山AI平台</span> › 宿主机 › smap超分 › openclaw场景
+        </div>
+      </div>
+
+      <div class="arch-row">
+        <!-- VM Section -->
+        <div class="vm-section">
+          <div class="section-title">业务虚机集群</div>
+          <div class="vm-card">
+            <div class="vc-header">
+              <span class="vc-name">VM-01</span>
+              <span class="vc-spec">2vCPU · 4G vRAM</span>
+            </div>
+            <div class="oc-pill">
+              <div class="oc-icon">◈</div>
+              openclaw browser
+            </div>
+            <div class="mb-row">
+              <span>内存</span>
+              <div class="mb"><div class="mbf" style="width:78%"></div></div>
+              <span>78%</span>
+            </div>
+          </div>
+          <div class="vm-card">
+            <div class="vc-header">
+              <span class="vc-name">VM-02</span>
+              <span class="vc-spec">2vCPU · 4G vRAM</span>
+            </div>
+            <div class="oc-pill">
+              <div class="oc-icon">◈</div>
+              openclaw browser
+            </div>
+            <div class="mb-row">
+              <span>内存</span>
+              <div class="mb"><div class="mbf" style="width:62%"></div></div>
+              <span>62%</span>
+            </div>
+          </div>
+          <div class="vm-card" style="opacity:0.55">
+            <div class="vc-header">
+              <span class="vc-name">VM-N ···</span>
+              <span class="vc-spec">2vCPU · 4G vRAM</span>
+            </div>
+            <div class="oc-pill" style="opacity:0.6">
+              <div class="oc-icon">◈</div>
+              openclaw browser
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector -->
+        <div class="connector-col">
+          <div class="conn-line"></div>
+          <div class="conn-arrow">→</div>
+          <div class="conn-label">内存请求</div>
+          <div class="conn-line"></div>
+        </div>
+
+        <!-- smap section -->
+        <div class="smap-section">
+          <div class="section-title">smap 内存管理引擎</div>
+          <div class="smap-card">
+            <div class="smap-header">
+              ⚡ smap 三层内存架构
+            </div>
+            <div class="layers-grid">
+              <div class="layer-flat lf-l1">
+                <div class="lf-tag">L1</div>
+                <div class="lf-name">本地物理内存</div>
+                <div class="lf-sub">DRAM · 热页直接访问<br>延迟 &lt;100ns<br>优先级最高</div>
+                <div class="lf-meter"><div class="lf-mfill"></div></div>
+                <div style="font-size:10px;color:#16a34a;margin-top:3px">70% 热页</div>
+              </div>
+              <div class="layer-flat lf-l2">
+                <span class="lf-badge">超分核心</span>
+                <div class="lf-tag">L2</div>
+                <div class="lf-name">UB 借用内存</div>
+                <div class="lf-sub">RDMA跨节点 · 延迟&lt;5μs<br>动态借入/归还<br>温页弹性扩展</div>
+                <div class="lf-meter"><div class="lf-mfill"></div></div>
+                <div style="font-size:10px;color:#2563eb;margin-top:3px">45% 温页</div>
+              </div>
+              <div class="layer-flat lf-l3">
+                <div class="lf-tag">L3</div>
+                <div class="lf-name">NVMe SSD</div>
+                <div class="lf-sub">冷页换出 · 延迟&lt;100μs<br>大容量后备<br>异步预取</div>
+                <div class="lf-meter"><div class="lf-mfill"></div></div>
+                <div style="font-size:10px;color:#d97706;margin-top:3px">15% 冷页</div>
+              </div>
+            </div>
+            <div class="result-flat">
+              <div class="res-item">L2+L3 扩展内存</div>
+              <div class="res-arrow">→</div>
+              <div class="res-item"><span class="res-hl2">openclaw</span> VM密度↑</div>
+              <div class="res-arrow">→</div>
+              <div class="res-item"><span class="res-hl">整机超分比提升</span></div>
+              <div class="res-arrow">→</div>
+              <div class="res-item">单位成本↓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics strip -->
+      <div class="metrics-strip">
+        <div class="metric-item">
+          <div class="mi-val">2.4×</div>
+          <div class="mi-label">整机超分比</div>
+        </div>
+        <div class="metric-item">
+          <div class="mi-val">+33%</div>
+          <div class="mi-label">openclaw VM密度提升</div>
+        </div>
+        <div class="metric-item">
+          <div class="mi-val">94%</div>
+          <div class="mi-label">L2 UB借用命中率</div>
+        </div>
+        <div class="metric-item">
+          <div class="mi-val">&lt;5μs</div>
+          <div class="mi-label">L2 RDMA访问延迟</div>
+        </div>
+        <div class="metric-item">
+          <div class="mi-val">零</div>
+          <div class="mi-label">业务改造成本</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

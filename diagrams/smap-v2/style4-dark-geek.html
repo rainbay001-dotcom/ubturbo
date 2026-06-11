@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 暗夜极客风</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: #0c0c0c;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    color: #00ff41;
+    overflow: hidden;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 40px;
+    position: relative;
+  }
+  /* Scan line effect */
+  .slide::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #00ff41;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .header-left {}
+  .prompt { font-size: 12px; color: #555; margin-bottom: 4px; }
+  .prompt span { color: #00ff41; }
+  .title { font-size: 28px; font-weight: 700; color: #00ff41; }
+  .title .at { color: #ff6b35; }
+  .subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+  .sys-info { font-size: 11px; color: #555; text-align: right; line-height: 1.8; }
+  .sys-info .val { color: #00ff41; }
+
+  .content {
+    flex: 1;
+    display: flex;
+    gap: 30px;
+    min-height: 0;
+  }
+
+  /* Terminal diagram */
+  .terminal {
+    flex: 1.6;
+    background: #0c0c0c;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .term-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 28px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
+    font-size: 11px; color: #555;
+  }
+  .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .term-inner { padding-top: 30px; }
+
+  /* ASCII Box drawing */
+  pre {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #888;
+    font-family: 'Courier New', monospace;
+    white-space: pre;
+  }
+  .green { color: #00ff41; }
+  .yellow { color: #ffd700; }
+  .cyan { color: #00e5ff; }
+  .red { color: #ff4444; }
+  .orange { color: #ff6b35; }
+  .purple { color: #cc00ff; }
+  .gray { color: #555; }
+  .white { color: #ddd; }
+  .bright { color: #fff; font-weight: bold; }
+
+  /* Right panel as terminal logs */
+  .log-panel {
+    flex: 1;
+    background: #050505;
+    border: 1px solid #222;
+    border-radius: 4px;
+    padding: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .log-panel .term-bar { background: #111; }
+  .log-entry {
+    font-size: 12px;
+    line-height: 1.9;
+    display: flex;
+    gap: 8px;
+  }
+  .log-ts { color: #333; flex-shrink: 0; width: 60px; }
+  .log-level { flex-shrink: 0; width: 50px; font-weight: 700; }
+  .log-level.info { color: #00ff41; }
+  .log-level.warn { color: #ffd700; }
+  .log-level.data { color: #00e5ff; }
+  .log-level.crit { color: #ff4444; }
+  .log-msg { color: #aaa; }
+  .log-hl { color: #00ff41; font-weight: 700; }
+  .log-hl2 { color: #cc00ff; font-weight: 700; }
+  .log-hl3 { color: #00e5ff; }
+  .divider { border: none; border-top: 1px solid #1a1a1a; margin: 8px 0; }
+  .panel-title {
+    font-size: 13px; color: #00ff41; margin-bottom: 14px;
+    border-bottom: 1px solid #1a1a1a; padding-bottom: 8px;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #333;
+    padding-top: 10px;
+    border-top: 1px solid #1a1a1a;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="header">
+    <div class="header-left">
+      <div class="prompt"><span>root@volcano-host</span>:~# cat /sys/smap/architecture</div>
+      <div class="title"><span class="at">smap</span> — Scalable Memory Abstraction Platform</div>
+      <div class="subtitle">// 字节火山AI平台 · openclaw browser超分场景 · L2+L3内存层级</div>
+    </div>
+    <div class="sys-info">
+      <div>HOST: <span class="val">volcano-ai-node-0421</span></div>
+      <div>KERNEL: <span class="val">6.6.0-openeuler+</span></div>
+      <div>SMAP: <span class="val">v2.4.1-ub</span></div>
+      <div>STYLE: <span class="val">04/10 极客风</span></div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Terminal Diagram -->
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="term-dot" style="background:#ff5f57"></div>
+        <div class="term-dot" style="background:#ffbd2e"></div>
+        <div class="term-dot" style="background:#28c940"></div>
+        <span style="margin-left:8px">smap-arch-viewer — 字节火山AI平台</span>
+      </div>
+      <div class="term-inner">
+<pre>
+<span class="gray">╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗</span>
+<span class="gray">║</span>  <span class="yellow">🔥 BYTEDANCE VOLCANO AI SERVICE PLATFORM</span>                                                               <span class="gray">║</span>
+<span class="gray">║</span>  <span class="gray">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>  <span class="gray">║</span>
+<span class="gray">║</span>  <span class="gray">┌────────────────── HOST (宿主机) ─────────────────────────────────────────────────────────────────┐</span>  <span class="gray">║</span>
+<span class="gray">║  │</span>                                                                                                  <span class="gray">│  ║</span>
+<span class="gray">║  │</span>   <span class="gray">┌──────────── VM CLUSTER ────────────┐</span>              <span class="gray">┌──────── smap ENGINE ────────────┐</span>  <span class="gray">│  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>                                   <span class="gray">│</span>              <span class="gray">│</span>  <span class="green">⚡ smap v2.4.1-ub</span>               <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">┌─────────────────────────┐</span>        <span class="gray">│</span>              <span class="gray">│</span>                                <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="white">VM-01</span>  <span class="gray">[2vCPU|4G vRAM]</span>    <span class="cyan">│──mem-req──▶│</span>  <span class="green">  ┌──── L1: DRAM ──────────┐</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="purple">◈ openclaw browser</span>      <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="green">  │ PRIO=0 · HOT pages     │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="gray">mem: ████████░░</span> <span class="green">78%</span>    <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="green">  │ latency: &lt;100ns        │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">└─────────────────────────┘</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="green">  └────────────────────────┘</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>                                   <span class="gray">│</span>              <span class="gray">│</span>              <span class="gray">│</span>                    <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">┌─────────────────────────┐</span>        <span class="gray">│</span>              <span class="gray">│</span>              ▼                    <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="white">VM-02</span>  <span class="gray">[2vCPU|4G vRAM]</span>    <span class="cyan">│──mem-req──▶│</span>  <span class="yellow">  ┌──── L2: UB借用内存 ───┐</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="purple">◈ openclaw browser</span>      <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="yellow">  │ PRIO=1 · WARM pages    │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="gray">mem: ██████░░░░</span> <span class="green">62%</span>    <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="yellow">  │ RDMA · latency: &lt;5μs   │</span> <span class="red">◀</span><span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">└─────────────────────────┘</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="yellow">  │ </span><span class="red">★ OVERCOMMIT KEY</span><span class="yellow">       │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>                                   <span class="gray">│</span>              <span class="gray">│</span>  <span class="yellow">  └────────────────────────┘</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">┌─────────────────────────┐</span>        <span class="gray">│</span>              <span class="gray">│</span>              <span class="gray">│</span>                    <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="white">VM-N</span>   <span class="gray">[2vCPU|4G vRAM]</span>    <span class="cyan">│──mem-req──▶│</span>              ▼                    <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="purple">◈ openclaw browser</span>      <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="orange">  ┌──── L3: NVMe SSD ──────┐</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">│</span> <span class="gray">mem: █████░░░░░</span> <span class="green">55%</span>    <span class="cyan">│</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="orange">  │ PRIO=2 · COLD pages    │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="cyan">└─────────────────────────┘</span>        <span class="gray">│</span>              <span class="gray">│</span>  <span class="orange">  │ latency: &lt;100μs        │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">│</span>  <span class="gray">· · · 更多VM实例 · · ·</span>             <span class="gray">│</span>              <span class="gray">│</span>  <span class="orange">  │ async prefetch         │</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>   <span class="gray">└───────────────────────────────────┘</span>              <span class="gray">│</span>  <span class="orange">  └────────────────────────┘</span>   <span class="gray">│  │  ║</span>
+<span class="gray">║  │</span>                                                        <span class="gray">└────────────────────────────────┘</span>  <span class="gray">│  ║</span>
+<span class="gray">║  └──────────────────────────────────────────────────────────────────────────────────────────────────┘  ║</span>
+<span class="gray">║</span>                                                                                                         <span class="gray">║</span>
+<span class="gray">║</span>  <span class="green">RESULT:</span> <span class="white">L2+L3扩展内存池</span> <span class="gray">→</span> <span class="purple">openclaw</span> <span class="white">VM密度↑</span> <span class="gray">→</span> <span class="yellow">整机超分比显著提升</span> <span class="gray">→</span> <span class="cyan">云上单位成本↓</span>             <span class="gray">║</span>
+<span class="gray">╚══════════════════════════════════════════════════════════════════════════════════════════════════════════╝</span>
+</pre>
+      </div>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="log-panel">
+      <div class="term-bar">
+        <div class="term-dot" style="background:#ff5f57"></div>
+        <div class="term-dot" style="background:#ffbd2e"></div>
+        <div class="term-dot" style="background:#28c940"></div>
+        <span style="margin-left:8px">smap-monitor</span>
+      </div>
+      <div style="padding-top: 34px;">
+        <div class="panel-title">// smap 运行时状态</div>
+        <div class="log-entry"><span class="log-ts">00:00:01</span><span class="log-level info">INFO</span><span class="log-msg">smap engine 启动，绑定 <span class="log-hl">volcano-ai-platform</span></span></div>
+        <div class="log-entry"><span class="log-ts">00:00:02</span><span class="log-level info">INFO</span><span class="log-msg">VM-01 <span class="log-hl2">openclaw browser</span> 进程内存注册</span></div>
+        <div class="log-entry"><span class="log-ts">00:00:03</span><span class="log-level data">DATA</span><span class="log-msg">L1 DRAM: <span class="log-hl">24GB</span> 可用 · 热页比例: <span class="log-hl">68%</span></span></div>
+        <div class="log-entry"><span class="log-ts">00:00:04</span><span class="log-level info">INFO</span><span class="log-msg">L2 UB借用内存 <span class="log-hl">激活</span> · RDMA链路就绪</span></div>
+        <div class="log-entry"><span class="log-ts">00:00:05</span><span class="log-level data">DATA</span><span class="log-msg">L2 借用容量: <span class="log-hl">48GB</span> · 延迟: <span class="log-hl">&lt;4.2μs</span></span></div>
+        <div class="log-entry"><span class="log-ts">00:00:06</span><span class="log-level info">INFO</span><span class="log-msg">L3 NVMe: <span class="log-hl">2TB</span> · 冷页换出队列就绪</span></div>
+        <hr class="divider"/>
+        <div class="log-entry"><span class="log-ts">00:01:12</span><span class="log-level warn">EVICT</span><span class="log-msg">VM-02 冷页迁移至 <span class="log-hl">L2</span> · size=256MB</span></div>
+        <div class="log-entry"><span class="log-ts">00:01:45</span><span class="log-level data">DATA</span><span class="log-msg"><span class="log-hl2">openclaw</span> page-fault 命中 L2 · miss=0.3%</span></div>
+        <div class="log-entry"><span class="log-ts">00:02:33</span><span class="log-level warn">EVICT</span><span class="log-msg">L2压力→冷页换出至 <span class="log-hl">L3 NVMe</span></span></div>
+        <hr class="divider"/>
+        <div class="log-entry"><span class="log-ts">00:10:00</span><span class="log-level info">STAT</span><span class="log-msg">超分比: <span class="log-hl">1.8x → 2.4x</span> · VM实例+<span class="log-hl">33%</span></span></div>
+        <div class="log-entry"><span class="log-ts">00:10:00</span><span class="log-level info">STAT</span><span class="log-msg">L2命中率: <span class="log-hl">94.2%</span> · L3命中率: <span class="log-hl">5.5%</span></span></div>
+        <div class="log-entry"><span class="log-ts">00:10:00</span><span class="log-level data">GAIN</span><span class="log-msg"><span class="log-hl2">openclaw</span> 业务无感知 · SLA达标 ✓</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>// 字节跳动基础架构 · UB超分技术</span>
+    <span>smap · L2 UB借用内存 · L3 NVMe · openclaw browser · Style 04/10</span>
+    <span>root@volcano-host:~# █</span>
+  </div>
+</div>
+</body>
+</html>

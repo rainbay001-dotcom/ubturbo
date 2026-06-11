@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 中国红科技风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: #0f0608;
+    font-family: 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif;
+    color: #f5e6d0;
+    overflow: hidden;
+    position: relative;
+  }
+  /* Background decoration */
+  .bg-deco {
+    position: absolute; inset: 0; pointer-events: none;
+    overflow: hidden;
+  }
+  .bg-deco .circle {
+    position: absolute; border-radius: 50%;
+    border: 1px solid rgba(220,50,50,0.08);
+  }
+  .bg-deco .c1 { width: 1000px; height: 1000px; top: -200px; right: -300px; }
+  .bg-deco .c2 { width: 600px; height: 600px; top: -100px; right: -100px; }
+  .bg-deco .c3 { width: 400px; height: 400px; bottom: -100px; left: 100px; }
+
+  /* Gold lines */
+  .gold-line-top {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #c9a227, #f5d060, #c9a227, transparent);
+  }
+  .gold-line-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #c9a227, transparent);
+  }
+
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+    padding: 40px 64px 28px;
+    position: relative; z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(201,162,39,0.25);
+    position: relative;
+  }
+  .header::after {
+    content: '◆';
+    position: absolute;
+    bottom: -10px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px; color: #c9a227;
+  }
+  .title-block {}
+  .title-cn { font-size: 42px; font-weight: 900; color: #e82020; letter-spacing: 4px; text-shadow: 0 0 30px rgba(232,32,32,0.3); }
+  .title-cn .gold { color: #f5d060; }
+  .title-en { font-size: 14px; color: rgba(201,162,39,0.6); letter-spacing: 3px; margin-top: 4px; text-transform: uppercase; }
+  .subtitle { font-size: 16px; color: rgba(245,230,208,0.55); margin-top: 6px; }
+  .hright { text-align: right; }
+  .hbadge {
+    display: inline-block;
+    background: rgba(232,32,32,0.15);
+    border: 1px solid rgba(232,32,32,0.4);
+    padding: 8px 20px;
+    border-radius: 3px;
+    font-size: 13px; color: #e82020;
+    letter-spacing: 2px;
+  }
+  .hsub { font-size: 12px; color: rgba(201,162,39,0.4); margin-top: 6px; }
+
+  /* Content */
+  .content {
+    flex: 1;
+    display: flex;
+    gap: 40px;
+    min-height: 0;
+  }
+
+  /* Center: architecture diagram */
+  .diagram-center {
+    flex: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .platform-frame {
+    flex: 1;
+    border: 1px solid rgba(232,32,32,0.3);
+    border-radius: 10px;
+    background: rgba(232,32,32,0.02);
+    padding: 20px;
+    position: relative;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .pf-label {
+    position: absolute; top: -14px; left: 20px;
+    background: #0f0608;
+    padding: 0 12px;
+    font-size: 14px; color: #e82020;
+    font-weight: 700; letter-spacing: 2px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .pf-label::before, .pf-label::after { content: '◈'; color: #c9a227; font-size: 10px; }
+
+  .host-frame {
+    flex: 1;
+    border: 1px solid rgba(201,162,39,0.2);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex; gap: 16px;
+    position: relative;
+  }
+  .hf-label {
+    position: absolute; top: -12px; left: 16px;
+    background: #0f0608;
+    padding: 0 8px;
+    font-size: 12px; color: rgba(201,162,39,0.5);
+    letter-spacing: 1px;
+  }
+
+  /* VM cluster */
+  .vm-cluster {
+    width: 340px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 4px;
+  }
+  .vm-panel {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(232,32,32,0.2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    position: relative;
+  }
+  .vm-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: #e82020;
+    border-radius: 6px 0 0 6px;
+  }
+  .vp-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .vp-id { font-size: 13px; font-weight: 700; color: #f5d060; }
+  .vp-spec { font-size: 11px; color: rgba(245,230,208,0.4); }
+  .openclaw-cn {
+    background: rgba(130,0,200,0.2);
+    border: 1px solid rgba(180,100,255,0.4);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px; font-weight: 700; color: #d4a0ff;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .oc-gem { color: #f5d060; font-size: 10px; }
+  .vp-status { font-size: 11px; color: #4ade80; margin-top: 5px; }
+  .vm-ellipsis-cn { text-align: center; color: rgba(201,162,39,0.2); font-size: 18px; letter-spacing: 4px; padding: 4px 0; }
+
+  /* Arrow separator */
+  .arrow-sep {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 8px;
+    color: rgba(232,32,32,0.4);
+    font-size: 18px;
+    gap: 6px;
+  }
+  .arr-label { font-size: 10px; color: rgba(232,32,32,0.3); writing-mode: vertical-rl; letter-spacing: 1px; }
+
+  /* smap panel */
+  .smap-cn {
+    flex: 1;
+    background: rgba(232,32,32,0.04);
+    border: 1.5px solid rgba(232,32,32,0.35);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .smap-cn-title {
+    text-align: center;
+    font-size: 16px; font-weight: 800;
+    color: #e82020;
+    letter-spacing: 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(201,162,39,0.2);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .smap-cn-title::before, .smap-cn-title::after { content: '◆'; color: #c9a227; font-size: 10px; }
+
+  .layer-cn {
+    border-radius: 6px;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 5px;
+    flex: 1;
+    position: relative;
+  }
+  .lc1 { background: rgba(0,180,60,0.1); border: 1px solid rgba(0,180,60,0.3); }
+  .lc2 { background: rgba(232,32,32,0.1); border: 2px solid rgba(232,32,32,0.5); }
+  .lc3 { background: rgba(245,208,96,0.06); border: 1px solid rgba(245,208,96,0.2); }
+
+  .lcn-tag-row { display: flex; align-items: center; gap: 10px; }
+  .lcn-num { font-size: 20px; font-weight: 900; }
+  .lc1 .lcn-num { color: #4ade80; }
+  .lc2 .lcn-num { color: #e82020; }
+  .lc3 .lcn-num { color: #f5d060; }
+  .lcn-name { font-size: 14px; font-weight: 700; }
+  .lc1 .lcn-name { color: #86efac; }
+  .lc2 .lcn-name { color: #fca5a5; }
+  .lc3 .lcn-name { color: #fef08a; }
+  .lcn-detail { font-size: 12px; color: rgba(245,230,208,0.45); }
+  .key-badge-cn {
+    position: absolute; right: 10px; top: 10px;
+    background: #e82020;
+    color: #fff;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 2px;
+    letter-spacing: 2px;
+  }
+
+  /* Right panel */
+  .right-cn {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 14px;
+    justify-content: center;
+  }
+  .rcard-cn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(201,162,39,0.15);
+    border-radius: 8px;
+    padding: 16px 20px;
+    position: relative;
+  }
+  .rcard-cn::before {
+    content: '◆';
+    position: absolute;
+    top: 14px; left: -8px;
+    color: #c9a227;
+    font-size: 14px;
+  }
+  .rct { font-size: 14px; font-weight: 700; color: #f5d060; margin-bottom: 8px; }
+  .rcb { font-size: 13px; color: rgba(245,230,208,0.55); line-height: 1.7; }
+  .hl { color: #e82020; font-weight: 600; }
+  .hl2 { color: #d4a0ff; font-weight: 600; }
+  .hl3 { color: #f5d060; font-weight: 600; }
+
+  /* Result banner */
+  .result-cn {
+    background: linear-gradient(90deg, rgba(232,32,32,0.15), rgba(201,162,39,0.1));
+    border: 1px solid rgba(232,32,32,0.3);
+    border-radius: 6px;
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px;
+    font-size: 14px;
+  }
+  .rcn-item { color: rgba(245,230,208,0.7); }
+  .rcn-arrow { color: rgba(201,162,39,0.4); font-size: 16px; }
+  .rcn-bold { color: #e82020; font-weight: 700; }
+  .rcn-bold2 { color: #f5d060; font-weight: 700; }
+
+  .footer {
+    display: flex; justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid rgba(201,162,39,0.15);
+    font-size: 11px; color: rgba(201,162,39,0.25);
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="bg-deco">
+  <div class="circle c1"></div>
+  <div class="circle c2"></div>
+  <div class="circle c3"></div>
+</div>
+<div class="gold-line-top"></div>
+<div class="gold-line-bottom"></div>
+
+<div class="slide">
+  <div class="header">
+    <div class="title-block">
+      <div class="title-cn">smap · <span class="gold">超分内存</span> · 架构示意</div>
+      <div class="title-en">Scalable Memory Abstraction · Bytedance Volcano AI Platform</div>
+      <div class="subtitle">openclaw browser 业务场景 · L2 UB借用内存 + L3 NVMe 超分方案</div>
+    </div>
+    <div class="hright">
+      <div class="hbadge">中国红科技风 · Style 09</div>
+      <div class="hsub">字节跳动基础架构 · UB超分技术团队</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Center architecture -->
+    <div class="diagram-center">
+      <div class="platform-frame">
+        <span class="pf-label">火山AI服务平台</span>
+        <div class="host-frame">
+          <span class="hf-label">宿主机 (物理服务器)</span>
+
+          <!-- VMs -->
+          <div class="vm-cluster">
+            <div style="font-size:11px;color:rgba(201,162,39,0.35);letter-spacing:2px;margin-bottom:4px">VM 业务集群</div>
+            <div class="vm-panel">
+              <div class="vp-header"><span class="vp-id">VM-01</span><span class="vp-spec">2vCPU · 4G vRAM</span></div>
+              <div class="openclaw-cn"><span class="oc-gem">◈</span>openclaw browser</div>
+              <div class="vp-status">● 运行中</div>
+            </div>
+            <div class="vm-panel">
+              <div class="vp-header"><span class="vp-id">VM-02</span><span class="vp-spec">2vCPU · 4G vRAM</span></div>
+              <div class="openclaw-cn"><span class="oc-gem">◈</span>openclaw browser</div>
+              <div class="vp-status">● 运行中</div>
+            </div>
+            <div class="vm-panel">
+              <div class="vp-header"><span class="vp-id">VM-03</span><span class="vp-spec">2vCPU · 4G vRAM</span></div>
+              <div class="openclaw-cn"><span class="oc-gem">◈</span>openclaw browser</div>
+              <div class="vp-status">● 运行中</div>
+            </div>
+            <div class="vm-ellipsis-cn">· · · 更多VM · · ·</div>
+          </div>
+
+          <!-- Arrow -->
+          <div class="arrow-sep">
+            <div class="arr-label">内存请求</div>
+            <span>→</span>
+            <span>→</span>
+          </div>
+
+          <!-- smap panel -->
+          <div class="smap-cn">
+            <div class="smap-cn-title">smap 内存管理引擎</div>
+            <div class="layer-cn lc1">
+              <div class="lcn-tag-row">
+                <span class="lcn-num">L1</span>
+                <span class="lcn-name">本地物理内存 (DRAM)</span>
+              </div>
+              <div class="lcn-detail">热页直接映射 · 优先级最高 · 延迟 &lt;100ns</div>
+            </div>
+            <div class="layer-cn lc2">
+              <span class="key-badge-cn">超分核心</span>
+              <div class="lcn-tag-row">
+                <span class="lcn-num">L2</span>
+                <span class="lcn-name">UB 借用内存</span>
+              </div>
+              <div class="lcn-detail">RDMA跨节点低延迟 · 动态借入/归还 · 延迟 &lt;5μs</div>
+            </div>
+            <div class="layer-cn lc3">
+              <div class="lcn-tag-row">
+                <span class="lcn-num">L3</span>
+                <span class="lcn-name">NVMe SSD 后备</span>
+              </div>
+              <div class="lcn-detail">冷页换出 · 大容量兜底 · 延迟 &lt;100μs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="result-cn">
+          <span class="rcn-item">L2 UB借用内存 + L3 NVMe</span>
+          <span class="rcn-arrow">→</span>
+          <span class="rcn-item">扩展有效内存池</span>
+          <span class="rcn-arrow">→</span>
+          <span class="rcn-bold">openclaw</span>
+          <span class="rcn-item">VM实例密度 ↑</span>
+          <span class="rcn-arrow">→</span>
+          <span class="rcn-bold2">整机超分比显著提升</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div class="right-cn">
+      <div class="rcard-cn">
+        <div class="rct">🎯 业务背景</div>
+        <div class="rcb">
+          <span class="hl3">字节火山AI服务平台</span>大规模部署
+          <span class="hl2">openclaw browser</span> 任务，
+          基于 <span class="hl">2U4G 虚机</span>，
+          内存利用率呈典型波动特征，超分改造价值显著。
+        </div>
+      </div>
+      <div class="rcard-cn">
+        <div class="rct">⚙ smap 三层架构</div>
+        <div class="rcb">
+          <span class="hl">L1</span> 本地DRAM → 热页，最高优先级，直接访问<br>
+          <span class="hl">L2</span> UB借用内存 → RDMA跨节点，超分核心手段<br>
+          <span class="hl">L3</span> NVMe SSD → 冷页后备，容量托底
+        </div>
+      </div>
+      <div class="rcard-cn">
+        <div class="rct">📈 超分价值</div>
+        <div class="rcb">
+          <span class="hl">L2+L3</span> 扩展有效内存，
+          单机 <span class="hl2">openclaw</span> VM密度提升，
+          <span class="hl">整机超分比</span>改善，
+          AI推理场景云上算力成本降低。
+        </div>
+      </div>
+      <div class="rcard-cn">
+        <div class="rct">✅ 透明接入</div>
+        <div class="rcb">
+          对 <span class="hl2">openclaw browser</span> 完全透明，
+          内核层 smap 自动冷热调度，
+          <span class="hl3">业务零改造</span>接入。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动基础架构 · UB超分技术团队</span>
+    <span>◆</span>
+    <span>smap · L2 UB借用内存 · L3 NVMe · openclaw browser · Style 09/10 中国红科技风</span>
+  </div>
+</div>
+</body>
+</html>

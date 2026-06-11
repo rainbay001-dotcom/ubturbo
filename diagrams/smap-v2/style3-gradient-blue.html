@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 渐变蓝色科技风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: linear-gradient(135deg, #0d1b3e 0%, #1a3a7c 40%, #0d2b5e 70%, #071428 100%);
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: #e8f0ff;
+    overflow: hidden;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 36px 64px 28px;
+    gap: 0;
+    position: relative;
+  }
+  /* Decorative circles */
+  .deco-circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.08;
+    pointer-events: none;
+  }
+  .deco-circle.c1 { width: 500px; height: 500px; background: #4fc3f7; top: -150px; right: -100px; }
+  .deco-circle.c2 { width: 300px; height: 300px; background: #42a5f5; bottom: -100px; left: -50px; }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    margin-bottom: 30px;
+  }
+  .title-group {}
+  .eyebrow { font-size: 13px; color: #64b5f6; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+  .title { font-size: 38px; font-weight: 800; color: #fff; letter-spacing: 1px; }
+  .title span { color: #4fc3f7; }
+  .subtitle { font-size: 16px; color: #90caf9; margin-top: 6px; }
+  .header-badge {
+    background: rgba(79,195,247,0.15);
+    border: 1px solid rgba(79,195,247,0.4);
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    color: #4fc3f7;
+    letter-spacing: 1px;
+  }
+
+  .content {
+    display: flex;
+    gap: 44px;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* Center diagram */
+  .center-diagram {
+    flex: 1.6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Right panel */
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: center;
+  }
+
+  /* Architecture blocks */
+  .arch-container {
+    width: 960px;
+    height: 760px;
+    position: relative;
+  }
+
+  /* Platform frame */
+  .platform {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid rgba(79,195,247,0.25);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.02);
+  }
+  .platform-label {
+    position: absolute;
+    top: -15px; left: 24px;
+    background: #1a3a7c;
+    padding: 2px 16px;
+    font-size: 15px;
+    color: #4fc3f7;
+    border-radius: 8px;
+    border: 1px solid rgba(79,195,247,0.3);
+  }
+
+  /* VM Stack */
+  .vm-stack {
+    position: absolute;
+    left: 30px; top: 40px;
+    width: 320px; height: 680px;
+  }
+  .vm-stack-title {
+    font-size: 13px; color: rgba(144,202,249,0.7);
+    text-align: center; margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .vm-block {
+    background: linear-gradient(135deg, rgba(13,43,94,0.9), rgba(26,58,124,0.9));
+    border: 1px solid rgba(79,195,247,0.3);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .vm-block::after {
+    content: '';
+    position: absolute;
+    bottom: -12px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+  }
+  .vm-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .vm-id { font-size: 13px; font-weight: 700; color: #90caf9; }
+  .vm-spec-badge {
+    background: rgba(79,195,247,0.15);
+    border: 1px solid rgba(79,195,247,0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px; color: #64b5f6;
+  }
+  .openclaw-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(90deg, rgba(123,31,162,0.6), rgba(171,71,188,0.4));
+    border: 1px solid rgba(171,71,188,0.6);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #e1bee7;
+  }
+  .openclaw-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ce93d8;
+    box-shadow: 0 0 6px #ce93d8;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .vm-mem-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .vm-mem-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #4fc3f7, #1565c0);
+  }
+  .vm-ellipsis {
+    text-align: center;
+    color: rgba(144,202,249,0.4);
+    font-size: 20px;
+    letter-spacing: 4px;
+    padding: 8px 0;
+  }
+
+  /* smap Engine */
+  .smap-engine {
+    position: absolute;
+    left: 380px; top: 40px;
+    width: 550px; height: 680px;
+    border: 2px solid rgba(79,195,247,0.5);
+    border-radius: 16px;
+    background: rgba(13,27,62,0.6);
+    backdrop-filter: blur(4px);
+  }
+  .smap-title {
+    text-align: center;
+    font-size: 18px; font-weight: 800;
+    color: #4fc3f7;
+    padding: 16px 0 10px;
+    border-bottom: 1px solid rgba(79,195,247,0.2);
+    letter-spacing: 2px;
+  }
+
+  .layer-block {
+    margin: 16px 20px;
+    border-radius: 12px;
+    padding: 16px 20px;
+    position: relative;
+  }
+  .l1-block { background: rgba(0,150,60,0.15); border: 1.5px solid rgba(0,200,80,0.4); height: 140px; }
+  .l2-block { background: rgba(0,100,220,0.2); border: 2px solid rgba(79,195,247,0.7); height: 180px; }
+  .l3-block { background: rgba(200,100,0,0.12); border: 1.5px solid rgba(255,160,50,0.4); height: 140px; }
+
+  .layer-heading {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .layer-num {
+    font-size: 22px; font-weight: 900;
+    line-height: 1;
+  }
+  .l1-block .layer-num { color: #69f0ae; }
+  .l2-block .layer-num { color: #4fc3f7; }
+  .l3-block .layer-num { color: #ffb74d; }
+  .layer-title-text { font-size: 15px; font-weight: 700; }
+  .l1-block .layer-title-text { color: #a5d6a7; }
+  .l2-block .layer-title-text { color: #90caf9; }
+  .l3-block .layer-title-text { color: #ffe082; }
+
+  .layer-detail-row { font-size: 12px; color: rgba(255,255,255,0.55); margin: 3px 0; }
+  .layer-badge {
+    position: absolute; right: 14px; top: 14px;
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 11px; font-weight: 700;
+  }
+  .l2-badge { background: rgba(79,195,247,0.25); border: 1px solid #4fc3f7; color: #4fc3f7; }
+
+  /* Gain block */
+  .gain-block {
+    margin: 0 20px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, rgba(123,31,162,0.3), rgba(41,182,246,0.2));
+    border: 1px solid rgba(255,255,255,0.15);
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .gain-text { font-size: 13px; color: rgba(255,255,255,0.75); }
+  .gain-highlight { color: #4fc3f7; font-weight: 700; }
+
+  /* Connector line */
+  .connector {
+    position: absolute;
+    left: 340px; top: 200px;
+    width: 40px; height: 300px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0;
+  }
+
+  /* Right cards */
+  .r-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px 20px;
+    backdrop-filter: blur(6px);
+  }
+  .r-card-title {
+    font-size: 14px; font-weight: 700; color: #90caf9;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .r-card-body { font-size: 12.5px; color: rgba(255,255,255,0.6); line-height: 1.7; }
+  .hl { color: #4fc3f7; font-weight: 600; }
+  .hl2 { color: #ce93d8; font-weight: 600; }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="deco-circle c1"></div>
+  <div class="deco-circle c2"></div>
+
+  <div class="header">
+    <div class="title-group">
+      <div class="eyebrow">Bytedance Volcano Platform · UB Memory Overcommit</div>
+      <div class="title"><span>smap</span> 内存超分架构</div>
+      <div class="subtitle">openclaw browser 业务场景 · L2 UB借用内存 + L3 NVMe</div>
+    </div>
+    <div class="header-badge">渐变蓝色风 · Style 03</div>
+  </div>
+
+  <div class="content">
+    <div class="center-diagram">
+      <div class="arch-container">
+        <div class="platform">
+          <span class="platform-label">🔥 字节火山AI服务平台</span>
+        </div>
+
+        <!-- VM Stack -->
+        <div class="vm-stack">
+          <div class="vm-stack-title">▪ 业务虚机集群</div>
+          <div class="vm-block">
+            <div class="vm-header">
+              <span class="vm-id">VM-01</span>
+              <span class="vm-spec-badge">2U · 4G</span>
+            </div>
+            <div class="openclaw-pill">
+              <div class="openclaw-dot"></div>
+              openclaw browser
+            </div>
+            <div class="vm-mem-bar"><div class="vm-mem-fill" style="width:78%"></div></div>
+          </div>
+          <div class="vm-block">
+            <div class="vm-header">
+              <span class="vm-id">VM-02</span>
+              <span class="vm-spec-badge">2U · 4G</span>
+            </div>
+            <div class="openclaw-pill">
+              <div class="openclaw-dot"></div>
+              openclaw browser
+            </div>
+            <div class="vm-mem-bar"><div class="vm-mem-fill" style="width:62%"></div></div>
+          </div>
+          <div class="vm-block">
+            <div class="vm-header">
+              <span class="vm-id">VM-03</span>
+              <span class="vm-spec-badge">2U · 4G</span>
+            </div>
+            <div class="openclaw-pill">
+              <div class="openclaw-dot"></div>
+              openclaw browser
+            </div>
+            <div class="vm-mem-bar"><div class="vm-mem-fill" style="width:55%"></div></div>
+          </div>
+          <div class="vm-ellipsis">···</div>
+          <div class="vm-block" style="opacity:0.5">
+            <div class="vm-header">
+              <span class="vm-id">VM-N</span>
+              <span class="vm-spec-badge">2U · 4G</span>
+            </div>
+            <div class="openclaw-pill">
+              <div class="openclaw-dot"></div>
+              openclaw browser
+            </div>
+          </div>
+        </div>
+
+        <!-- SVG arrows -->
+        <svg style="position:absolute;left:320px;top:0;width:80px;height:720px;pointer-events:none" viewBox="0 0 80 720">
+          <defs>
+            <marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="rgba(79,195,247,0.7)"/>
+            </marker>
+          </defs>
+          <line x1="5" y1="160" x2="70" y2="220" stroke="rgba(79,195,247,0.5)" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#a3)"/>
+          <line x1="5" y1="360" x2="70" y2="390" stroke="rgba(79,195,247,0.5)" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#a3)"/>
+          <line x1="5" y1="540" x2="70" y2="530" stroke="rgba(79,195,247,0.5)" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#a3)"/>
+          <text x="15" y="300" font-size="10" fill="rgba(144,202,249,0.5)" transform="rotate(30,15,300)">内存请求</text>
+        </svg>
+
+        <!-- smap Engine -->
+        <div class="smap-engine">
+          <div class="smap-title">⚡ smap 内存管理引擎</div>
+          <div class="layer-block l1-block">
+            <div class="layer-heading">
+              <span class="layer-num">L1</span>
+              <span class="layer-title-text">本地物理内存 (DRAM)</span>
+            </div>
+            <div class="layer-detail-row">⚡ 优先级最高，热页常驻，延迟 &lt;100ns</div>
+            <div class="layer-detail-row">直接映射，零拷贝访问</div>
+          </div>
+          <div class="layer-block l2-block">
+            <div class="layer-heading">
+              <span class="layer-num">L2</span>
+              <span class="layer-title-text">UB 借用内存</span>
+            </div>
+            <span class="layer-badge l2-badge">超分关键</span>
+            <div class="layer-detail-row">🔗 跨节点 RDMA 低延迟传输，&lt;5μs</div>
+            <div class="layer-detail-row">动态借入/归还，弹性扩展内存池</div>
+            <div class="layer-detail-row">温页管理，按需触发借用</div>
+          </div>
+          <div class="layer-block l3-block">
+            <div class="layer-heading">
+              <span class="layer-num">L3</span>
+              <span class="layer-title-text">NVMe SSD 后备</span>
+            </div>
+            <div class="layer-detail-row">💾 冷页换出，持久化后备，延迟 &lt;100μs</div>
+            <div class="layer-detail-row">大容量兜底，异步预取</div>
+          </div>
+          <div class="gain-block">
+            <div class="gain-text">L2+L3 → <span class="gain-highlight">openclaw</span> VM密度 ↑ → <span class="gain-highlight">整机超分比显著提升</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right cards -->
+    <div class="right-panel">
+      <div class="r-card">
+        <div class="r-card-title">🎯 业务背景</div>
+        <div class="r-card-body">
+          <span class="hl">字节火山AI平台</span>大规模部署
+          <span class="hl2">openclaw browser</span> 任务，
+          运行于 <span class="hl">2U4G 虚机</span>，
+          内存波动特征明显，超分潜力大。
+        </div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">📐 架构原理</div>
+        <div class="r-card-body">
+          smap 将内存扩展为三层：<br>
+          <span class="hl">L1</span> DRAM 热页 → <span class="hl">L2</span> UB借用温页 → <span class="hl">L3</span> NVMe冷页<br>
+          自动冷热识别，透明调度。
+        </div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">📈 超分收益</div>
+        <div class="r-card-body">
+          通过 <span class="hl">L2 UB借用内存</span> 和 <span class="hl">L3 NVMe</span>，
+          有效扩展单机可用内存，<span class="hl2">openclaw</span> 实例密度提升，
+          <span class="hl">整机超分比</span>大幅改善。
+        </div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">✅ 接入方式</div>
+        <div class="r-card-body">
+          对 <span class="hl2">openclaw browser</span> 完全透明，
+          内核层 smap 自动管理，<span class="hl">业务零改造</span>。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动基础架构 · UB超分技术</span>
+    <span>smap · L2 UB借用内存 · L3 NVMe · openclaw browser</span>
+    <span>Style 03 / 10</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap场景示意图 - 未来感透明玻璃风</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px;
+    background: #060a18;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: rgba(255,255,255,0.9);
+    overflow: hidden;
+    position: relative;
+  }
+  /* Ambient background */
+  .amb1 {
+    position: absolute;
+    width: 900px; height: 900px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%);
+    top: -300px; right: -200px;
+    pointer-events: none;
+  }
+  .amb2 {
+    position: absolute;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
+    bottom: -200px; left: 100px;
+    pointer-events: none;
+  }
+  .amb3 {
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(168,85,247,0.08) 0%, transparent 70%);
+    top: 200px; left: -100px;
+    pointer-events: none;
+  }
+  /* Grid pattern */
+  .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+    padding: 36px 60px 28px;
+    position: relative; z-index: 1;
+  }
+
+  /* Glass card mixin */
+  .glass {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-strong {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -14px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56,189,248,0.4), rgba(168,85,247,0.4), transparent);
+  }
+  .title-wrap {}
+  .eyebrow { font-size: 11px; letter-spacing: 5px; color: rgba(56,189,248,0.6); margin-bottom: 8px; }
+  .main-title { font-size: 44px; font-weight: 800; color: #fff; }
+  .main-title .glow { color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.5); }
+  .sub-title { font-size: 16px; color: rgba(255,255,255,0.45); margin-top: 6px; }
+  .header-tag {
+    background: rgba(56,189,248,0.1);
+    border: 1px solid rgba(56,189,248,0.25);
+    border-radius: 30px;
+    padding: 10px 28px;
+    font-size: 13px; color: rgba(56,189,248,0.8);
+    letter-spacing: 1px;
+    backdrop-filter: blur(10px);
+  }
+
+  /* Main content */
+  .content {
+    flex: 1;
+    display: flex;
+    gap: 28px;
+    min-height: 0;
+  }
+
+  /* Architecture area */
+  .arch {
+    flex: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Platform glass box */
+  .platform-glass {
+    flex: 1;
+    border-radius: 20px;
+    background: rgba(56,189,248,0.04);
+    border: 1px solid rgba(56,189,248,0.15);
+    padding: 20px;
+    position: relative;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .plabel {
+    position: absolute; top: -15px; left: 24px;
+    background: rgba(6,10,24,0.8);
+    border: 1px solid rgba(56,189,248,0.2);
+    backdrop-filter: blur(10px);
+    padding: 3px 16px; border-radius: 20px;
+    font-size: 13px; color: rgba(56,189,248,0.8);
+    letter-spacing: 1px;
+  }
+
+  /* Host row layout */
+  .host-row {
+    flex: 1;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex; gap: 16px;
+    position: relative;
+  }
+  .hlabel {
+    position: absolute; top: -12px; left: 16px;
+    background: rgba(6,10,24,0.7);
+    padding: 2px 10px;
+    font-size: 11px; color: rgba(255,255,255,0.3);
+    border-radius: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* VM Cards */
+  .vm-cards {
+    display: flex; flex-direction: column; gap: 10px;
+    width: 300px; flex-shrink: 0;
+    padding-top: 4px;
+  }
+  .vm-glass {
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(15px);
+    position: relative;
+    overflow: hidden;
+  }
+  .vm-glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(56,189,248,0.4), transparent);
+  }
+  .vg-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .vg-id { font-size: 13px; font-weight: 700; color: rgba(56,189,248,0.9); }
+  .vg-spec {
+    font-size: 10px; color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 8px;
+  }
+  .oc-glass {
+    background: rgba(168,85,247,0.15);
+    border: 1px solid rgba(168,85,247,0.35);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px; font-weight: 700; color: rgba(216,180,254,0.9);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .oc-pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #a855f7;
+    box-shadow: 0 0 8px rgba(168,85,247,0.8);
+  }
+  .vm-dots { text-align: center; color: rgba(56,189,248,0.15); font-size: 18px; letter-spacing: 4px; padding: 4px; }
+
+  /* Arrow zone */
+  .arrow-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 8px; gap: 8px;
+  }
+  .az-line { width: 1px; flex: 1; background: linear-gradient(180deg, transparent, rgba(56,189,248,0.3), transparent); }
+  .az-arrow { color: rgba(56,189,248,0.5); font-size: 18px; }
+  .az-text { font-size: 9px; color: rgba(56,189,248,0.3); writing-mode: vertical-rl; letter-spacing: 1px; }
+
+  /* smap glass engine */
+  .smap-glass {
+    flex: 1;
+    border-radius: 16px;
+    background: rgba(56,189,248,0.04);
+    border: 1px solid rgba(56,189,248,0.25);
+    backdrop-filter: blur(20px);
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .smap-glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #38bdf8, #a855f7, transparent);
+  }
+  .sg-title {
+    text-align: center;
+    font-size: 15px; font-weight: 800;
+    color: rgba(56,189,248,0.9);
+    letter-spacing: 2px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(56,189,248,0.12);
+  }
+  .sg-layers { display: flex; gap: 10px; flex: 1; }
+  .sg-layer {
+    flex: 1;
+    border-radius: 12px;
+    padding: 14px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+  }
+  .sg-layer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+  }
+  .sgl1 { background: rgba(0,200,100,0.08); border: 1px solid rgba(0,200,100,0.2); }
+  .sgl1::before { background: linear-gradient(90deg, transparent, rgba(0,200,100,0.5), transparent); }
+  .sgl2 { background: rgba(56,189,248,0.1); border: 1.5px solid rgba(56,189,248,0.45); }
+  .sgl2::before { background: linear-gradient(90deg, transparent, #38bdf8, transparent); }
+  .sgl3 { background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.2); }
+  .sgl3::before { background: linear-gradient(90deg, transparent, rgba(251,191,36,0.5), transparent); }
+
+  .sgl-num { font-size: 28px; font-weight: 900; line-height: 1; }
+  .sgl1 .sgl-num { color: rgba(52,211,153,0.9); }
+  .sgl2 .sgl-num { color: rgba(56,189,248,1); text-shadow: 0 0 15px rgba(56,189,248,0.5); }
+  .sgl3 .sgl-num { color: rgba(251,191,36,0.8); }
+
+  .sgl-name { font-size: 13px; font-weight: 700; }
+  .sgl1 .sgl-name { color: rgba(167,243,208,0.8); }
+  .sgl2 .sgl-name { color: rgba(186,230,253,0.9); }
+  .sgl3 .sgl-name { color: rgba(254,240,138,0.7); }
+
+  .sgl-detail { font-size: 11px; color: rgba(255,255,255,0.35); line-height: 1.7; }
+  .sgl-badge {
+    display: inline-block;
+    background: rgba(56,189,248,0.2);
+    border: 1px solid rgba(56,189,248,0.5);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px; color: #38bdf8;
+    font-weight: 700; letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+  .sgl-meter { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.05); margin-top: 6px; overflow: hidden; }
+  .sgl-mfill { height: 100%; border-radius: 2px; }
+  .sgl1 .sgl-mfill { background: rgba(52,211,153,0.6); width: 70%; }
+  .sgl2 .sgl-mfill { background: rgba(56,189,248,0.7); width: 45%; }
+  .sgl3 .sgl-mfill { background: rgba(251,191,36,0.5); width: 15%; }
+
+  /* Gain bar */
+  .gain-glass {
+    border-radius: 10px;
+    padding: 10px 16px;
+    background: rgba(168,85,247,0.08);
+    border: 1px solid rgba(168,85,247,0.2);
+    text-align: center;
+    font-size: 13px; color: rgba(255,255,255,0.6);
+    backdrop-filter: blur(10px);
+  }
+  .gain-glass strong { color: rgba(56,189,248,0.9); }
+  .gain-glass .gp { color: rgba(216,180,254,0.8); }
+
+  /* Right panel */
+  .right-glass {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 14px;
+    justify-content: center;
+  }
+  .rc-glass {
+    border-radius: 14px;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+  }
+  .rc-glass::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    border-radius: 3px 0 0 3px;
+  }
+  .rc-glass.c1::before { background: linear-gradient(180deg, #38bdf8, #0ea5e9); }
+  .rc-glass.c2::before { background: linear-gradient(180deg, #a855f7, #7c3aed); }
+  .rc-glass.c3::before { background: linear-gradient(180deg, #fbbf24, #d97706); }
+  .rc-glass.c4::before { background: linear-gradient(180deg, #34d399, #059669); }
+  .rg-title { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); margin-bottom: 7px; }
+  .rg-body { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.7; }
+  .hl { color: rgba(56,189,248,0.9); font-weight: 600; }
+  .hl2 { color: rgba(216,180,254,0.9); font-weight: 600; }
+
+  /* Footer */
+  .footer {
+    display: flex; justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px solid rgba(56,189,248,0.08);
+    font-size: 11px; color: rgba(255,255,255,0.2);
+    margin-top: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="amb1"></div>
+<div class="amb2"></div>
+<div class="amb3"></div>
+<div class="grid-bg"></div>
+
+<div class="slide">
+  <div class="header">
+    <div class="title-wrap">
+      <div class="eyebrow">BYTEDANCE VOLCANO AI PLATFORM · MEMORY OVERCOMMIT ARCHITECTURE</div>
+      <div class="main-title"><span class="glow">smap</span> 内存超分解决方案</div>
+      <div class="sub-title">openclaw browser 业务场景 · L2 UB借用内存 + L3 NVMe · 整机超分比提升</div>
+    </div>
+    <div class="header-tag">未来感玻璃风 · Style 10 / 10</div>
+  </div>
+
+  <div class="content">
+    <!-- Architecture -->
+    <div class="arch">
+      <div class="platform-glass">
+        <span class="plabel">🔥 字节火山AI服务平台</span>
+        <div class="host-row">
+          <span class="hlabel">宿主机 Host</span>
+
+          <!-- VM Cards -->
+          <div class="vm-cards">
+            <div class="vm-glass">
+              <div class="vg-header">
+                <span class="vg-id">VM-01</span>
+                <span class="vg-spec">2vCPU · 4G vRAM</span>
+              </div>
+              <div class="oc-glass">
+                <div class="oc-pulse"></div>
+                openclaw browser
+              </div>
+            </div>
+            <div class="vm-glass">
+              <div class="vg-header">
+                <span class="vg-id">VM-02</span>
+                <span class="vg-spec">2vCPU · 4G vRAM</span>
+              </div>
+              <div class="oc-glass">
+                <div class="oc-pulse"></div>
+                openclaw browser
+              </div>
+            </div>
+            <div class="vm-glass">
+              <div class="vg-header">
+                <span class="vg-id">VM-03</span>
+                <span class="vg-spec">2vCPU · 4G vRAM</span>
+              </div>
+              <div class="oc-glass">
+                <div class="oc-pulse"></div>
+                openclaw browser
+              </div>
+            </div>
+            <div class="vm-dots">· · ·</div>
+            <div class="vm-glass" style="opacity:0.35">
+              <div class="vg-header">
+                <span class="vg-id">VM-N</span>
+                <span class="vg-spec">2vCPU · 4G vRAM</span>
+              </div>
+              <div class="oc-glass" style="opacity:0.5">openclaw browser</div>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div class="arrow-zone">
+            <div class="az-line"></div>
+            <div class="az-arrow">→</div>
+            <div class="az-text">内存请求</div>
+            <div class="az-line"></div>
+          </div>
+
+          <!-- smap engine -->
+          <div class="smap-glass">
+            <div class="sg-title">⚡ smap 内存管理引擎</div>
+            <div class="sg-layers">
+              <div class="sg-layer sgl1">
+                <div class="sgl-num">L1</div>
+                <div class="sgl-name">本地 DRAM</div>
+                <div class="sgl-detail">
+                  热页直接访问<br>
+                  延迟 &lt;100ns<br>
+                  优先级最高
+                </div>
+                <div class="sgl-meter"><div class="sgl-mfill"></div></div>
+                <div style="font-size:10px;color:rgba(52,211,153,0.5);margin-top:2px">热页 70%</div>
+              </div>
+              <div class="sg-layer sgl2">
+                <div class="sgl-num">L2</div>
+                <div class="sgl-name">UB 借用内存</div>
+                <div class="sgl-detail">
+                  RDMA跨节点<br>
+                  延迟 &lt;5μs<br>
+                  动态借还
+                </div>
+                <span class="sgl-badge">超分核心</span>
+                <div class="sgl-meter"><div class="sgl-mfill"></div></div>
+                <div style="font-size:10px;color:rgba(56,189,248,0.5);margin-top:2px">温页 45%</div>
+              </div>
+              <div class="sg-layer sgl3">
+                <div class="sgl-num">L3</div>
+                <div class="sgl-name">NVMe SSD</div>
+                <div class="sgl-detail">
+                  冷页换出<br>
+                  延迟 &lt;100μs<br>
+                  大容量后备
+                </div>
+                <div class="sgl-meter"><div class="sgl-mfill"></div></div>
+                <div style="font-size:10px;color:rgba(251,191,36,0.4);margin-top:2px">冷页 15%</div>
+              </div>
+            </div>
+            <div class="gain-glass">
+              L2(UB借用) + L3(NVMe) → 内存池扩展 →
+              <span class="gp">openclaw</span> VM密度↑ →
+              <strong>整机超分比显著提升</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div class="right-glass">
+      <div class="rc-glass c1">
+        <div class="rg-title">🎯 业务场景</div>
+        <div class="rg-body">
+          <span class="hl">字节火山AI平台</span>大规模部署
+          <span class="hl2">openclaw browser</span> 任务，
+          运行于 <span class="hl">2U4G 虚机</span>，
+          内存利用率波动明显，超分潜力巨大。
+        </div>
+      </div>
+      <div class="rc-glass c2">
+        <div class="rg-title">📐 三层内存架构</div>
+        <div class="rg-body">
+          <span class="hl">L1</span> DRAM · 热页，最高优先级，直接映射<br>
+          <span class="hl">L2</span> UB借用内存 · RDMA跨节点，超分核心<br>
+          <span class="hl">L3</span> NVMe SSD · 冷页后备，大容量兜底
+        </div>
+      </div>
+      <div class="rc-glass c3">
+        <div class="rg-title">📈 整机超分价值</div>
+        <div class="rg-body">
+          <span class="hl">L2+L3</span> 扩展有效内存池，
+          单机 <span class="hl2">openclaw</span> 实例密度提升，
+          <span class="hl">整机超分比</span>改善，AI算力成本降低。
+        </div>
+      </div>
+      <div class="rc-glass c4">
+        <div class="rg-title">✅ 透明接入</div>
+        <div class="rg-body">
+          对 <span class="hl2">openclaw browser</span> 完全透明，
+          smap 内核层自动冷热调度，<span class="hl">零改造接入</span>。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>字节跳动基础架构 · UB超分技术团队</span>
+    <span>smap · L2 UB借用内存 · L3 NVMe · openclaw browser · Style 10/10 未来感透明玻璃风</span>
+  </div>
+</div>
+</body>
+</html>

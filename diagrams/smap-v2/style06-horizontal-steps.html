@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 横向步骤流程</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f8fafc;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1e293b; color: #fff;
+    padding: 8px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+  .body { flex: 1; display: flex; flex-direction: column; padding: 10px 14px; gap: 8px; min-height: 0; }
+
+  /* STEP FLOW */
+  .step-flow {
+    display: flex; align-items: stretch; gap: 0;
+    flex-shrink: 0; height: 90px;
+  }
+  .step {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 10px; position: relative; text-align: center;
+  }
+  .step::after {
+    content: ''; position: absolute; right: -16px; top: 50%; transform: translateY(-50%);
+    width: 0; height: 0;
+    border-top: 16px solid transparent;
+    border-bottom: 16px solid transparent;
+    border-left: 16px solid currentColor;
+    z-index: 2;
+  }
+  .step:last-child::after { display: none; }
+  .s1 { background: #1e3a5f; color: #1e3a5f; }
+  .s2 { background: #155e75; color: #155e75; margin-left: 16px; }
+  .s3 { background: #1e4035; color: #1e4035; margin-left: 16px; }
+  .s4 { background: #7f1d1d; color: #7f1d1d; margin-left: 16px; }
+  .s5 { background: #1c3557; color: #1c3557; margin-left: 16px; }
+  .s6 { background: #1c1917; color: #1c1917; margin-left: 16px; }
+  .step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(255,255,255,0.25); color: #fff;
+    font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 4px; flex-shrink: 0;
+  }
+  .step-name { font-size: 11px; font-weight: 700; color: #fff; }
+  .step-sub { font-size: 9px; color: rgba(255,255,255,0.75); margin-top: 1px; }
+
+  /* DETAIL CARDS row */
+  .detail-row {
+    display: flex; gap: 6px; flex-shrink: 0;
+  }
+  .detail-card {
+    flex: 1; background: #fff; border-radius: 6px; padding: 8px 10px;
+    border-top: 3px solid #94a3b8; font-size: 10px; color: #374151; line-height: 1.5;
+  }
+  .dc-title { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+  .dc-s1 { border-top-color: #2563eb; }
+  .dc-s2 { border-top-color: #0891b2; }
+  .dc-s3 { border-top-color: #059669; }
+  .dc-s4 { border-top-color: #dc2626; }
+  .dc-s5 { border-top-color: #3b82f6; }
+  .dc-s6 { border-top-color: #f59e0b; }
+
+  /* MEMORY ARCHITECTURE ROW */
+  .mem-arch {
+    flex: 1; display: flex; gap: 8px; min-height: 0;
+  }
+  .ma-overview {
+    width: 280px; flex-shrink: 0;
+    background: #1e293b; color: #fff; border-radius: 6px; padding: 10px 12px;
+  }
+  .mao-title { font-size: 12px; font-weight: 700; color: #e0f2fe; margin-bottom: 6px; }
+  .mao-item { font-size: 10px; color: #94a3b8; margin-bottom: 4px; line-height: 1.5; }
+  .mao-item strong { color: #fff; }
+
+  .ma-layers { flex: 1; display: flex; gap: 6px; }
+  .ml-box {
+    flex: 1; border-radius: 6px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ml-l1 { background: #1e3a5f; color: #fff; }
+  .ml-l2 { background: #115e75; color: #fff; }
+  .ml-l3 { background: #1c1917; color: #fff; border: 2px solid #f59e0b; }
+
+  .ml-tier { font-size: 22px; font-weight: 900; margin-bottom: 2px; }
+  .ml-name { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .ml-props { display: flex; flex-direction: column; gap: 3px; }
+  .ml-prop { display: flex; justify-content: space-between; font-size: 10px; }
+  .ml-prop .pk { color: rgba(255,255,255,0.65); }
+  .ml-prop .pv { color: rgba(255,255,255,0.95); font-weight: 600; }
+  .ml-badge { display: inline-block; background: #f59e0b; color: #1c1917; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-top: 4px; }
+
+  .ma-smap {
+    width: 220px; flex-shrink: 0;
+    background: #0f172a; color: #fff; border-radius: 6px; padding: 10px 12px;
+    border: 1.5px solid #334155;
+  }
+  .ms-title { font-size: 12px; font-weight: 700; color: #e0f2fe; margin-bottom: 6px; }
+  .ms-item { font-size: 10px; color: #94a3b8; margin-bottom: 5px; line-height: 1.5; padding-left: 10px; position: relative; }
+  .ms-item::before { content: '▶'; position: absolute; left: 0; font-size: 8px; color: #3b82f6; top: 1px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 方案架构 · 横向请求流程 + 内存层级</h1>
+    <div class="sub">字节火山AI平台 · openclaw browser 内存超分 · 从用户请求到三层内存全流程</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#94a3b8;">
+    L2 UB借用 + L3 NVMe<br>整机超分比提升
+  </div>
+</div>
+<div class="body">
+  <!-- STEP FLOW -->
+  <div class="step-flow">
+    <div class="step s1">
+      <div class="step-num">1</div>
+      <div class="step-name">用户触发</div>
+      <div class="step-sub">浏览任务请求</div>
+    </div>
+    <div class="step s2">
+      <div class="step-num">2</div>
+      <div class="step-name">火山调度</div>
+      <div class="step-sub">VM分配·资源评估</div>
+    </div>
+    <div class="step s3">
+      <div class="step-num">3</div>
+      <div class="step-name">VM实例</div>
+      <div class="step-sub">2U4G · 进程隔离</div>
+    </div>
+    <div class="step s4">
+      <div class="step-num">4</div>
+      <div class="step-name">openclaw执行</div>
+      <div class="step-sub">渲染·内存申请</div>
+    </div>
+    <div class="step s5">
+      <div class="step-num">5</div>
+      <div class="step-name">smap路由</div>
+      <div class="step-sub">冷热识别·分配</div>
+    </div>
+    <div class="step s6">
+      <div class="step-num">6</div>
+      <div class="step-name">L3超分承载</div>
+      <div class="step-sub">NVMe冷数据</div>
+    </div>
+  </div>
+
+  <!-- DETAIL CARDS -->
+  <div class="detail-row">
+    <div class="detail-card dc-s1">
+      <div class="dc-title">用户请求</div>
+      交互式/批量浏览任务<br>
+      HTTP/gRPC 接口<br>
+      多租户并发提交
+    </div>
+    <div class="detail-card dc-s2">
+      <div class="dc-title">Volcano 调度器</div>
+      资源池评估·VM选择<br>
+      亲和性·反亲和性<br>
+      弹性扩缩容触发
+    </div>
+    <div class="detail-card dc-s3">
+      <div class="dc-title">2U4G 虚机实例</div>
+      KVM虚拟化·2vCPU<br>
+      4GB DRAM 物理配额<br>
+      虚拟内存超额申请
+    </div>
+    <div class="detail-card dc-s4" style="border: 1px solid #dc2626; border-top: 3px solid #dc2626;">
+      <div class="dc-title" style="color:#dc2626;">openclaw browser</div>
+      HTML解析·JS执行<br>
+      V8堆 · mmap大页分配<br>
+      缺页中断 → smap入口
+    </div>
+    <div class="detail-card dc-s5">
+      <div class="dc-title">smap 调度引擎</div>
+      拦截缺页中断<br>
+      LRU冷热页面识别<br>
+      异步后台迁移置换
+    </div>
+    <div class="detail-card dc-s6" style="background:#fef9ec;">
+      <div class="dc-title" style="color:#92400e;">L3 NVMe 超分</div>
+      <span style="color:#92400e; font-weight:700;">冷数据持久化</span><br>
+      TB级容量·~100μs<br>
+      整机超分比 3-5x ↑
+    </div>
+  </div>
+
+  <!-- MEMORY ARCHITECTURE -->
+  <div class="mem-arch">
+    <div class="ma-overview">
+      <div class="mao-title">smap 三层内存体系</div>
+      <div class="mao-item"><strong>设计目标：</strong>突破VM物理内存上限，利用L2/L3扩展可用内存空间，对业务透明</div>
+      <div class="mao-item"><strong>调度原则：</strong>访问热度驱动数据分层，热数据DRAM快速响应，冷数据NVMe经济存储</div>
+      <div class="mao-item"><strong>超分效果：</strong>物理4GB → 可用10-20GB+，整机VM密度显著提升</div>
+    </div>
+    <div class="ma-layers">
+      <div class="ml-box ml-l1">
+        <div class="ml-tier">L1</div>
+        <div class="ml-name">本机 DRAM</div>
+        <div class="ml-props">
+          <div class="ml-prop"><span class="pk">容量</span><span class="pv">4 GB</span></div>
+          <div class="ml-prop"><span class="pk">延迟</span><span class="pv">&lt;100 ns</span></div>
+          <div class="ml-prop"><span class="pk">带宽</span><span class="pv">50 GB/s+</span></div>
+          <div class="ml-prop"><span class="pk">数据</span><span class="pv">热数据常驻</span></div>
+        </div>
+      </div>
+      <div class="ml-box ml-l2">
+        <div class="ml-tier">L2</div>
+        <div class="ml-name">UB 借用内存</div>
+        <div class="ml-props">
+          <div class="ml-prop"><span class="pk">来源</span><span class="pv">邻节点DRAM</span></div>
+          <div class="ml-prop"><span class="pk">延迟</span><span class="pv">~1-5 μs</span></div>
+          <div class="ml-prop"><span class="pk">互联</span><span class="pv">UB高速网络</span></div>
+          <div class="ml-prop"><span class="pk">数据</span><span class="pv">温数据扩展</span></div>
+        </div>
+      </div>
+      <div class="ml-box ml-l3">
+        <div class="ml-tier">L3</div>
+        <div class="ml-name">NVMe SSD</div>
+        <div class="ml-props">
+          <div class="ml-prop"><span class="pk">容量</span><span class="pv">TB 级</span></div>
+          <div class="ml-prop"><span class="pk">延迟</span><span class="pv">~100 μs</span></div>
+          <div class="ml-prop"><span class="pk">类型</span><span class="pv">本地NVMe</span></div>
+          <div class="ml-prop"><span class="pk">数据</span><span class="pv">冷数据持久化</span></div>
+        </div>
+        <div class="ml-badge">超分比提升关键</div>
+      </div>
+    </div>
+    <div class="ma-smap">
+      <div class="ms-title">调度策略</div>
+      <div class="ms-item">缺页中断触发smap拦截入口</div>
+      <div class="ms-item">访问频率统计驱动冷热判断</div>
+      <div class="ms-item">热页常驻L1·压力释放至L2</div>
+      <div class="ms-item">冷页异步迁移至L3 NVMe</div>
+      <div class="ms-item">预取机制降低换入延迟</div>
+      <div class="ms-item">虚拟地址连续·业务透明</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

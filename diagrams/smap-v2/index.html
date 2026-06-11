@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景示意图 · 版式选择</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", sans-serif; background: #f1f5f9; padding: 24px; }
+  h1 { font-size: 22px; color: #1e3a5f; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .card { background: #fff; border-radius: 6px; border: 1px solid #e2e8f0; overflow: hidden; }
+  .card:hover { border-color: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,0.15); }
+  .card a { display: block; text-decoration: none; color: inherit; }
+  .card-num { background: #1e3a5f; color: #fff; font-size: 11px; font-weight: 700; padding: 4px 10px; }
+  .card-info { padding: 10px; }
+  .card-name { font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 3px; }
+  .card-desc { font-size: 11px; color: #64748b; }
+</style>
+</head>
+<body>
+<h1>smap 场景示意图 · 紧凑版 v3</h1>
+<div class="sub">字节火山AI平台 · openclaw browser · L2/L3 内存超分 · 10种差异化版式</div>
+<div class="grid">
+  <div class="card"><a href="style01-split-topology.html"><div class="card-num">01</div><div class="card-info"><div class="card-name">左右分栏拓扑</div><div class="card-desc">左侧平台/VM/openclaw堆叠，右侧三层内存，中间箭头连接</div></div></a></div>
+  <div class="card"><a href="style02-swimlane.html"><div class="card-num">02</div><div class="card-info"><div class="card-name">五行泳道图</div><div class="card-desc">平台/VM/openclaw/smap/内存 五层泳道，横向流程</div></div></a></div>
+  <div class="card"><a href="style03-hub-topology.html"><div class="card-num">03</div><div class="card-info"><div class="card-name">openclaw辐射拓扑</div><div class="card-desc">openclaw为中心，辐射连线至所有组件</div></div></a></div>
+  <div class="card"><a href="style04-cascade-annotated.html"><div class="card-num">04</div><div class="card-info"><div class="card-name">级联双侧注释</div><div class="card-desc">中间纵向级联，左右各有详细注释标注</div></div></a></div>
+  <div class="card"><a href="style05-block-diagram.html"><div class="card-num">05</div><div class="card-info"><div class="card-name">系统框图三行</div><div class="card-desc">平台/VM行 + openclaw/smap行 + 内存层行</div></div></a></div>
+  <div class="card"><a href="style06-horizontal-steps.html"><div class="card-num">06</div><div class="card-info"><div class="card-name">横向步骤流程</div><div class="card-desc">6步骤箭头流 + 详情卡片 + 内存层级</div></div></a></div>
+  <div class="card"><a href="style07-matrix-grid.html"><div class="card-num">07</div><div class="card-info"><div class="card-name">矩阵格局（深色）</div><div class="card-desc">2×3暗色格子，流程+VM规格+内存+指标</div></div></a></div>
+  <div class="card"><a href="style08-svg-topology.html"><div class="card-num">08</div><div class="card-info"><div class="card-name">SVG拓扑连线图</div><div class="card-desc">多VM连线到openclaw，带颜色路径+侧边面板</div></div></a></div>
+  <div class="card"><a href="style09-three-column.html"><div class="card-num">09</div><div class="card-info"><div class="card-name">三栏信息图</div><div class="card-desc">基础设施/openclaw详情/smap+内存三等分</div></div></a></div>
+  <div class="card"><a href="style10-blueprint.html"><div class="card-num">10</div><div class="card-info"><div class="card-name">工程蓝图（深色）</div><div class="card-desc">网格背景、编号框、引线标注、图纸标题栏</div></div></a></div>
+</div>
+</body>
+</html>

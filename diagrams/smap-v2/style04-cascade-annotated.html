@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 级联注释图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f1f5f9;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1e3a5f; color: #fff;
+    padding: 9px 28px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 17px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #93c5fd; margin-top: 1px; }
+  .body { flex: 1; display: flex; padding: 12px; gap: 0; min-height: 0; }
+
+  /* LEFT ANNOTATIONS */
+  .left-ann {
+    width: 280px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 0;
+    padding-right: 10px;
+  }
+  .ann-item {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 6px 10px 6px 0;
+    border-right: 2px solid #e2e8f0;
+    position: relative;
+  }
+  .ann-item::after {
+    content: ''; position: absolute; right: -6px; top: 50%;
+    width: 10px; height: 2px; background: #94a3b8;
+  }
+  .ann-title { font-size: 11px; font-weight: 700; color: #1e3a5f; margin-bottom: 3px; }
+  .ann-text { font-size: 10px; color: #475569; line-height: 1.5; }
+  .ann-tag {
+    display: inline-block; background: #dbeafe; color: #1e40af;
+    font-size: 9px; padding: 1px 6px; border-radius: 2px; margin-top: 3px;
+  }
+
+  /* CENTER FLOW */
+  .center-flow {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 0; padding: 0 8px;
+  }
+  .cf-node {
+    width: 340px; border-radius: 6px; padding: 10px 16px;
+    flex-shrink: 0; position: relative;
+  }
+  .cf-arrow {
+    font-size: 22px; color: #475569; line-height: 1.0; text-align: center;
+    flex-shrink: 0; height: 24px; display: flex; align-items: center; justify-content: center;
+  }
+  .cn-volcano { background: #1e3a5f; color: #fff; border: 2px solid #3b82f6; }
+  .cn-vm { background: #1e4035; color: #fff; border: 2px solid #34d399; }
+  .cn-oc { background: #dc2626; color: #fff; border: 3px solid #991b1b; }
+  .cn-smap { background: #1e3557; color: #fff; border: 2px solid #38bdf8; }
+  .cn-mem { background: #fff; border: 2px solid #94a3b8; padding: 8px; }
+
+  .cf-node .cn-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .cf-node .cn-spec { font-size: 10px; opacity: 0.85; line-height: 1.4; }
+
+  .mem-row { display: flex; gap: 6px; width: 100%; }
+  .mem-col {
+    flex: 1; border-radius: 5px; padding: 7px 8px; text-align: center;
+  }
+  .mc-l1 { background: #1e3a5f; color: #fff; }
+  .mc-l2 { background: #115e75; color: #fff; }
+  .mc-l3 { background: #292524; color: #fff; border: 2px solid #f59e0b; }
+  .mc-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .mc-spec { font-size: 9px; opacity: 0.8; line-height: 1.4; }
+  .mc-badge { display: inline-block; background: #f59e0b; color: #000; font-size: 9px; padding: 1px 5px; border-radius: 2px; margin-top: 2px; }
+
+  /* RIGHT ANNOTATIONS */
+  .right-ann {
+    width: 280px; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 0;
+    padding-left: 10px;
+  }
+  .rann-item {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 6px 0 6px 10px;
+    border-left: 2px solid #e2e8f0;
+    position: relative;
+  }
+  .rann-item::before {
+    content: ''; position: absolute; left: -6px; top: 50%;
+    width: 10px; height: 2px; background: #94a3b8;
+  }
+  .rann-title { font-size: 11px; font-weight: 700; color: #1e3a5f; margin-bottom: 3px; }
+  .rann-text { font-size: 10px; color: #475569; line-height: 1.5; }
+  .rann-num {
+    font-size: 20px; font-weight: 800; color: #1e3a5f; line-height: 1;
+    margin-bottom: 1px;
+  }
+  .rann-unit { font-size: 9px; color: #6b7280; }
+  .highlight-box {
+    background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px;
+    padding: 4px 7px; margin-top: 3px; font-size: 10px; color: #92400e; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 方案架构 · 纵向级联 + 双侧注释</h1>
+    <div class="sub">字节火山AI平台 · openclaw browser · 三层内存超分体系</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#93c5fd;">
+    2U4G虚机 · L2 UB借用 + L3 NVMe<br>整机超分比显著提升
+  </div>
+</div>
+<div class="body">
+  <!-- LEFT ANNOTATIONS -->
+  <div class="left-ann">
+    <div class="ann-item">
+      <div class="ann-title">基础设施层</div>
+      <div class="ann-text">字节火山AI服务平台<br>统一调度·弹性伸缩<br>AI推理+浏览器任务共存</div>
+      <span class="ann-tag">多租户·资源隔离</span>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">虚机配置</div>
+      <div class="ann-text">规格：2 vCPU / 4GB DRAM<br>KVM虚拟化·虚拟地址映射<br>内存超额申请启用</div>
+      <span class="ann-tag">物理超分模式</span>
+    </div>
+    <div class="ann-item" style="border-right-color:#dc2626;">
+      <div class="ann-title" style="color:#dc2626;">核心应用</div>
+      <div class="ann-text">openclaw browser 命令行引擎<br>HTML/JS/DOM 密集计算<br>峰值内存 8-16GB</div>
+      <span class="ann-tag" style="background:#fee2e2; color:#991b1b;">内存压力核心来源</span>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">调度策略</div>
+      <div class="ann-text">LRU冷热识别算法<br>异步后台迁移页面<br>透明地址空间管理</div>
+      <span class="ann-tag">无业务侵入</span>
+    </div>
+    <div class="ann-item">
+      <div class="ann-title">内存层选择依据</div>
+      <div class="ann-text">访问频率·时间局部性<br>延迟要求·容量成本<br>热→L1 温→L2 冷→L3</div>
+    </div>
+  </div>
+
+  <!-- CENTER CASCADE -->
+  <div class="center-flow">
+    <div class="cf-node cn-volcano" style="width:360px;">
+      <div class="cn-name">字节火山 AI 服务平台</div>
+      <div class="cn-spec">Volcano 统一调度引擎 · 弹性扩缩容 · 任务编排</div>
+    </div>
+    <div class="cf-arrow">↓</div>
+    <div class="cf-node cn-vm" style="width:360px;">
+      <div class="cn-name">业务虚机实例 · 2U4G</div>
+      <div class="cn-spec">KVM 虚拟化 · 2 vCPU · 4GB DRAM · 运行多 openclaw 进程</div>
+    </div>
+    <div class="cf-arrow">↓</div>
+    <div class="cf-node cn-oc" style="width:360px;">
+      <div class="cn-name" style="font-size:16px; letter-spacing:2px;">openclaw browser</div>
+      <div class="cn-spec" style="color:#fca5a5;">命令行网页渲染 · 内存密集型 · 大页分配 · mmap · 缺页中断</div>
+    </div>
+    <div class="cf-arrow">↓</div>
+    <div class="cf-node cn-smap" style="width:360px;">
+      <div class="cn-name">smap · 智能内存调度引擎</div>
+      <div class="cn-spec">拦截缺页中断 → 冷热分级 → 路由至三层内存 → 异步迁移</div>
+    </div>
+    <div class="cf-arrow">↓</div>
+    <div class="cf-node cn-mem" style="width:360px;">
+      <div class="mem-row">
+        <div class="mem-col mc-l1">
+          <div class="mc-name">L1 DRAM</div>
+          <div class="mc-spec">4GB · &lt;100ns<br>热数据驻留</div>
+        </div>
+        <div class="mem-col mc-l2">
+          <div class="mc-name">L2 UB借用</div>
+          <div class="mc-spec">动态容量<br>~1-5μs · 邻节点</div>
+        </div>
+        <div class="mem-col mc-l3">
+          <div class="mc-name">L3 NVMe</div>
+          <div class="mc-spec">TB级 · ~100μs<br>冷数据持久化</div>
+          <div class="mc-badge">超分关键</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT ANNOTATIONS -->
+  <div class="right-ann">
+    <div class="rann-item">
+      <div class="rann-title">调度规模</div>
+      <div class="rann-num">1000+</div>
+      <div class="rann-unit">VM 节点并发运行</div>
+      <div class="rann-text" style="margin-top:3px;">GPU/CPU 混合工作负载<br>AI推理与浏览任务并行</div>
+    </div>
+    <div class="rann-item">
+      <div class="rann-title">虚机内存配额</div>
+      <div class="rann-num">4 GB</div>
+      <div class="rann-unit">物理 DRAM 上限</div>
+      <div class="rann-text" style="margin-top:3px;">实际需求 8-16GB<br>smap 透明补齐差距</div>
+    </div>
+    <div class="rann-item" style="border-left-color:#dc2626;">
+      <div class="rann-title">openclaw 内存特征</div>
+      <div class="rann-text">HTML解析·JS引擎·V8堆<br>图像缓冲·CSS盒模型<br>峰值突发·短时高压</div>
+      <div class="highlight-box">触发 smap 扩展路径</div>
+    </div>
+    <div class="rann-item">
+      <div class="rann-title">smap 调度延迟</div>
+      <div class="rann-text">
+        热数据命中 &lt;100ns<br>
+        L2借用访问 ~1-5μs<br>
+        L3换入 ~100μs 级
+      </div>
+    </div>
+    <div class="rann-item" style="border-left-color:#f59e0b;">
+      <div class="rann-title">L3 超分效果</div>
+      <div class="rann-num" style="color:#92400e;">3-5x</div>
+      <div class="rann-unit">整机内存超分比</div>
+      <div class="rann-text" style="margin-top:3px;">NVMe容量远超DRAM<br>冷数据迁移后释放L1</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · openclaw辐射拓扑</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f8fafc;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #0f172a; color: #fff;
+    padding: 9px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .body { flex: 1; display: flex; min-height: 0; }
+  .diagram { flex: 1; position: relative; }
+
+  /* SVG covers whole diagram area */
+  .diagram svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  /* Node boxes overlaid via absolute positioning */
+  .node-box {
+    position: absolute; border-radius: 6px;
+    padding: 7px 10px; font-size: 10px; line-height: 1.5;
+    border: 1.5px solid transparent; transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .hub {
+    width: 170px; height: 100px;
+    background: #dc2626; color: #fff;
+    border: 3px solid #991b1b;
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 800;
+  }
+  .hub .hn { font-size: 18px; letter-spacing: 1px; margin-bottom: 3px; }
+  .hub .hs { font-size: 10px; color: #fca5a5; }
+  .hub .hd { font-size: 9px; color: #fecaca; margin-top: 3px; }
+
+  .n-platform { width: 160px; background: #1e3a5f; color: #fff; border-color: #3b82f6; }
+  .n-vm { width: 150px; background: #1e4d3a; color: #fff; border-color: #34d399; }
+  .n-user { width: 140px; background: #4a1d96; color: #fff; border-color: #a78bfa; }
+  .n-smap { width: 160px; background: #1c3557; color: #fff; border-color: #38bdf8; }
+  .n-l1 { width: 160px; background: #1e3a5f; color: #fff; border-color: #60a5fa; }
+  .n-l2 { width: 160px; background: #115e75; color: #fff; border-color: #22d3ee; }
+  .n-l3 { width: 165px; background: #1c1917; color: #fff; border-color: #f59e0b; }
+
+  .n-name { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+  .n-spec { font-size: 10px; opacity: 0.8; line-height: 1.4; }
+  .l3-badge {
+    display: inline-block; background: #f59e0b; color: #1c1917;
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 2px; margin-top: 3px;
+  }
+
+  .right-panel {
+    width: 280px; flex-shrink: 0;
+    border-left: 1px solid #e2e8f0;
+    padding: 14px 14px; display: flex; flex-direction: column; gap: 8px;
+    background: #fff;
+  }
+  .rp-title { font-size: 11px; font-weight: 700; color: #1e3a5f; border-bottom: 2px solid #1e3a5f; padding-bottom: 4px; margin-bottom: 4px; }
+  .rp-item { background: #f8fafc; border-radius: 4px; padding: 7px 9px; border-left: 3px solid #3b82f6; }
+  .rp-item.amber { border-color: #f59e0b; }
+  .rp-item.green { border-color: #34d399; }
+  .rp-item.red { border-color: #dc2626; }
+  .rp-item .rt { font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 3px; }
+  .rp-item .rd { font-size: 10px; color: #4b5563; line-height: 1.5; }
+  .flow-bar {
+    background: #f1f5f9; border-radius: 4px; padding: 7px 9px;
+    font-size: 10px; color: #374151; line-height: 1.6;
+  }
+  .flow-bar .ft { font-size: 11px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .flow-step { display: flex; align-items: center; gap: 4px; margin-bottom: 2px; }
+  .fs-num {
+    width: 16px; height: 16px; border-radius: 50%; background: #1e3a5f; color: #fff;
+    font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 内存超分架构 · openclaw 辐射拓扑</h1>
+    <div class="sub">字节火山AI平台 · 2U4G虚机 · openclaw browser 为中心节点</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#94a3b8;">
+    L2 UB借用内存 + L3 NVMe<br>提升整机超分比
+  </div>
+</div>
+<div class="body">
+  <div class="diagram">
+    <svg viewBox="0 0 1000 660" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="a1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#94a3b8"/>
+        </marker>
+        <marker id="a2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#f59e0b"/>
+        </marker>
+        <marker id="a3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#3b82f6"/>
+        </marker>
+      </defs>
+
+      <!-- Hub center at 500,330 -->
+      <!-- Lines to peripheral nodes -->
+      <!-- User: 150,100 -->
+      <line x1="418" y1="282" x2="215" y2="138" stroke="#a78bfa" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#a1)"/>
+      <!-- Platform: 500,80 -->
+      <line x1="500" y1="280" x2="500" y2="136" stroke="#3b82f6" stroke-width="2" marker-end="url(#a3)"/>
+      <!-- VM: 780,120 -->
+      <line x1="573" y1="293" x2="748" y2="150" stroke="#34d399" stroke-width="2" marker-end="url(#a1)"/>
+      <!-- smap: 820,380 -->
+      <line x1="582" y1="340" x2="758" y2="360" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="6,2" marker-end="url(#a1)"/>
+      <!-- L1: 500,570 -->
+      <line x1="500" y1="382" x2="500" y2="510" stroke="#60a5fa" stroke-width="2" marker-end="url(#a1)"/>
+      <!-- L2: 200,520 -->
+      <line x1="430" y1="373" x2="262" y2="488" stroke="#22d3ee" stroke-width="2" marker-end="url(#a1)"/>
+      <!-- L3: 770,530 -->
+      <line x1="568" y1="375" x2="726" y2="490" stroke="#f59e0b" stroke-width="3" marker-end="url(#a2)"/>
+
+      <!-- Arrow labels -->
+      <text x="300" y="195" font-size="9" fill="#a78bfa" transform="rotate(-35,300,195)">用户请求</text>
+      <text x="510" y="205" font-size="9" fill="#3b82f6">平台调度</text>
+      <text x="635" y="205" font-size="9" fill="#34d399" transform="rotate(30,635,205)">VM内运行</text>
+      <text x="625" y="345" font-size="9" fill="#38bdf8">内存路由</text>
+      <text x="510" y="452" font-size="9" fill="#60a5fa">热数据</text>
+      <text x="305" y="445" font-size="9" fill="#22d3ee" transform="rotate(-25,305,445)">温数据借用</text>
+      <text x="648" y="445" font-size="9" fill="#f59e0b" transform="rotate(25,648,445)">冷数据·超分</text>
+    </svg>
+
+    <!-- Hub: openclaw -->
+    <div class="node-box hub" style="left:50%; top:49.7%;">
+      <div class="hn">openclaw</div>
+      <div class="hs">browser · 核心应用</div>
+      <div class="hd">命令行渲染引擎<br>内存密集型负载</div>
+    </div>
+    <!-- User node -->
+    <div class="node-box n-platform" style="left:21.5%; top:18.5%;">
+      <div class="n-name">用户请求</div>
+      <div class="n-spec">浏览任务触发<br>批量/交互式请求</div>
+    </div>
+    <!-- Platform -->
+    <div class="node-box n-platform" style="left:50%; top:15%;">
+      <div class="n-name">火山AI服务平台</div>
+      <div class="n-spec">Volcano 调度引擎<br>弹性伸缩·多租户</div>
+    </div>
+    <!-- VM -->
+    <div class="node-box n-vm" style="left:75.5%; top:20%;">
+      <div class="n-name">2U4G 虚机实例</div>
+      <div class="n-spec">KVM虚拟化<br>2vCPU · 4GB DRAM</div>
+    </div>
+    <!-- smap -->
+    <div class="node-box n-smap" style="left:78%; top:54.5%;">
+      <div class="n-name">smap 调度引擎</div>
+      <div class="n-spec">透明内存扩展<br>LRU冷热识别·异步迁移</div>
+    </div>
+    <!-- L1 -->
+    <div class="node-box n-l1" style="left:50%; top:80%;">
+      <div class="n-name">L1 · 本机 DRAM</div>
+      <div class="n-spec">4GB · &lt;100ns<br>热数据优先驻留</div>
+    </div>
+    <!-- L2 -->
+    <div class="node-box n-l2" style="left:25%; top:77%;">
+      <div class="n-name">L2 · UB 借用内存</div>
+      <div class="n-spec">邻节点DRAM借用<br>动态容量 · ~1-5μs</div>
+    </div>
+    <!-- L3 -->
+    <div class="node-box n-l3" style="left:74%; top:78%;">
+      <div class="n-name">L3 · NVMe 冷数据</div>
+      <div class="n-spec">TB级扩展 · ~100μs<br><span class="l3-badge">超分比提升关键</span></div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="rp-title">方案要点</div>
+    <div class="rp-item red">
+      <div class="rt">openclaw · 内存压力来源</div>
+      <div class="rd">单实例峰值 8-16GB<br>远超VM 4GB物理配额<br>JS执行·DOM·图像缓存</div>
+    </div>
+    <div class="rp-item">
+      <div class="rt">smap · 透明扩展机制</div>
+      <div class="rd">拦截缺页中断<br>统一地址空间管理<br>业务无感知·内核模块</div>
+    </div>
+    <div class="rp-item green">
+      <div class="rt">L2 · UB借用内存</div>
+      <div class="rd">跨节点DRAM借用<br>通过UB高速互联<br>动态借还·软件透明</div>
+    </div>
+    <div class="rp-item amber">
+      <div class="rt">L3 · NVMe 超分关键</div>
+      <div class="rd">冷数据持久化扩展<br>TB级容量支撑<br>显著提升整机超分比</div>
+    </div>
+    <div class="flow-bar">
+      <div class="ft">信息流向</div>
+      <div class="flow-step"><div class="fs-num">1</div>用户发起浏览任务请求</div>
+      <div class="flow-step"><div class="fs-num">2</div>Volcano平台调度VM实例</div>
+      <div class="flow-step"><div class="fs-num">3</div>VM内openclaw执行渲染</div>
+      <div class="flow-step"><div class="fs-num">4</div>smap路由至L1/L2/L3</div>
+      <div class="flow-step"><div class="fs-num">5</div>L3 NVMe承载冷数据超分</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

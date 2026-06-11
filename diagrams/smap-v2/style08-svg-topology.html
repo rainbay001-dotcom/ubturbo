@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · SVG拓扑连线图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #f5f7fa;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #2c3e50; color: #fff;
+    padding: 8px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #bdc3c7; margin-top: 1px; }
+  .body { flex: 1; display: flex; min-height: 0; }
+  .diagram-area { flex: 1; position: relative; }
+  .side-panel {
+    width: 260px; flex-shrink: 0;
+    background: #2c3e50; color: #fff;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+    overflow: hidden;
+  }
+  .sp-title { font-size: 11px; font-weight: 700; color: #ecf0f1; border-bottom: 1px solid #3d5166; padding-bottom: 4px; margin-bottom: 2px; }
+  .sp-item { background: rgba(255,255,255,0.07); border-radius: 4px; padding: 7px 9px; }
+  .sp-item .si-title { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+  .sp-item .si-text { font-size: 10px; color: #bdc3c7; line-height: 1.5; }
+  .sp-item.l3 { border: 1px solid #f39c12; }
+  .sp-item.l3 .si-title { color: #f39c12; }
+  .legend { display: flex; flex-direction: column; gap: 4px; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #bdc3c7; }
+  .leg-line { width: 24px; height: 2px; flex-shrink: 0; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  /* SVG overlay nodes via foreignObject / position:absolute */
+  .topo-node {
+    position: absolute; border-radius: 5px; padding: 7px 10px;
+    font-size: 10px; text-align: center; border: 1.5px solid transparent;
+    transform: translate(-50%, -50%);
+  }
+  .tn-user { width: 110px; background: #34495e; color: #fff; border-color: #7f8c8d; }
+  .tn-volcano { width: 140px; background: #1a3a5c; color: #fff; border-color: #2980b9; }
+  .tn-vm1, .tn-vm2, .tn-vm3 { width: 120px; background: #1a3a28; color: #fff; border-color: #27ae60; }
+  .tn-oc { width: 180px; background: #7f1d1d; color: #fff; border-color: #c0392b; border-width: 2.5px; }
+  .tn-smap { width: 150px; background: #1a2e4a; color: #fff; border-color: #2980b9; }
+  .tn-l1 { width: 140px; background: #1e3a5f; color: #fff; border-color: #3b82f6; }
+  .tn-l2 { width: 140px; background: #0d3a4a; color: #fff; border-color: #22d3ee; }
+  .tn-l3 { width: 145px; background: #1c1917; color: #fff; border-color: #f59e0b; border-width: 2px; }
+  .tn-name { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .tn-spec { font-size: 9px; opacity: 0.8; line-height: 1.4; }
+  .tn-badge { display: inline-block; background: #f59e0b; color: #1c1917; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 2px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 内存超分方案 · 系统拓扑连线图</h1>
+    <div class="sub">字节火山AI平台 · 2U4G虚机 · openclaw browser · L2 UB借用 + L3 NVMe</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#bdc3c7;">整机超分比提升方案</div>
+</div>
+<div class="body">
+  <div class="diagram-area">
+    <svg width="100%" height="100%" viewBox="0 0 1020 660" preserveAspectRatio="xMidYMid meet" style="position:absolute;top:0;left:0;">
+      <defs>
+        <marker id="ma" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#7f8c8d"/></marker>
+        <marker id="mb" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#27ae60"/></marker>
+        <marker id="mc" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#c0392b"/></marker>
+        <marker id="md" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2980b9"/></marker>
+        <marker id="me" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#3b82f6"/></marker>
+        <marker id="mf" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#22d3ee"/></marker>
+        <marker id="mg" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#f59e0b"/></marker>
+      </defs>
+
+      <!-- User -> Volcano -->
+      <line x1="155" y1="80" x2="270" y2="80" stroke="#7f8c8d" stroke-width="1.8" marker-end="url(#ma)"/>
+      <text x="205" y="74" font-size="9" fill="#7f8c8d" text-anchor="middle">HTTP请求</text>
+
+      <!-- Volcano -> VM1,2,3 -->
+      <line x1="360" y1="100" x2="360" y2="205" stroke="#27ae60" stroke-width="1.8" marker-end="url(#mb)"/>
+      <line x1="380" y1="100" x2="490" y2="205" stroke="#27ae60" stroke-width="1.8" marker-end="url(#mb)"/>
+      <line x1="340" y1="100" x2="230" y2="205" stroke="#27ae60" stroke-width="1.8" marker-end="url(#mb)"/>
+      <text x="362" y="158" font-size="9" fill="#27ae60">VM分配</text>
+
+      <!-- VM1 -> openclaw (highlighted) -->
+      <line x1="360" y1="255" x2="500" y2="345" stroke="#c0392b" stroke-width="2.5" marker-end="url(#mc)"/>
+      <text x="408" y="310" font-size="9" fill="#c0392b" transform="rotate(30,408,310)">进程运行</text>
+
+      <!-- VM2 -> openclaw -->
+      <line x1="490" y1="255" x2="510" y2="345" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#mc)"/>
+
+      <!-- VM3 -> openclaw -->
+      <line x1="230" y1="255" x2="455" y2="345" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#mc)"/>
+
+      <!-- openclaw -> smap -->
+      <line x1="590" y1="385" x2="690" y2="385" stroke="#2980b9" stroke-width="2.5" marker-end="url(#md)"/>
+      <text x="635" y="376" font-size="9" fill="#2980b9" text-anchor="middle">缺页中断</text>
+
+      <!-- smap -> L1 -->
+      <line x1="730" y1="420" x2="660" y2="520" stroke="#3b82f6" stroke-width="2" marker-end="url(#me)"/>
+      <text x="673" y="476" font-size="9" fill="#3b82f6" transform="rotate(-35,673,476)">热数据</text>
+
+      <!-- smap -> L2 -->
+      <line x1="770" y1="425" x2="785" y2="525" stroke="#22d3ee" stroke-width="2" marker-end="url(#mf)"/>
+      <text x="800" y="476" font-size="9" fill="#22d3ee">温数据</text>
+
+      <!-- smap -> L3 -->
+      <line x1="810" y1="420" x2="895" y2="525" stroke="#f59e0b" stroke-width="3" marker-end="url(#mg)"/>
+      <text x="873" y="476" font-size="9" fill="#f59e0b" transform="rotate(40,873,476)">冷数据</text>
+
+      <!-- L1/L2/L3 back to smap (return path) -->
+      <path d="M620,525 Q560,480 720,430" stroke="#4a5568" stroke-width="1" stroke-dasharray="4,3" fill="none" marker-end="url(#ma)"/>
+      <text x="575" y="490" font-size="8" fill="#4a5568">数据换入</text>
+    </svg>
+
+    <!-- TOPO NODES -->
+    <!-- User: left=155/1020, top=80/660 -->
+    <div class="topo-node tn-user" style="left:15.2%; top:12.1%;">
+      <div class="tn-name">用户请求</div>
+      <div class="tn-spec">浏览任务提交<br>HTTP/gRPC</div>
+    </div>
+    <!-- Volcano: left=360, top=80 -->
+    <div class="topo-node tn-volcano" style="left:35.3%; top:12.1%;">
+      <div class="tn-name">火山 Volcano 调度</div>
+      <div class="tn-spec">资源调度·VM分配<br>弹性伸缩</div>
+    </div>
+    <!-- VM1: left=360, top=230 -->
+    <div class="topo-node tn-vm1" style="left:35.3%; top:34.8%;">
+      <div class="tn-name">VM-01 · 2U4G</div>
+      <div class="tn-spec">KVM · openclaw</div>
+    </div>
+    <!-- VM2: left=490, top=230 -->
+    <div class="topo-node tn-vm2" style="left:48%; top:34.8%;">
+      <div class="tn-name">VM-02 · 2U4G</div>
+      <div class="tn-spec">KVM · openclaw</div>
+    </div>
+    <!-- VM3: left=230, top=230 -->
+    <div class="topo-node tn-vm3" style="left:22.5%; top:34.8%;">
+      <div class="tn-name">VM-03 · 2U4G</div>
+      <div class="tn-spec">KVM · openclaw</div>
+    </div>
+    <!-- openclaw: left=510, top=385 -->
+    <div class="topo-node tn-oc" style="left:50%; top:58.3%;">
+      <div class="tn-name" style="font-size:14px; letter-spacing:1px;">openclaw browser</div>
+      <div class="tn-spec">命令行渲染 · JS引擎 · 内存密集<br>缺页中断 → smap入口</div>
+    </div>
+    <!-- smap: left=770, top=385 -->
+    <div class="topo-node tn-smap" style="left:75.5%; top:58.3%;">
+      <div class="tn-name">smap 调度引擎</div>
+      <div class="tn-spec">LRU冷热 · 透明扩展<br>L1/L2/L3路由决策</div>
+    </div>
+    <!-- L1: left=640, top=555 -->
+    <div class="topo-node tn-l1" style="left:62.7%; top:84.1%;">
+      <div class="tn-name">L1 · DRAM 热数据</div>
+      <div class="tn-spec">4GB · &lt;100ns</div>
+    </div>
+    <!-- L2: left=785, top=555 -->
+    <div class="topo-node tn-l2" style="left:77%; top:84.1%;">
+      <div class="tn-name">L2 · UB借用</div>
+      <div class="tn-spec">动态容量 · ~μs级</div>
+    </div>
+    <!-- L3: left=920, top=555 -->
+    <div class="topo-node tn-l3" style="left:90.2%; top:84.1%;">
+      <div class="tn-name">L3 · NVMe 冷数据</div>
+      <div class="tn-spec">TB级 · ~100μs</div>
+      <div class="tn-badge">超分关键</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="side-panel">
+    <div class="sp-title">方案说明</div>
+    <div class="sp-item">
+      <div class="si-title" style="color:#2980b9;">openclaw 内存模型</div>
+      <div class="si-text">HTML解析·V8堆·DOM树·图像缓冲<br>单实例峰值 8-16GB<br>超出VM物理4GB配额</div>
+    </div>
+    <div class="sp-item">
+      <div class="si-title" style="color:#27ae60;">smap 透明路由</div>
+      <div class="si-text">拦截缺页中断<br>冷热识别后路由分层<br>虚拟地址连续·业务无感知</div>
+    </div>
+    <div class="sp-item">
+      <div class="si-title" style="color:#22d3ee;">L2 UB借用内存</div>
+      <div class="si-text">借用邻节点空闲DRAM<br>UB高速互联·~μs延迟<br>动态借还·无需配置</div>
+    </div>
+    <div class="sp-item l3">
+      <div class="si-title">L3 NVMe · 超分核心</div>
+      <div class="si-text">本地高速NVMe扩展内存<br>TB级容量补充DRAM短板<br>整机超分比 3-5x 提升</div>
+    </div>
+    <div class="legend">
+      <div class="sp-title">连线图例</div>
+      <div class="leg-item"><div class="leg-line" style="background:#c0392b; height:2.5px;"></div>openclaw请求链路</div>
+      <div class="leg-item"><div class="leg-line" style="background:#f59e0b; height:3px;"></div>L3超分路径</div>
+      <div class="leg-item"><div class="leg-line" style="background:#4a5568; height:1px; border-top:1px dashed #4a5568;"></div>数据换入路径</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

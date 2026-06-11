@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 三栏信息图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #fff;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1e3a5f; color: #fff;
+    padding: 8px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #93c5fd; margin-top: 1px; }
+  .body { flex: 1; display: flex; min-height: 0; }
+
+  .col { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .col + .col { border-left: 1px solid #e5e7eb; }
+
+  .col-header {
+    padding: 8px 14px; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0;
+  }
+  .ch-1 { background: #dbeafe; color: #1e40af; border-bottom: 2px solid #2563eb; }
+  .ch-2 { background: #fee2e2; color: #991b1b; border-bottom: 2px solid #dc2626; }
+  .ch-3 { background: #fef3c7; color: #92400e; border-bottom: 2px solid #f59e0b; }
+
+  .col-body { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
+
+  /* COL 1: Platform + VM Stack */
+  .platform-card {
+    background: #1e3a5f; color: #fff; border-radius: 5px; padding: 9px 11px;
+    flex-shrink: 0;
+  }
+  .pc-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .pc-desc { font-size: 10px; color: #93c5fd; line-height: 1.5; }
+  .pc-tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 3px; }
+  .pc-tag { background: rgba(255,255,255,0.15); color: #dbeafe; font-size: 9px; padding: 1px 5px; border-radius: 2px; }
+
+  .vm-card {
+    background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 5px; padding: 8px 11px;
+    flex-shrink: 0;
+  }
+  .vc-name { font-size: 12px; font-weight: 700; color: #1e3a5f; margin-bottom: 4px; }
+  .vc-specs { display: flex; gap: 6px; margin-bottom: 4px; }
+  .vc-spec { background: #1e3a5f; color: #fff; font-size: 9px; padding: 2px 7px; border-radius: 2px; }
+  .vc-desc { font-size: 10px; color: #374151; line-height: 1.5; }
+
+  .flow-chain {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px;
+    padding: 8px 11px; flex: 1;
+  }
+  .fc-title { font-size: 11px; font-weight: 700; color: #1e3a5f; margin-bottom: 5px; }
+  .fc-step { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; font-size: 10px; }
+  .fcs-num {
+    width: 16px; height: 16px; border-radius: 50%; background: #2563eb; color: #fff;
+    font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .fcs-text { color: #374151; line-height: 1.4; }
+  .fcs-text strong { color: #1e3a5f; }
+
+  /* COL 2: openclaw detail */
+  .oc-hero {
+    background: #7f1d1d; color: #fff; border-radius: 5px; padding: 11px 13px;
+    border: 2px solid #dc2626; flex-shrink: 0;
+  }
+  .och-name { font-size: 19px; font-weight: 900; letter-spacing: 2px; margin-bottom: 3px; }
+  .och-sub { font-size: 10px; color: #fca5a5; margin-bottom: 5px; }
+  .och-props { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .och-prop { background: rgba(255,255,255,0.1); border-radius: 3px; padding: 4px 6px; }
+  .och-pk { font-size: 9px; color: #fca5a5; margin-bottom: 1px; }
+  .och-pv { font-size: 10px; color: #fff; font-weight: 600; }
+
+  .oc-detail-box {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px;
+    padding: 8px 11px; font-size: 10px; color: #374151; line-height: 1.6; flex-shrink: 0;
+  }
+  .oc-detail-box .dt { font-size: 11px; font-weight: 700; color: #dc2626; margin-bottom: 4px; }
+
+  .mem-trigger {
+    background: #1e293b; color: #fff; border-radius: 5px; padding: 9px 11px; flex: 1;
+  }
+  .mt-title { font-size: 11px; font-weight: 700; color: #e0f2fe; margin-bottom: 5px; }
+  .mt-row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 10px; }
+  .mt-tag { background: rgba(255,255,255,0.15); color: #e2e8f0; font-size: 9px; padding: 2px 6px; border-radius: 2px; flex-shrink: 0; }
+  .mt-desc { color: #94a3b8; }
+
+  /* COL 3: smap + memory layers */
+  .smap-card {
+    background: #0f172a; color: #fff; border-radius: 5px; padding: 9px 11px;
+    flex-shrink: 0;
+  }
+  .sc-name { font-size: 13px; font-weight: 700; color: #e0f2fe; margin-bottom: 4px; }
+  .sc-desc { font-size: 10px; color: #94a3b8; line-height: 1.5; }
+
+  .mem-l {
+    border-radius: 5px; padding: 8px 11px; flex: 1;
+  }
+  .ml-l1 { background: #1e3a5f; color: #fff; }
+  .ml-l2 { background: #115e75; color: #fff; }
+  .ml-l3 { background: #1c1917; color: #fff; border: 2px solid #f59e0b; }
+
+  .ml-header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 4px; }
+  .ml-tier { font-size: 18px; font-weight: 900; }
+  .ml-name { font-size: 12px; font-weight: 700; }
+  .ml-props { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .ml-p { font-size: 9px; }
+  .ml-p .pk { color: rgba(255,255,255,0.6); }
+  .ml-p .pv { color: #fff; font-weight: 600; }
+  .ml-badge { display: inline-block; background: #f59e0b; color: #1c1917; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 内存超分方案 · 三栏信息架构图</h1>
+    <div class="sub">字节火山AI平台 · 2U4G虚机 · openclaw browser · L2 UB借用 + L3 NVMe超分</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#93c5fd;">整机超分比提升<br>业务无感知</div>
+</div>
+<div class="body">
+  <!-- COL 1: Infrastructure -->
+  <div class="col">
+    <div class="col-header ch-1">
+      <span>①</span> 基础设施 · 平台与虚机
+    </div>
+    <div class="col-body">
+      <div class="platform-card">
+        <div class="pc-name">字节火山 AI 服务平台</div>
+        <div class="pc-desc">Volcano 统一调度引擎 · 弹性伸缩 · 多租户资源管理</div>
+        <div class="pc-tags">
+          <span class="pc-tag">AI推理</span>
+          <span class="pc-tag">浏览器任务</span>
+          <span class="pc-tag">GPU/CPU混合</span>
+          <span class="pc-tag">在线服务</span>
+        </div>
+      </div>
+      <div class="vm-card">
+        <div class="vc-name">业务虚机实例</div>
+        <div class="vc-specs">
+          <span class="vc-spec">2 vCPU</span>
+          <span class="vc-spec">4 GB DRAM</span>
+          <span class="vc-spec">KVM</span>
+        </div>
+        <div class="vc-desc">
+          批量部署·承载 openclaw browser 任务<br>
+          物理内存 4GB 有限·高峰期超限
+        </div>
+      </div>
+      <div class="flow-chain">
+        <div class="fc-title">请求信息流向</div>
+        <div class="fc-step"><div class="fcs-num">1</div><div class="fcs-text"><strong>用户</strong> 发起浏览任务请求</div></div>
+        <div class="fc-step"><div class="fcs-num">2</div><div class="fcs-text"><strong>Volcano</strong> 调度选择VM实例</div></div>
+        <div class="fc-step"><div class="fcs-num">3</div><div class="fcs-text"><strong>VM</strong> 进程空间分配</div></div>
+        <div class="fc-step"><div class="fcs-num">4</div><div class="fcs-text"><strong>openclaw</strong> 执行渲染任务</div></div>
+        <div class="fc-step"><div class="fcs-num">5</div><div class="fcs-text"><strong>smap</strong> 内存路由调度</div></div>
+        <div class="fc-step"><div class="fcs-num">6</div><div class="fcs-text"><strong>L3 NVMe</strong> 冷数据超分承载</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 2: openclaw -->
+  <div class="col">
+    <div class="col-header ch-2">
+      <span>②</span> 核心应用 · openclaw browser
+    </div>
+    <div class="col-body">
+      <div class="oc-hero">
+        <div class="och-name">openclaw browser</div>
+        <div class="och-sub">命令行网页渲染引擎 · 内存密集型核心负载</div>
+        <div class="och-props">
+          <div class="och-prop">
+            <div class="och-pk">执行模型</div>
+            <div class="och-pv">命令行驱动</div>
+          </div>
+          <div class="och-prop">
+            <div class="och-pk">峰值内存</div>
+            <div class="och-pv">8 - 16 GB</div>
+          </div>
+          <div class="och-prop">
+            <div class="och-pk">内存申请</div>
+            <div class="och-pv">mmap / malloc</div>
+          </div>
+          <div class="och-prop">
+            <div class="och-pk">触发机制</div>
+            <div class="och-pv">缺页中断</div>
+          </div>
+        </div>
+      </div>
+      <div class="oc-detail-box">
+        <div class="dt">内存消耗来源分析</div>
+        <b>HTML 解析：</b>DOM树构建·大量小对象分配<br>
+        <b>JS 引擎：</b>V8堆·闭包·事件队列·GC压力<br>
+        <b>图像渲染：</b>帧缓冲·纹理缓存·CSS盒模型<br>
+        <b>资源缓存：</b>网络响应·字体·脚本文件
+      </div>
+      <div class="mem-trigger">
+        <div class="mt-title">openclaw → smap 触发路径</div>
+        <div class="mt-row"><div class="mt-tag">缺页中断</div><div class="mt-desc">页面不在物理内存中</div></div>
+        <div class="mt-row"><div class="mt-tag">内核陷入</div><div class="mt-desc">smap 拦截处理</div></div>
+        <div class="mt-row"><div class="mt-tag">冷热判断</div><div class="mt-desc">LRU访问统计分析</div></div>
+        <div class="mt-row"><div class="mt-tag">页面路由</div><div class="mt-desc">分发至L1/L2/L3</div></div>
+        <div class="mt-row"><div class="mt-tag">透明返回</div><div class="mt-desc">进程无感知继续执行</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 3: smap + memory -->
+  <div class="col">
+    <div class="col-header ch-3">
+      <span>③</span> smap 调度层 · 三层内存体系
+    </div>
+    <div class="col-body">
+      <div class="smap-card">
+        <div class="sc-name">smap · 透明内存调度引擎</div>
+        <div class="sc-desc">
+          内核模块 · 统一地址空间管理<br>
+          冷热页面识别 · 异步迁移 · 预取加速<br>
+          L1/L2/L3 三层路由决策 · 业务零改造
+        </div>
+      </div>
+      <div class="mem-l ml-l1">
+        <div class="ml-header">
+          <div class="ml-tier">L1</div>
+          <div class="ml-name">本机 DRAM · 热数据</div>
+        </div>
+        <div class="ml-props">
+          <div class="ml-p"><span class="pk">容量 </span><span class="pv">4 GB</span></div>
+          <div class="ml-p"><span class="pk">延迟 </span><span class="pv">&lt;100 ns</span></div>
+          <div class="ml-p"><span class="pk">带宽 </span><span class="pv">50 GB/s+</span></div>
+          <div class="ml-p"><span class="pk">策略 </span><span class="pv">高频常驻</span></div>
+        </div>
+      </div>
+      <div class="mem-l ml-l2">
+        <div class="ml-header">
+          <div class="ml-tier">L2</div>
+          <div class="ml-name">UB 借用内存 · 温数据</div>
+        </div>
+        <div class="ml-props">
+          <div class="ml-p"><span class="pk">来源 </span><span class="pv">邻节点DRAM</span></div>
+          <div class="ml-p"><span class="pk">延迟 </span><span class="pv">~1-5 μs</span></div>
+          <div class="ml-p"><span class="pk">互联 </span><span class="pv">UB高速网络</span></div>
+          <div class="ml-p"><span class="pk">模式 </span><span class="pv">动态借还</span></div>
+        </div>
+      </div>
+      <div class="mem-l ml-l3">
+        <div class="ml-header">
+          <div class="ml-tier">L3</div>
+          <div class="ml-name">NVMe SSD · 冷数据</div>
+        </div>
+        <div class="ml-props">
+          <div class="ml-p"><span class="pk">容量 </span><span class="pv">TB 级</span></div>
+          <div class="ml-p"><span class="pk">延迟 </span><span class="pv">~100 μs</span></div>
+          <div class="ml-p"><span class="pk">类型 </span><span class="pv">本地高速</span></div>
+          <div class="ml-p"><span class="pk">作用 </span><span class="pv">持久化扩展</span></div>
+        </div>
+        <div class="ml-badge">▲ 整机超分比提升关键</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 矩阵格局</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #1a1f2e;
+    display: flex; flex-direction: column;
+    color: #e2e8f0;
+  }
+  .header {
+    background: #0f1421; color: #fff;
+    padding: 8px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; border-bottom: 2px solid #2d3748;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .sub { font-size: 11px; color: #718096; margin-top: 1px; }
+  .header .badge { background: #2563eb; color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 3px; }
+
+  .body { flex: 1; display: grid; grid-template-columns: 1fr 2fr 1.5fr; grid-template-rows: 1fr 1fr; gap: 8px; padding: 8px 12px; min-height: 0; }
+
+  /* CELL SHARED */
+  .cell {
+    border-radius: 6px; padding: 10px 12px; overflow: hidden;
+    border: 1px solid #2d3748;
+  }
+  .cell-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+  /* Cell 1: Platform (top-left) */
+  .c1 { background: #162032; grid-column: 1; grid-row: 1; border-color: #2b4a7a; }
+  .c1 .cell-title { color: #60a5fa; }
+  .platform-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .platform-tag {
+    display: inline-block; background: #1d3a5e; color: #93c5fd; font-size: 9px;
+    padding: 2px 6px; border-radius: 2px; margin: 2px 2px 2px 0;
+  }
+
+  /* Cell 2: Flow Diagram (top-middle + right top) */
+  .c2 { background: #131825; grid-column: 2 / 4; grid-row: 1; border-color: #2d3748; }
+  .c2 .cell-title { color: #e2e8f0; }
+  .flow-diagram { display: flex; align-items: center; gap: 6px; height: calc(100% - 30px); }
+  .fd-box {
+    flex-shrink: 0; border-radius: 5px; padding: 8px 10px; text-align: center;
+    border: 1.5px solid transparent;
+  }
+  .fd-user { background: #2d3748; border-color: #4a5568; min-width: 100px; }
+  .fd-platform { background: #1d3a5e; border-color: #2563eb; min-width: 120px; }
+  .fd-vm { background: #1a3a28; border-color: #34d399; min-width: 110px; }
+  .fd-oc {
+    background: #7f1d1d; border-color: #dc2626; border-width: 2px; min-width: 150px;
+    flex: 1;
+  }
+  .fd-smap { background: #1a2e4a; border-color: #38bdf8; min-width: 130px; }
+  .fd-name { font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+  .fd-spec { font-size: 9px; color: rgba(255,255,255,0.65); line-height: 1.4; }
+  .fd-arrow { color: #4a5568; font-size: 18px; flex-shrink: 0; }
+
+  /* Cell 3: VM detail (bottom-left) */
+  .c3 { background: #162032; grid-column: 1; grid-row: 2; border-color: #1e4d38; }
+  .c3 .cell-title { color: #34d399; }
+  .vm-spec-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .vm-spec-table td { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .vm-spec-table td:first-child { color: #94a3b8; width: 60%; }
+  .vm-spec-table td:last-child { color: #fff; font-weight: 600; text-align: right; }
+
+  /* Cell 4: Memory layers (bottom-middle) */
+  .c4 { background: #131825; grid-column: 2; grid-row: 2; border-color: #374151; }
+  .c4 .cell-title { color: #e2e8f0; }
+  .mem-layers-grid { display: flex; gap: 6px; height: calc(100% - 30px); }
+  .mlg-col {
+    flex: 1; border-radius: 5px; padding: 8px; display: flex; flex-direction: column; gap: 4px;
+  }
+  .mlg-l1 { background: #1a3055; border: 1.5px solid #3b82f6; }
+  .mlg-l2 { background: #0d3a4a; border: 1.5px solid #22d3ee; }
+  .mlg-l3 { background: #1a1008; border: 2px solid #f59e0b; }
+  .mlg-tier { font-size: 20px; font-weight: 900; margin-bottom: 2px; }
+  .mlg-name { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+  .mlg-prop { font-size: 9px; color: rgba(255,255,255,0.7); margin-bottom: 2px; }
+  .mlg-badge { background: #f59e0b; color: #1c1917; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 2px; display: inline-block; margin-top: 3px; }
+
+  /* Cell 5: Stats/results (bottom-right) */
+  .c5 { background: #162032; grid-column: 3; grid-row: 2; border-color: #374151; }
+  .c5 .cell-title { color: #fbbf24; }
+  .stat-item { display: flex; align-items: baseline; gap: 6px; margin-bottom: 7px; }
+  .stat-num { font-size: 22px; font-weight: 800; color: #fbbf24; line-height: 1; }
+  .stat-unit { font-size: 10px; color: #94a3b8; }
+  .stat-desc { font-size: 10px; color: #cbd5e1; line-height: 1.4; flex: 1; }
+  .smap-flow-mini { font-size: 9px; color: #64748b; line-height: 1.6; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 内存超分方案 · 矩阵架构视图</h1>
+    <div class="sub">字节火山AI平台 · openclaw browser · L2 UB借用 + L3 NVMe 超分</div>
+  </div>
+  <div class="badge">整机超分提升</div>
+</div>
+<div class="body">
+  <!-- C1: Platform Info -->
+  <div class="cell c1">
+    <div class="cell-title">基础设施 · 火山平台</div>
+    <div class="platform-name">ByteDance Volcano AI</div>
+    <div style="font-size:10px; color:#93c5fd; margin-bottom:6px;">统一调度·弹性伸缩·多租户</div>
+    <span class="platform-tag">AI 推理</span>
+    <span class="platform-tag">浏览器任务</span>
+    <span class="platform-tag">GPU/CPU混合</span>
+    <span class="platform-tag">在线服务</span>
+    <span class="platform-tag">弹性调度</span>
+    <span class="platform-tag">资源隔离</span>
+    <div style="margin-top:8px; font-size:10px; color:#718096; line-height:1.5;">
+      部署多个 2U4G VM实例<br>
+      运行 openclaw browser 任务<br>
+      内存压力：峰值超物理上限
+    </div>
+  </div>
+
+  <!-- C2: Full flow diagram -->
+  <div class="cell c2">
+    <div class="cell-title">请求流向 · 用户触发 → openclaw → smap → 三层内存</div>
+    <div class="flow-diagram">
+      <div class="fd-box fd-user">
+        <div class="fd-name">用户请求</div>
+        <div class="fd-spec">浏览任务<br>批量/交互</div>
+      </div>
+      <div class="fd-arrow">→</div>
+      <div class="fd-box fd-platform">
+        <div class="fd-name">火山 Volcano</div>
+        <div class="fd-spec">调度器<br>VM分配</div>
+      </div>
+      <div class="fd-arrow">→</div>
+      <div class="fd-box fd-vm">
+        <div class="fd-name">2U4G VM</div>
+        <div class="fd-spec">KVM虚拟化<br>进程隔离</div>
+      </div>
+      <div class="fd-arrow">→</div>
+      <div class="fd-box fd-oc">
+        <div class="fd-name" style="font-size:14px; letter-spacing:1px;">openclaw browser</div>
+        <div class="fd-spec">HTML解析 · JS引擎 · DOM构建<br>大页分配 · mmap · 缺页中断</div>
+      </div>
+      <div class="fd-arrow">→</div>
+      <div class="fd-box fd-smap">
+        <div class="fd-name">smap 引擎</div>
+        <div class="fd-spec">冷热识别<br>L1/L2/L3路由<br>透明扩展</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C3: VM Detail -->
+  <div class="cell c3">
+    <div class="cell-title">虚机配置详情</div>
+    <table class="vm-spec-table">
+      <tr><td>vCPU 核数</td><td>2 vCPU</td></tr>
+      <tr><td>物理 DRAM</td><td>4 GB</td></tr>
+      <tr><td>虚拟化类型</td><td>KVM</td></tr>
+      <tr><td>业务应用</td><td>openclaw</td></tr>
+      <tr><td>内存超申请</td><td>已启用</td></tr>
+      <tr><td>smap 支持</td><td>已接入</td></tr>
+      <tr><td>L2 借用</td><td>UB互联</td></tr>
+      <tr><td>L3 扩展</td><td>NVMe SSD</td></tr>
+    </table>
+  </div>
+
+  <!-- C4: Memory layers -->
+  <div class="cell c4">
+    <div class="cell-title">三层内存体系 · smap 管理</div>
+    <div class="mem-layers-grid">
+      <div class="mlg-col mlg-l1">
+        <div class="mlg-tier">L1</div>
+        <div class="mlg-name">本机 DRAM</div>
+        <div class="mlg-prop">容量：4 GB</div>
+        <div class="mlg-prop">延迟：&lt;100 ns</div>
+        <div class="mlg-prop">带宽：50 GB/s+</div>
+        <div class="mlg-prop">策略：热数据常驻</div>
+      </div>
+      <div class="mlg-col mlg-l2">
+        <div class="mlg-tier">L2</div>
+        <div class="mlg-name">UB 借用内存</div>
+        <div class="mlg-prop">来源：邻节点DRAM</div>
+        <div class="mlg-prop">延迟：~1-5 μs</div>
+        <div class="mlg-prop">互联：UB网络</div>
+        <div class="mlg-prop">策略：温数据扩展</div>
+      </div>
+      <div class="mlg-col mlg-l3">
+        <div class="mlg-tier">L3</div>
+        <div class="mlg-name">NVMe SSD</div>
+        <div class="mlg-prop">容量：TB 级</div>
+        <div class="mlg-prop">延迟：~100 μs</div>
+        <div class="mlg-prop">类型：本地高速</div>
+        <div class="mlg-prop">策略：冷数据持久化</div>
+        <div class="mlg-badge">超分关键</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C5: Impact & Summary -->
+  <div class="cell c5">
+    <div class="cell-title">超分效果 · 关键指标</div>
+    <div class="stat-item">
+      <div class="stat-num">3-5x</div>
+      <div>
+        <div class="stat-unit">整机超分比提升</div>
+        <div class="stat-desc">单物理机可承载更多VM实例</div>
+      </div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">4→16</div>
+      <div>
+        <div class="stat-unit">GB 可用内存扩展</div>
+        <div class="stat-desc">L2+L3 弥补物理DRAM不足</div>
+      </div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">0</div>
+      <div>
+        <div class="stat-unit">业务代码改动</div>
+        <div class="stat-desc">openclaw 无感知·透明扩展</div>
+      </div>
+    </div>
+    <div class="smap-flow-mini">
+      smap调度路径：<br>
+      缺页中断 → 冷热识别 → L1/L2/L3路由<br>
+      → 异步迁移 → 预取加速 → 响应返回
+    </div>
+  </div>
+</div>
+</body>
+</html>

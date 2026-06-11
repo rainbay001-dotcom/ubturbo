@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 泳道流程图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #ffffff;
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: #1a2e44; color: #fff;
+    padding: 9px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; }
+  .header .meta { font-size: 11px; color: #8fafc8; }
+  .content { flex: 1; display: flex; min-height: 0; }
+
+  /* Lane labels */
+  .lane-labels {
+    width: 120px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    border-right: 2px solid #e5e7eb;
+  }
+  .lane-label {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; text-align: center; padding: 8px 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .ll-1 { background: #dbeafe; color: #1e40af; }
+  .ll-2 { background: #dcfce7; color: #166534; }
+  .ll-3 { background: #fef3c7; color: #92400e; }
+  .ll-4 { background: #f3e8ff; color: #6b21a8; }
+  .ll-5 { background: #fce7f3; color: #9d174d; }
+
+  /* Swimlane body */
+  .lanes { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .lane {
+    flex: 1; display: flex; align-items: center;
+    padding: 8px 16px; gap: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    position: relative;
+  }
+  .lane-1 { background: #f0f7ff; }
+  .lane-2 { background: #f0fdf4; }
+  .lane-3 { background: #fffbeb; }
+  .lane-4 { background: #faf5ff; }
+  .lane-5 { background: #fdf2f8; }
+
+  .node {
+    border-radius: 5px; padding: 6px 10px;
+    font-size: 11px; font-weight: 600; text-align: center;
+    flex-shrink: 0; min-width: 100px;
+    border: 1.5px solid transparent;
+  }
+  .node-blue { background: #1e40af; color: #fff; }
+  .node-green { background: #166534; color: #fff; }
+  .node-amber { background: #92400e; color: #fff; }
+  .node-purple { background: #6b21a8; color: #fff; }
+  .node-red { background: #dc2626; color: #fff; }
+  .node-outline { background: #fff; border-color: #9ca3af; color: #374151; }
+  .node-sm { font-size: 10px; min-width: 80px; padding: 4px 8px; }
+
+  .arrow { font-size: 18px; color: #6b7280; flex-shrink: 0; }
+  .arrow-v { position: absolute; right: 20px; font-size: 20px; }
+
+  .node-detail {
+    flex: 1; font-size: 10px; color: #4b5563; line-height: 1.5;
+    border-left: 2px solid #d1d5db; padding-left: 8px;
+  }
+  .node-openclaw {
+    background: #dc2626; color: #fff;
+    border-radius: 5px; padding: 8px 14px;
+    font-size: 13px; font-weight: 800; letter-spacing: 1px;
+    border: 2px solid #991b1b;
+    min-width: 160px;
+    text-align: center;
+  }
+  .mem-block {
+    border-radius: 4px; padding: 6px 10px;
+    font-size: 10px; font-weight: 700; text-align: center;
+    min-width: 130px; border: 1.5px solid transparent;
+  }
+  .mb-l1 { background: #1e3a5f; color: #fff; border-color: #60a5fa; }
+  .mb-l2 { background: #115e75; color: #fff; border-color: #22d3ee; }
+  .mb-l3 { background: #1c1917; color: #fff; border-color: #f59e0b; }
+  .l3-tag {
+    display: inline-block; background: #f59e0b; color: #1c1917;
+    font-size: 9px; padding: 1px 5px; border-radius: 2px; margin-top: 3px;
+  }
+  .flow-indicator {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    font-size: 9px; color: #9ca3af; text-align: right; line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>smap 内存超分架构 · 泳道流程图</h1>
+    <div class="meta">字节火山AI平台 · openclaw browser · L2 UB借用内存 + L3 NVMe 超分</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#8fafc8;">
+    场景：2U4G虚机 · 高内存压力<br>
+    目标：整机超分比提升
+  </div>
+</div>
+<div class="content">
+  <div class="lane-labels">
+    <div class="lane-label ll-1">平台层<br/>火山AI</div>
+    <div class="lane-label ll-2">虚机层<br/>2U4G VM</div>
+    <div class="lane-label ll-3">应用层<br/>openclaw</div>
+    <div class="lane-label ll-4">调度层<br/>smap</div>
+    <div class="lane-label ll-5">内存层<br/>L1/L2/L3</div>
+  </div>
+  <div class="lanes">
+    <!-- Lane 1: Platform -->
+    <div class="lane lane-1">
+      <div class="node node-blue">用户请求<br/><span style="font-size:9px;opacity:0.8;">浏览任务触发</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-blue">Volcano 调度器<br/><span style="font-size:9px;opacity:0.8;">资源评估·VM分配</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-outline node-sm">容器编排</div>
+      <div class="arrow">→</div>
+      <div class="node node-outline node-sm">网络路由</div>
+      <div class="arrow">→</div>
+      <div class="node-detail">
+        Volcano AI 服务平台统一调度多租户任务<br>
+        AI推理/浏览器任务共存·智能资源规划
+      </div>
+    </div>
+    <!-- Lane 2: VM -->
+    <div class="lane lane-2">
+      <div class="node node-green">VM 实例<br/><span style="font-size:9px;opacity:0.8;">2 vCPU / 4GB</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-outline node-sm">KVM 虚拟化</div>
+      <div class="arrow">→</div>
+      <div class="node node-outline node-sm">内存分配<br/>超额申请</div>
+      <div class="arrow">→</div>
+      <div class="node node-green">进程空间<br/><span style="font-size:9px;opacity:0.8;">虚拟地址映射</span></div>
+      <div class="arrow">→</div>
+      <div class="node-detail">
+        物理 4GB DRAM 不足时触发 smap 扩展路径<br>
+        虚机无感知·内核透明处理缺页中断
+      </div>
+    </div>
+    <!-- Lane 3: openclaw -->
+    <div class="lane lane-3">
+      <div class="node-openclaw">openclaw browser</div>
+      <div class="arrow">→</div>
+      <div class="node node-amber" style="min-width:110px;">HTML解析<br/>DOM构建</div>
+      <div class="arrow">→</div>
+      <div class="node node-amber" style="min-width:110px;">JS执行<br/>内存密集</div>
+      <div class="arrow">→</div>
+      <div class="node node-amber" style="min-width:110px;">图像渲染<br/>大页分配</div>
+      <div class="arrow">→</div>
+      <div class="node-detail">
+        openclaw 是核心内存消耗源：大量 mmap / malloc / 缺页中断<br>
+        单实例峰值内存可达 8-16GB · 远超 VM 4GB 配额
+      </div>
+    </div>
+    <!-- Lane 4: smap -->
+    <div class="lane lane-4">
+      <div class="node node-purple">smap 拦截<br/><span style="font-size:9px;opacity:0.8;">缺页中断钩子</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-purple">冷热识别<br/><span style="font-size:9px;opacity:0.8;">LRU · 访问频率</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-purple">路由决策<br/><span style="font-size:9px;opacity:0.8;">L1/L2/L3 分配</span></div>
+      <div class="arrow">→</div>
+      <div class="node node-purple">异步迁移<br/><span style="font-size:9px;opacity:0.8;">后台冷热置换</span></div>
+      <div class="arrow">→</div>
+      <div class="node-detail">
+        统一地址空间管理 · 透明内存扩展<br>
+        业务进程无需改造 · 内核模块注入
+      </div>
+    </div>
+    <!-- Lane 5: Memory -->
+    <div class="lane lane-5">
+      <div class="mem-block mb-l1">L1 · DRAM 热数据<br/>4GB · &lt;100ns · 高频页面</div>
+      <div class="arrow">↔</div>
+      <div class="mem-block mb-l2">L2 · UB借用内存<br/>动态扩展 · ~μs级 · 邻节点DRAM</div>
+      <div class="arrow">↔</div>
+      <div class="mem-block mb-l3">
+        L3 · NVMe 冷数据<br/>TB级容量 · ~100μs<br/>
+        <div class="l3-tag">超分比提升关键</div>
+      </div>
+      <div class="node-detail">
+        三层协同：热数据DRAM · 温数据借用 · 冷数据NVMe<br>
+        整机内存超分比显著提升 · 单物理机承载更多VM
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 场景架构 · 工程蓝图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #0a1628;
+    display: flex; flex-direction: column;
+    color: #c8d8ec;
+  }
+  /* Grid background */
+  body::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(100,149,200,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100,149,200,0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none; z-index: 0;
+  }
+  .header {
+    background: #061020; color: #c8d8ec;
+    padding: 7px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0; border-bottom: 1px solid #1e3a5f;
+    position: relative; z-index: 1;
+  }
+  .header h1 { font-size: 15px; font-weight: 700; letter-spacing: 1px; color: #90bcdc; }
+  .header .meta { font-size: 10px; color: #4a6fa5; margin-top: 1px; letter-spacing: 0.5px; }
+  .header .rev { font-size: 10px; color: #2d5080; }
+  .body {
+    flex: 1; position: relative; z-index: 1;
+    padding: 10px 14px;
+  }
+
+  /* Blueprint style boxes */
+  .bp-box {
+    position: absolute; border: 1px solid #2a5080; border-radius: 2px;
+    background: rgba(10,22,40,0.85);
+    padding: 7px 10px;
+  }
+  .bp-box .bb-title {
+    font-size: 10px; font-weight: 700; color: #7ab4d8; letter-spacing: 0.5px;
+    text-transform: uppercase; margin-bottom: 4px;
+    padding-bottom: 3px; border-bottom: 1px solid #1e3a5f;
+  }
+  .bp-box .bb-text { font-size: 10px; color: #94aec8; line-height: 1.6; }
+  .bp-box .bb-spec { font-size: 9px; color: #4a6fa5; }
+
+  /* Highlighted box (openclaw) */
+  .bp-oc {
+    border: 2px solid #dc2626; background: rgba(127,29,29,0.5);
+  }
+  .bp-oc .bb-title { color: #fc8181; border-color: #7f1d1d; }
+  .bp-oc .bb-text { color: #fecaca; }
+
+  /* L3 highlighted */
+  .bp-l3 { border: 2px solid #f59e0b; }
+  .bp-l3 .bb-title { color: #fbbf24; border-color: #78350f; }
+
+  /* Component labels */
+  .bp-label {
+    position: absolute; font-size: 9px; color: #4a7090; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  /* Annotation leader line style via SVG */
+  .bp-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* Number callouts */
+  .bp-callout {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: #1e3a5f; border: 1px solid #2a5080; color: #90bcdc;
+    font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Badge */
+  .bp-badge {
+    display: inline-block; background: #f59e0b; color: #0a1628;
+    font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 1px; margin-top: 3px;
+  }
+
+  /* Title box (title block, bottom right, blueprint convention) */
+  .title-block {
+    position: absolute; right: 14px; bottom: 10px;
+    width: 280px;
+    border: 1px solid #2a5080; background: rgba(6,16,32,0.95);
+  }
+  .tb-row {
+    display: flex; border-bottom: 1px solid #1e3a5f; font-size: 9px;
+  }
+  .tb-row:last-child { border-bottom: none; }
+  .tb-key { padding: 3px 6px; color: #4a7090; width: 80px; flex-shrink: 0; border-right: 1px solid #1e3a5f; }
+  .tb-val { padding: 3px 6px; color: #90bcdc; }
+
+  /* Dimension lines */
+  .dim-label { position: absolute; font-size: 9px; color: #2a5080; letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>SMAP 内存超分方案 · 工程架构蓝图</h1>
+    <div class="meta">字节火山AI平台 · 2U4G虚机 · openclaw browser · L2 UB借用内存 + L3 NVMe 超分方案</div>
+  </div>
+  <div class="rev">REV. A · 2026-06</div>
+</div>
+<div class="body">
+  <svg class="bp-svg" viewBox="0 0 1252 660" preserveAspectRatio="xMinYMin meet">
+    <defs>
+      <marker id="bp-arr" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+        <polygon points="0 0,6 2.5,0 5" fill="#2a5080"/>
+      </marker>
+      <marker id="bp-arr-r" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+        <polygon points="0 0,6 2.5,0 5" fill="#dc2626"/>
+      </marker>
+      <marker id="bp-arr-g" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+        <polygon points="0 0,6 2.5,0 5" fill="#f59e0b"/>
+      </marker>
+    </defs>
+
+    <!-- User -> Volcano -->
+    <line x1="155" y1="100" x2="260" y2="100" stroke="#2a5080" stroke-width="1.5" marker-end="url(#bp-arr)"/>
+    <text x="200" y="93" font-size="8" fill="#2a5080" text-anchor="middle">HTTP/gRPC</text>
+
+    <!-- Volcano -> VM cluster -->
+    <line x1="370" y1="118" x2="370" y2="180" stroke="#2a5080" stroke-width="1.2" marker-end="url(#bp-arr)"/>
+    <line x1="380" y1="118" x2="500" y2="180" stroke="#2a5080" stroke-width="1.2" marker-end="url(#bp-arr)"/>
+    <line x1="360" y1="118" x2="248" y2="180" stroke="#2a5080" stroke-width="1.2" marker-end="url(#bp-arr)"/>
+    <text x="375" y="152" font-size="8" fill="#2a5080">VM分配</text>
+
+    <!-- VM -> openclaw -->
+    <line x1="370" y1="245" x2="430" y2="330" stroke="#dc2626" stroke-width="2" marker-end="url(#bp-arr-r)"/>
+    <text x="382" y="293" font-size="8" fill="#dc2626" transform="rotate(40,382,293)">进程运行</text>
+
+    <!-- openclaw -> smap -->
+    <line x1="635" y1="395" x2="720" y2="395" stroke="#2a5080" stroke-width="2" marker-end="url(#bp-arr)"/>
+    <text x="670" y="387" font-size="8" fill="#4a7090" text-anchor="middle">缺页中断</text>
+
+    <!-- smap -> L1 -->
+    <line x1="760" y1="425" x2="680" y2="500" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#bp-arr)"/>
+    <text x="702" y="465" font-size="8" fill="#3b82f6" transform="rotate(-40,702,465)">热→L1</text>
+
+    <!-- smap -> L2 -->
+    <line x1="800" y1="428" x2="810" y2="500" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#bp-arr)"/>
+    <text x="820" y="464" font-size="8" fill="#22d3ee">温→L2</text>
+
+    <!-- smap -> L3 -->
+    <line x1="835" y1="425" x2="930" y2="500" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#bp-arr-g)"/>
+    <text x="903" y="461" font-size="8" fill="#f59e0b" transform="rotate(45,903,461)">冷→L3</text>
+
+    <!-- dimension line: top annotation bar -->
+    <line x1="14" y1="640" x2="968" y2="640" stroke="#1e3a5f" stroke-width="0.8"/>
+    <line x1="14" y1="633" x2="14" y2="647" stroke="#1e3a5f" stroke-width="0.8"/>
+    <line x1="968" y1="633" x2="968" y2="647" stroke="#1e3a5f" stroke-width="0.8"/>
+    <text x="490" y="650" font-size="8" fill="#2a5080" text-anchor="middle">SMAP 内存超分方案全链路架构</text>
+  </svg>
+
+  <!-- USER BOX -->
+  <div class="bp-box" style="left:14px; top:70px; width:140px;">
+    <div class="bb-title">用户请求</div>
+    <div class="bb-text">浏览任务触发<br>HTTP / gRPC 接口</div>
+    <div class="bb-spec">批量·交互式·并发</div>
+  </div>
+  <div class="bp-callout" style="left:156px; top:90px;">1</div>
+
+  <!-- VOLCANO BOX -->
+  <div class="bp-box" style="left:260px; top:60px; width:220px;">
+    <div class="bb-title">火山 Volcano AI 平台</div>
+    <div class="bb-text">统一调度引擎 · 弹性伸缩<br>AI推理 + 浏览器任务混合</div>
+    <div class="bb-spec">多租户资源管理</div>
+  </div>
+  <div class="bp-callout" style="left:482px; top:90px;">2</div>
+
+  <!-- VM GROUP -->
+  <div class="bp-box" style="left:200px; top:175px; width:360px; border-style:dashed;">
+    <div class="bb-title">虚机集群 · 2U4G 规格</div>
+    <div style="display:flex; gap:5px; margin-top:4px;">
+      <div style="flex:1; background:rgba(26,58,95,0.4); border:1px solid #2a5080; border-radius:2px; padding:4px 6px; font-size:9px; color:#7ab4d8; text-align:center;">
+        VM-01<br><span style="color:#4a6fa5;">2U4G</span>
+      </div>
+      <div style="flex:1; background:rgba(26,58,95,0.4); border:1px solid #2a5080; border-radius:2px; padding:4px 6px; font-size:9px; color:#7ab4d8; text-align:center;">
+        VM-02<br><span style="color:#4a6fa5;">2U4G</span>
+      </div>
+      <div style="flex:1; background:rgba(26,58,95,0.4); border:1px solid #2a5080; border-radius:2px; padding:4px 6px; font-size:9px; color:#7ab4d8; text-align:center;">
+        VM-03<br><span style="color:#4a6fa5;">2U4G</span>
+      </div>
+      <div style="flex:1; background:rgba(26,58,95,0.4); border:1px solid #2a5080; border-radius:2px; padding:4px 6px; font-size:9px; color:#7ab4d8; text-align:center;">
+        VM-N<br><span style="color:#4a6fa5;">...</span>
+      </div>
+    </div>
+    <div class="bb-spec" style="margin-top:4px;">KVM 虚拟化 · 内存超额申请 · smap 接入</div>
+  </div>
+  <div class="bp-callout" style="left:562px; top:210px;">3</div>
+
+  <!-- OPENCLAW BOX (highlighted) -->
+  <div class="bp-box bp-oc" style="left:380px; top:320px; width:255px;">
+    <div class="bb-title">openclaw browser · 核心应用</div>
+    <div class="bb-text" style="font-size:16px; font-weight:900; letter-spacing:2px; color:#fc8181; margin-bottom:3px;">openclaw</div>
+    <div class="bb-text">
+      命令行渲染 · HTML/JS/DOM<br>
+      大页 mmap · V8堆 · 缺页中断<br>
+      峰值内存：8 - 16 GB
+    </div>
+  </div>
+  <div class="bp-callout" style="left:637px; top:385px;">4</div>
+
+  <!-- SMAP BOX -->
+  <div class="bp-box" style="left:720px; top:345px; width:200px; border-color:#3b82f6;">
+    <div class="bb-title" style="color:#60a5fa;">smap 调度引擎</div>
+    <div class="bb-text">
+      拦截缺页中断<br>
+      LRU冷热识别<br>
+      L1/L2/L3 路由决策<br>
+      透明扩展·异步迁移
+    </div>
+  </div>
+  <div class="bp-callout" style="left:922px; top:385px;">5</div>
+
+  <!-- MEMORY LAYER: L1 -->
+  <div class="bp-box" style="left:580px; top:495px; width:155px; border-color:#3b82f6;">
+    <div class="bb-title" style="color:#60a5fa;">L1 · DRAM</div>
+    <div class="bb-text">
+      容量：4 GB<br>
+      延迟：&lt;100 ns<br>
+      策略：热数据常驻
+    </div>
+  </div>
+
+  <!-- MEMORY LAYER: L2 -->
+  <div class="bp-box" style="left:745px; top:495px; width:155px; border-color:#22d3ee;">
+    <div class="bb-title" style="color:#22d3ee;">L2 · UB借用</div>
+    <div class="bb-text">
+      来源：邻节点DRAM<br>
+      延迟：~1-5 μs<br>
+      策略：温数据扩展
+    </div>
+  </div>
+
+  <!-- MEMORY LAYER: L3 (highlighted) -->
+  <div class="bp-box bp-l3" style="left:910px; top:495px; width:170px;">
+    <div class="bb-title">L3 · NVMe 冷数据</div>
+    <div class="bb-text">
+      容量：TB 级<br>
+      延迟：~100 μs<br>
+      策略：冷数据持久化
+    </div>
+    <div class="bp-badge">超分比提升关键</div>
+  </div>
+  <div class="bp-callout" style="left:1082px; top:525px;">6</div>
+
+  <!-- RIGHT ANNOTATION PANEL (NOT title block) -->
+  <div style="position:absolute; right:14px; top:60px; width:250px; display:flex; flex-direction:column; gap:6px;">
+    <div style="background:rgba(6,16,32,0.95); border:1px solid #2a5080; padding:7px 10px; font-size:10px; color:#94aec8; line-height:1.6;">
+      <div style="font-size:11px; font-weight:700; color:#7ab4d8; margin-bottom:4px; border-bottom:1px solid #1e3a5f; padding-bottom:3px;">方案核心机制</div>
+      <b style="color:#c8d8ec;">① 请求触发：</b>用户→Volcano→VM<br>
+      <b style="color:#c8d8ec;">② 应用执行：</b>openclaw内存密集<br>
+      <b style="color:#c8d8ec;">③ smap路由：</b>冷热分层路由<br>
+      <b style="color:#c8d8ec;">④ L3超分：</b>NVMe扩展承载冷页
+    </div>
+    <div style="background:rgba(6,16,32,0.95); border:1px solid #2a5080; padding:7px 10px; font-size:10px; color:#94aec8; line-height:1.6;">
+      <div style="font-size:11px; font-weight:700; color:#7ab4d8; margin-bottom:4px; border-bottom:1px solid #1e3a5f; padding-bottom:3px;">设计目标</div>
+      物理内存 4GB → 可用 16GB+<br>
+      整机超分比 3-5x 提升<br>
+      业务代码零改造<br>
+      虚机密度显著提升
+    </div>
+  </div>
+
+  <!-- TITLE BLOCK (bottom-right, blueprint convention) -->
+  <div class="title-block">
+    <div class="tb-row">
+      <div class="tb-key">项目</div>
+      <div class="tb-val">smap 内存超分方案</div>
+    </div>
+    <div class="tb-row">
+      <div class="tb-key">平台</div>
+      <div class="tb-val">字节火山 AI</div>
+    </div>
+    <div class="tb-row">
+      <div class="tb-key">负载</div>
+      <div class="tb-val">openclaw browser · 2U4G VM</div>
+    </div>
+    <div class="tb-row">
+      <div class="tb-key">关键技术</div>
+      <div class="tb-val">L2 UB借用 + L3 NVMe超分</div>
+    </div>
+    <div class="tb-row">
+      <div class="tb-key">图号</div>
+      <div class="tb-val">SMAP-ARCH-001</div>
+    </div>
+  </div>
+
+  <!-- CALLOUT LEGEND -->
+  <div style="position:absolute; left:14px; bottom:10px; font-size:9px; color:#2a5080; line-height:1.6;">
+    ① 用户请求入口  ② 火山调度  ③ VM集群  ④ openclaw(核心)  ⑤ smap路由  ⑥ L3 NVMe超分
+  </div>
+</div>
+</body>
+</html>

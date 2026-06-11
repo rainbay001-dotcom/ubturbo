@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SMAP openclaw — 改造前后对比</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}</style>
+</head>
+<body>
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',Arial,sans-serif">
+
+<!-- Background -->
+<rect width="1280" height="720" fill="#ffffff"/>
+
+<!-- Header -->
+<rect width="1280" height="54" fill="#1B3A5C"/>
+<text x="36" y="34" fill="#ffffff" font-size="20" font-weight="bold">SMAP 内存分层 · 方案效果对比</text>
+<text x="1244" y="34" text-anchor="end" fill="#8AB4D8" font-size="13">字节火山 AI 服务平台  |  openclaw 超分承载</text>
+
+<!-- Footer -->
+<rect y="698" width="1280" height="22" fill="#F4F6F9"/>
+<line x1="0" y1="698" x2="1280" y2="698" stroke="#D8DFE8" stroke-width="1"/>
+<text x="36" y="713" fill="#888" font-size="11">方案：L2 UB借用内存 + L3 NVMe SSD · openEuler OLK-6.6</text>
+<text x="1244" y="713" text-anchor="end" fill="#888" font-size="11">VM超分比：1.0× → ↑1.8×</text>
+
+<!-- Divider line in center -->
+<line x1="640" y1="54" x2="640" y2="698" stroke="#D0D8E4" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+<!-- ===== LEFT HALF: BEFORE ===== -->
+<rect x="16" y="62" width="610" height="628" rx="0" fill="#FEFAF9"/>
+
+<!-- Before label -->
+<rect x="16" y="62" width="610" height="44" fill="#9E2A2B"/>
+<text x="321" y="89" text-anchor="middle" fill="#fff" font-size="17" font-weight="bold">改造前  ·  现状</text>
+
+<!-- Business context left -->
+<rect x="30" y="118" width="276" height="86" rx="3" fill="#fff" stroke="#D5B8B8" stroke-width="1"/>
+<text x="44" y="140" fill="#9E2A2B" font-size="13" font-weight="bold">基础设施现状</text>
+<text x="44" y="158" fill="#444" font-size="12">字节火山 AI 平台 · 单宿主机</text>
+<text x="44" y="175" fill="#444" font-size="12">2vCPU/4GB VM，仅本地 DRAM</text>
+<text x="44" y="192" fill="#666" font-size="11">openclaw browser 内存需求高</text>
+
+<rect x="318" y="118" width="292" height="86" rx="3" fill="#fff" stroke="#D5B8B8" stroke-width="1"/>
+<text x="332" y="140" fill="#9E2A2B" font-size="13" font-weight="bold">核心痛点</text>
+<text x="332" y="158" fill="#444" font-size="12">物理 DRAM 容量是瓶颈</text>
+<text x="332" y="175" fill="#444" font-size="12">超分比被严格限制</text>
+<text x="332" y="192" fill="#666" font-size="11">业务扩容空间受限，成本高</text>
+
+<!-- Memory stack BEFORE: Single DRAM only -->
+<text x="321" y="228" text-anchor="middle" fill="#9E2A2B" font-size="14" font-weight="bold">内存架构（单层）</text>
+<rect x="148" y="238" width="346" height="64" rx="4" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+<text x="321" y="264" text-anchor="middle" fill="#fff" font-size="16" font-weight="bold">L1  本地 DRAM</text>
+<text x="321" y="283" text-anchor="middle" fill="#A5D6A7" font-size="13">唯一内存层 · 延迟 ~100ns</text>
+<rect x="148" y="306" width="346" height="40" rx="3" fill="#F5EAEA" stroke="#D5B8B8" stroke-width="1" stroke-dasharray="5,3"/>
+<text x="321" y="331" text-anchor="middle" fill="#9E2A2B" font-size="13">L2 / L3  —  未启用</text>
+
+<!-- VMs BEFORE: 3 VMs, 2 blocked -->
+<text x="321" y="374" text-anchor="middle" fill="#9E2A2B" font-size="14" font-weight="bold">宿主机 VM 承载</text>
+
+<!-- VM-01 -->
+<rect x="50" y="384" width="150" height="90" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="50" y="384" width="150" height="24" rx="4" fill="#B45309"/>
+<rect x="50" y="404" width="150" height="4" fill="#B45309"/>
+<rect x="60" y="416" width="130" height="50" rx="2" fill="#FEF3E2"/>
+<circle cx="72" cy="428" r="4" fill="#D97706"/>
+<rect x="82" y="425" width="96" height="6" rx="2" fill="#E8D5B0"/>
+<line x1="60" y1="436" x2="180" y2="436" stroke="#D97706" stroke-width="1"/>
+<text x="125" y="458" text-anchor="middle" fill="#B45309" font-size="11" font-weight="bold">openclaw</text>
+<text x="125" y="400" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">VM-01</text>
+
+<!-- VM-02 -->
+<rect x="233" y="384" width="150" height="90" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="233" y="384" width="150" height="24" rx="4" fill="#B45309"/>
+<rect x="233" y="404" width="150" height="4" fill="#B45309"/>
+<rect x="243" y="416" width="130" height="50" rx="2" fill="#FEF3E2"/>
+<circle cx="255" cy="428" r="4" fill="#D97706"/>
+<rect x="265" y="425" width="96" height="6" rx="2" fill="#E8D5B0"/>
+<line x1="243" y1="436" x2="363" y2="436" stroke="#D97706" stroke-width="1"/>
+<text x="308" y="458" text-anchor="middle" fill="#B45309" font-size="11" font-weight="bold">openclaw</text>
+<text x="308" y="400" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">VM-02</text>
+
+<!-- VM-03 -->
+<rect x="416" y="384" width="150" height="90" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="416" y="384" width="150" height="24" rx="4" fill="#B45309"/>
+<rect x="416" y="404" width="150" height="4" fill="#B45309"/>
+<rect x="426" y="416" width="130" height="50" rx="2" fill="#FEF3E2"/>
+<circle cx="438" cy="428" r="4" fill="#D97706"/>
+<rect x="448" y="425" width="96" height="6" rx="2" fill="#E8D5B0"/>
+<line x1="426" y1="436" x2="546" y2="436" stroke="#D97706" stroke-width="1"/>
+<text x="491" y="458" text-anchor="middle" fill="#B45309" font-size="11" font-weight="bold">openclaw</text>
+<text x="491" y="400" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">VM-03</text>
+
+<!-- Blocked VMs -->
+<rect x="50" y="498" width="252" height="72" rx="4" fill="#F5EAEA" stroke="#9E2A2B" stroke-width="1.5" stroke-dasharray="5,3"/>
+<line x1="60" y1="508" x2="292" y2="560" stroke="#9E2A2B" stroke-width="2" opacity="0.6"/>
+<line x1="292" y1="508" x2="60" y2="560" stroke="#9E2A2B" stroke-width="2" opacity="0.6"/>
+<text x="171" y="540" text-anchor="middle" fill="#9E2A2B" font-size="14" font-weight="bold">VM-04 ~ 06</text>
+<text x="171" y="558" text-anchor="middle" fill="#9E2A2B" font-size="12">内存不足，无法创建</text>
+
+<rect x="316" y="498" width="300" height="72" rx="4" fill="#F4F4F4" stroke="#999" stroke-width="1"/>
+<text x="466" y="530" text-anchor="middle" fill="#888" font-size="20" font-weight="bold">超分比：1.0×</text>
+<text x="466" y="552" text-anchor="middle" fill="#999" font-size="13">承载上限受 DRAM 约束</text>
+
+<!-- ===== RIGHT HALF: AFTER ===== -->
+<rect x="650" y="62" width="614" height="628" rx="0" fill="#F8FCF8"/>
+
+<!-- After label -->
+<rect x="650" y="62" width="614" height="44" fill="#2E7D32"/>
+<text x="957" y="89" text-anchor="middle" fill="#fff" font-size="17" font-weight="bold">引入 SMAP  ·  改进后</text>
+
+<!-- Business context right -->
+<rect x="664" y="118" width="276" height="86" rx="3" fill="#fff" stroke="#B8D5B8" stroke-width="1"/>
+<text x="678" y="140" fill="#2E7D32" font-size="13" font-weight="bold">SMAP 方案</text>
+<text x="678" y="158" fill="#444" font-size="12">启用 L2 UB 借用内存（RDMA）</text>
+<text x="678" y="175" fill="#444" font-size="12">启用 L3 NVMe SSD 冷页面卸载</text>
+<text x="678" y="192" fill="#666" font-size="11">openEuler OLK-6.6 · DAMOS 策略</text>
+
+<rect x="952" y="118" width="296" height="86" rx="3" fill="#fff" stroke="#B8D5B8" stroke-width="1"/>
+<text x="966" y="140" fill="#2E7D32" font-size="13" font-weight="bold">业务收益</text>
+<text x="966" y="158" fill="#444" font-size="12">VM 承载能力翻倍（3 → 6 台）</text>
+<text x="966" y="175" fill="#444" font-size="12">超分比提升 ↑1.8×</text>
+<text x="966" y="192" fill="#666" font-size="11">降低单 VM 计算资源成本</text>
+
+<!-- Memory stack AFTER: Three layers -->
+<text x="957" y="228" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">内存架构（三层分级）</text>
+<rect x="748" y="238" width="420" height="42" rx="4" fill="#2E7D32" stroke="#1B5E20" stroke-width="2"/>
+<text x="958" y="264" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">L1  本地 DRAM  ·  热数据  ·  ~100ns</text>
+
+<rect x="748" y="284" width="420" height="40" rx="4" fill="#1565C0" stroke="#0D47A1" stroke-width="2"/>
+<text x="958" y="309" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L2  UB借用内存（RDMA）·  温数据  ·  ~1μs</text>
+
+<rect x="748" y="328" width="420" height="40" rx="4" fill="#D97706" stroke="#A16207" stroke-width="2"/>
+<text x="958" y="353" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">L3  NVMe SSD  ·  冷数据  ·  ~100μs</text>
+
+<!-- VMs AFTER: 6 VMs (3 original + 3 new) -->
+<text x="957" y="390" text-anchor="middle" fill="#2E7D32" font-size="14" font-weight="bold">宿主机 VM 承载（扩展后）</text>
+
+<!-- Row 1: original 3 VMs -->
+<rect x="660" y="400" width="116" height="82" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="660" y="400" width="116" height="20" rx="4" fill="#B45309"/>
+<rect x="660" y="416" width="116" height="4" fill="#B45309"/>
+<rect x="668" y="426" width="100" height="48" rx="2" fill="#FEF3E2"/>
+<circle cx="678" cy="436" r="3.5" fill="#D97706"/>
+<rect x="686" y="433" width="74" height="5" rx="2" fill="#E8D5B0"/>
+<line x1="668" y1="444" x2="768" y2="444" stroke="#D97706" stroke-width="1"/>
+<text x="718" y="464" text-anchor="middle" fill="#B45309" font-size="10">openclaw</text>
+<text x="718" y="412" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-01</text>
+
+<rect x="790" y="400" width="116" height="82" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="790" y="400" width="116" height="20" rx="4" fill="#B45309"/>
+<rect x="790" y="416" width="116" height="4" fill="#B45309"/>
+<rect x="798" y="426" width="100" height="48" rx="2" fill="#FEF3E2"/>
+<circle cx="808" cy="436" r="3.5" fill="#D97706"/>
+<rect x="816" y="433" width="74" height="5" rx="2" fill="#E8D5B0"/>
+<line x1="798" y1="444" x2="898" y2="444" stroke="#D97706" stroke-width="1"/>
+<text x="848" y="464" text-anchor="middle" fill="#B45309" font-size="10">openclaw</text>
+<text x="848" y="412" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-02</text>
+
+<rect x="920" y="400" width="116" height="82" rx="4" fill="#fff" stroke="#B45309" stroke-width="2"/>
+<rect x="920" y="400" width="116" height="20" rx="4" fill="#B45309"/>
+<rect x="920" y="416" width="116" height="4" fill="#B45309"/>
+<rect x="928" y="426" width="100" height="48" rx="2" fill="#FEF3E2"/>
+<circle cx="938" cy="436" r="3.5" fill="#D97706"/>
+<rect x="946" y="433" width="74" height="5" rx="2" fill="#E8D5B0"/>
+<line x1="928" y1="444" x2="1028" y2="444" stroke="#D97706" stroke-width="1"/>
+<text x="978" y="464" text-anchor="middle" fill="#B45309" font-size="10">openclaw</text>
+<text x="978" y="412" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-03</text>
+
+<!-- Row 2: SMAP new 3 VMs -->
+<rect x="660" y="498" width="116" height="82" rx="4" fill="#fff" stroke="#1565C0" stroke-width="2" stroke-dasharray="5,3"/>
+<rect x="660" y="498" width="116" height="20" rx="4" fill="#1565C0"/>
+<rect x="660" y="514" width="116" height="4" fill="#1565C0"/>
+<rect x="668" y="524" width="100" height="48" rx="2" fill="#E8EFF8"/>
+<circle cx="678" cy="534" r="3.5" fill="#1565C0"/>
+<rect x="686" y="531" width="74" height="5" rx="2" fill="#BDD0E8"/>
+<line x1="668" y1="542" x2="768" y2="542" stroke="#1565C0" stroke-width="1"/>
+<text x="718" y="562" text-anchor="middle" fill="#1565C0" font-size="10">openclaw</text>
+<text x="718" y="510" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-04 ★</text>
+
+<rect x="790" y="498" width="116" height="82" rx="4" fill="#fff" stroke="#1565C0" stroke-width="2" stroke-dasharray="5,3"/>
+<rect x="790" y="498" width="116" height="20" rx="4" fill="#1565C0"/>
+<rect x="790" y="514" width="116" height="4" fill="#1565C0"/>
+<rect x="798" y="524" width="100" height="48" rx="2" fill="#E8EFF8"/>
+<circle cx="808" cy="534" r="3.5" fill="#1565C0"/>
+<rect x="816" y="531" width="74" height="5" rx="2" fill="#BDD0E8"/>
+<line x1="798" y1="542" x2="898" y2="542" stroke="#1565C0" stroke-width="1"/>
+<text x="848" y="562" text-anchor="middle" fill="#1565C0" font-size="10">openclaw</text>
+<text x="848" y="510" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-05 ★</text>
+
+<rect x="920" y="498" width="116" height="82" rx="4" fill="#fff" stroke="#1565C0" stroke-width="2" stroke-dasharray="5,3"/>
+<rect x="920" y="498" width="116" height="20" rx="4" fill="#1565C0"/>
+<rect x="920" y="514" width="116" height="4" fill="#1565C0"/>
+<rect x="928" y="524" width="100" height="48" rx="2" fill="#E8EFF8"/>
+<circle cx="938" cy="534" r="3.5" fill="#1565C0"/>
+<rect x="946" y="531" width="74" height="5" rx="2" fill="#BDD0E8"/>
+<line x1="928" y1="542" x2="1028" y2="542" stroke="#1565C0" stroke-width="1"/>
+<text x="978" y="562" text-anchor="middle" fill="#1565C0" font-size="10">openclaw</text>
+<text x="978" y="510" text-anchor="middle" fill="#fff" font-size="11" font-weight="bold">VM-06 ★</text>
+
+<!-- Result metric right -->
+<rect x="1048" y="400" width="206" height="180" rx="4" fill="#2E7D32"/>
+<text x="1151" y="440" text-anchor="middle" fill="#A5D6A7" font-size="14">VM 承载数</text>
+<text x="1151" y="488" text-anchor="middle" fill="#fff" font-size="44" font-weight="bold">6</text>
+<line x1="1068" y1="508" x2="1234" y2="508" stroke="#4CAF50" stroke-width="1"/>
+<text x="1151" y="534" text-anchor="middle" fill="#A5D6A7" font-size="14">超分比</text>
+<text x="1151" y="572" text-anchor="middle" fill="#fff" font-size="36" font-weight="bold">↑1.8×</text>
+
+<!-- Center arrow -->
+<text x="640" y="390" text-anchor="middle" fill="#1B3A5C" font-size="16" font-weight="bold">SMAP</text>
+<text x="640" y="408" text-anchor="middle" fill="#1B3A5C" font-size="11">内存分层</text>
+<text x="640" y="424" text-anchor="middle" fill="#5B8DB8" font-size="22">→</text>
+
+</svg>
+</body>
+</html>

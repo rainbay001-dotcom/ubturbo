@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>SMAP 示意图 09 · Layer Bands</title>
+<style>body { margin:0; padding:0; background:#F8FAFC; }</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <marker id="ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1E3A8A"/>
+    </marker>
+    <marker id="ao" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#EA580C"/>
+    </marker>
+    <marker id="ag" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#059669"/>
+    </marker>
+    <marker id="aa" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#D97706"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="720" fill="#F8FAFC"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1280" height="72" fill="#1E3A8A"/>
+  <text x="24" y="26" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="17" font-weight="bold" fill="white">SMAP 水平分层带图 · 三层全宽架构展示</text>
+  <text x="24" y="48" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="12" fill="#93C5FD">字节火山 AI 平台 · openEuler OLK-6.6 · UB Stack · 2vCPU/4GB × 6 VM · 超分比 1.0×→1.8×</text>
+  <rect x="1000" y="10" width="264" height="52" rx="4" fill="#1E40AF"/>
+  <text x="1132" y="30" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#93C5FD" text-anchor="middle">L3 NVMe · 超分关键</text>
+  <text x="1132" y="52" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="20" font-weight="bold" fill="#FCD34D" text-anchor="middle">1.0× → 1.8×</text>
+
+  <!-- ==================== BAND 1: 应用层 (y=72-284) ==================== -->
+  <rect x="0" y="72" width="1280" height="212" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="0"/>
+
+  <!-- Left vertical sidebar label -->
+  <rect x="0" y="72" width="60" height="212" fill="#1E3A8A"/>
+  <text x="30" y="178" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(-90,30,178)">应用层</text>
+
+  <!-- Band 1 content -->
+  <!-- Platform card (left half) -->
+  <rect x="68" y="82" width="576" height="192" rx="6" fill="white" stroke="#BFDBFE" stroke-width="1.5"/>
+  <rect x="68" y="82" width="576" height="28" rx="6" fill="#1E3A8A"/>
+  <text x="356" y="100" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">字节火山 AI 平台</text>
+  <text x="78" y="124" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">openEuler OLK-6.6 · UB Stack</text>
+  <text x="78" y="140" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">调度策略: 负载均衡 · 优先级队列 · 弹性扩缩容</text>
+  <text x="78" y="156" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">SLA: 高可用 99.99% · P99 延迟 &lt;200ms</text>
+  <text x="78" y="172" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">请求接入: 网页渲染 · 图片处理 · JS执行 · API调用</text>
+
+  <!-- Request type tags -->
+  <rect x="78" y="182" width="80" height="22" rx="3" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+  <text x="118" y="196" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">网页渲染</text>
+  <rect x="166" y="182" width="80" height="22" rx="3" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+  <text x="206" y="196" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">图片处理</text>
+  <rect x="254" y="182" width="80" height="22" rx="3" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+  <text x="294" y="196" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">JS 执行</text>
+  <rect x="342" y="182" width="80" height="22" rx="3" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1"/>
+  <text x="382" y="196" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">API 调用</text>
+
+  <!-- Metrics row -->
+  <rect x="78" y="212" width="120" height="52" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="138" y="230" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#64748B" text-anchor="middle">并发 RPS</text>
+  <text x="138" y="252" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="18" font-weight="bold" fill="#1E3A8A" text-anchor="middle">1000+</text>
+  <rect x="206" y="212" width="120" height="52" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="266" y="230" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#64748B" text-anchor="middle">VM 配额</text>
+  <text x="266" y="252" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="18" font-weight="bold" fill="#1E3A8A" text-anchor="middle">6台</text>
+  <rect x="334" y="212" width="120" height="52" rx="3" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="394" y="230" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#64748B" text-anchor="middle">总 vCPU</text>
+  <text x="394" y="252" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="18" font-weight="bold" fill="#1E3A8A" text-anchor="middle">12核</text>
+  <rect x="462" y="212" width="172" height="52" rx="3" fill="#FEF3C7" stroke="#FCD34D" stroke-width="1"/>
+  <text x="548" y="230" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#64748B" text-anchor="middle">目标超分比</text>
+  <text x="548" y="252" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="20" font-weight="bold" fill="#D97706" text-anchor="middle">1.8×</text>
+
+  <!-- 6 VM cards (right half) -->
+  <rect x="652" y="82" width="620" height="192" rx="6" fill="white" stroke="#BFDBFE" stroke-width="1.5"/>
+  <rect x="652" y="82" width="620" height="28" rx="6" fill="#1E40AF"/>
+  <text x="962" y="100" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">VM 实例矩阵 (2vCPU / 4GB RAM × 6)</text>
+  <!-- VM cards 3x2 -->
+  <rect x="664" y="118" width="185" height="66" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="756" y="135" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-01</text>
+  <text x="756" y="149" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="674" y="155" width="165" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="674" y="155" width="116" height="8" rx="4" fill="#059669"/>
+  <text x="756" y="176" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 70%</text>
+  <rect x="857" y="118" width="185" height="66" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="949" y="135" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-02</text>
+  <text x="949" y="149" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="867" y="155" width="165" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="867" y="155" width="99" height="8" rx="4" fill="#059669"/>
+  <text x="949" y="176" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 60%</text>
+  <rect x="1050" y="118" width="210" height="66" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="1155" y="135" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-03</text>
+  <text x="1155" y="149" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="1060" y="155" width="190" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="1060" y="155" width="152" height="8" rx="4" fill="#059669"/>
+  <text x="1155" y="176" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 80%</text>
+  <!-- Row 2 -->
+  <rect x="664" y="192" width="185" height="74" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="756" y="209" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-04</text>
+  <text x="756" y="223" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="674" y="229" width="165" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="674" y="229" width="83" height="8" rx="4" fill="#059669"/>
+  <text x="756" y="254" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 50%</text>
+  <rect x="857" y="192" width="185" height="74" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="949" y="209" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-05</text>
+  <text x="949" y="223" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="867" y="229" width="165" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="867" y="229" width="124" height="8" rx="4" fill="#059669"/>
+  <text x="949" y="254" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 75%</text>
+  <rect x="1050" y="192" width="210" height="74" rx="4" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+  <text x="1155" y="209" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">VM-06</text>
+  <text x="1155" y="223" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">2vCPU · 4GB · oc×3</text>
+  <rect x="1060" y="229" width="190" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="1060" y="229" width="133" height="8" rx="4" fill="#059669"/>
+  <text x="1155" y="254" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">MEM 70%</text>
+
+  <!-- Dividing arrow -->
+  <line x1="640" y1="284" x2="640" y2="302" stroke="#EA580C" stroke-width="3" marker-end="url(#ao)"/>
+
+  <!-- ==================== BAND 2: 核心层 (y=284-496) ==================== -->
+  <rect x="0" y="284" width="1280" height="212" fill="#FFF7ED" stroke="#FDBA74" stroke-width="0"/>
+
+  <!-- Left vertical sidebar label (orange) -->
+  <rect x="0" y="284" width="60" height="212" fill="#EA580C"/>
+  <text x="30" y="390" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(-90,30,390)">核心层</text>
+
+  <!-- Large openclaw card (left 60% of content area) -->
+  <rect x="68" y="294" width="732" height="192" rx="6" fill="white" stroke="#EA580C" stroke-width="2.5"/>
+  <rect x="68" y="294" width="732" height="28" rx="6" fill="#EA580C"/>
+  <rect x="620" y="297" width="172" height="20" rx="10" fill="#C2410C"/>
+  <text x="706" y="310" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">核心组件 · 重点关注</text>
+  <text x="384" y="312" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">openclaw Browser · 核心渲染引擎</text>
+
+  <!-- Browser mockup -->
+  <rect x="80" y="330" width="260" height="144" rx="4" fill="#F8FAFC" stroke="#FDBA74" stroke-width="1.5"/>
+  <rect x="80" y="330" width="260" height="22" rx="4" fill="#EA580C"/>
+  <circle cx="94" cy="341" r="5" fill="#FCA5A5"/>
+  <circle cx="106" cy="341" r="5" fill="#FCD34D"/>
+  <circle cx="118" cy="341" r="5" fill="#6EE7B7"/>
+  <text x="210" y="344" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="white" text-anchor="middle">openclaw</text>
+  <!-- Tab row -->
+  <rect x="88" y="358" width="72" height="14" rx="2" fill="#EA580C"/>
+  <text x="124" y="368" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="white" text-anchor="middle">活跃Tab(热)</text>
+  <rect x="166" y="358" width="72" height="14" rx="2" fill="#CBD5E1"/>
+  <text x="202" y="368" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#475569" text-anchor="middle">背景Tab(温)</text>
+  <rect x="244" y="358" width="88" height="14" rx="2" fill="#CBD5E1"/>
+  <text x="288" y="368" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">关闭Tab(冷)</text>
+  <!-- Content areas -->
+  <rect x="88" y="378" width="244" height="28" rx="2" fill="#DBEAFE"/>
+  <text x="210" y="396" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">渲染内容区 · 热页驻留 L1 DRAM</text>
+  <rect x="88" y="410" width="116" height="24" rx="2" fill="#DCFCE7"/>
+  <text x="146" y="425" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#059669" text-anchor="middle">JS堆 · 温页→L2</text>
+  <rect x="210" y="410" width="122" height="24" rx="2" fill="#FEF3C7"/>
+  <text x="271" y="425" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#D97706" text-anchor="middle">历史缓存 → L3</text>
+  <rect x="88" y="438" width="244" height="28" rx="2" fill="#FFF7ED"/>
+  <text x="210" y="455" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#EA580C" text-anchor="middle">SMAP热度追踪 · 精准冷热分类</text>
+  <text x="210" y="467" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">6VM×3实例=18进程</text>
+
+  <!-- Components detail -->
+  <rect x="350" y="330" width="138" height="60" rx="3" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1"/>
+  <text x="419" y="348" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#EA580C" text-anchor="middle">渲染引擎</text>
+  <text x="419" y="363" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">Blink · 热页 L1</text>
+  <text x="419" y="377" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">CSS/Layout</text>
+  <rect x="496" y="330" width="138" height="60" rx="3" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1"/>
+  <text x="565" y="348" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#EA580C" text-anchor="middle">JS 执行</text>
+  <text x="565" y="363" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">V8 · 堆追踪</text>
+  <text x="565" y="377" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">GC · 热保护</text>
+  <rect x="642" y="330" width="146" height="60" rx="3" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1"/>
+  <text x="715" y="348" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#EA580C" text-anchor="middle">页面缓存</text>
+  <text x="715" y="363" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#D97706" text-anchor="middle">冷页→L3 NVMe</text>
+  <text x="715" y="377" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">超分关键入口</text>
+
+  <rect x="350" y="398" width="438" height="80" rx="3" fill="#FFEDD5" stroke="#FDBA74" stroke-width="1"/>
+  <text x="569" y="416" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="12" font-weight="bold" fill="#EA580C" text-anchor="middle">openclaw 内存热度分布</text>
+  <rect x="360" y="424" width="418" height="16" rx="8" fill="#E2E8F0"/>
+  <rect x="360" y="424" width="125" height="16" rx="8" fill="#1E3A8A"/>
+  <rect x="485" y="424" width="84" height="16" fill="#059669"/>
+  <rect x="569" y="424" width="209" height="16" rx="8" fill="#D97706"/>
+  <text x="422" y="436" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="white" text-anchor="middle">热 30%</text>
+  <text x="527" y="436" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="white" text-anchor="middle">温 20%</text>
+  <text x="673" y="436" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="9" fill="white" text-anchor="middle">冷 50% → L3 换出 → 超分</text>
+  <text x="569" y="464" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#92400E" text-anchor="middle">50%冷页换出NVMe = DRAM释放 = 超分比↑</text>
+
+  <!-- SMAP card (right 40% of content) -->
+  <rect x="808" y="294" width="464" height="192" rx="6" fill="white" stroke="#1E3A8A" stroke-width="2"/>
+  <rect x="808" y="294" width="464" height="28" rx="6" fill="#1E3A8A"/>
+  <text x="1040" y="312" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">SMAP 内存调度器</text>
+  <text x="818" y="338" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">openEuler OLK-6.6 · 内核内存调度</text>
+  <text x="818" y="352" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">DAMOS · PSI_FINE_GRAINED · LRU</text>
+
+  <rect x="818" y="362" width="200" height="22" rx="3" fill="#EFF6FF"/>
+  <text x="918" y="376" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">冷热页识别 · LRU追踪</text>
+  <rect x="818" y="388" width="200" height="22" rx="3" fill="#EFF6FF"/>
+  <text x="918" y="402" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">DAMOS_DEMOTION</text>
+  <rect x="818" y="414" width="200" height="22" rx="3" fill="#EFF6FF"/>
+  <text x="918" y="428" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">folio_isolate_lru</text>
+  <rect x="818" y="440" width="200" height="22" rx="3" fill="#EFF6FF"/>
+  <text x="918" y="454" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">PSI_FINE_GRAINED</text>
+
+  <!-- Page routing visualization -->
+  <rect x="1026" y="330" width="234" height="148" rx="4" fill="#F1F5F9"/>
+  <text x="1143" y="346" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#1E3A8A" text-anchor="middle">页面路由</text>
+  <rect x="1036" y="354" width="50" height="20" rx="3" fill="#DBEAFE"/>
+  <text x="1061" y="368" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">热页</text>
+  <line x1="1086" y1="364" x2="1106" y2="364" stroke="#1E3A8A" stroke-width="1.5" marker-end="url(#ah)"/>
+  <rect x="1108" y="354" width="144" height="20" rx="3" fill="#1E3A8A"/>
+  <text x="1180" y="368" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="white" text-anchor="middle">L1 DRAM 驻留</text>
+  <rect x="1036" y="382" width="50" height="20" rx="3" fill="#DCFCE7"/>
+  <text x="1061" y="396" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#059669" text-anchor="middle">温页</text>
+  <line x1="1086" y1="392" x2="1106" y2="392" stroke="#059669" stroke-width="1.5" marker-end="url(#ag)"/>
+  <rect x="1108" y="382" width="144" height="20" rx="3" fill="#059669"/>
+  <text x="1180" y="396" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="white" text-anchor="middle">L2 UB借用</text>
+  <rect x="1036" y="410" width="50" height="20" rx="3" fill="#FEF3C7"/>
+  <text x="1061" y="424" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#D97706" text-anchor="middle">冷页</text>
+  <line x1="1086" y1="420" x2="1106" y2="420" stroke="#D97706" stroke-width="1.5" marker-end="url(#aa)"/>
+  <rect x="1108" y="410" width="144" height="20" rx="3" fill="#D97706"/>
+  <text x="1180" y="424" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="white" text-anchor="middle">L3 NVMe 换出</text>
+  <rect x="1036" y="438" width="216" height="32" rx="3" fill="#FEF3C7" stroke="#FCD34D" stroke-width="1"/>
+  <text x="1144" y="453" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#D97706" text-anchor="middle">超分关键: 冷→NVMe</text>
+  <text x="1144" y="465" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#92400E" text-anchor="middle">1.0× → 1.8× 实现路径</text>
+
+  <!-- Dividing arrow 2 -->
+  <line x1="640" y1="496" x2="640" y2="514" stroke="#059669" stroke-width="3" marker-end="url(#ag)"/>
+
+  <!-- ==================== BAND 3: 存储层 (y=496-720) ==================== -->
+  <rect x="0" y="496" width="1280" height="224" fill="#F0FDF4" stroke="#86EFAC" stroke-width="0"/>
+
+  <!-- Left vertical sidebar label (green) -->
+  <rect x="0" y="496" width="60" height="224" fill="#059669"/>
+  <text x="30" y="608" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" transform="rotate(-90,30,608)">存储层</text>
+
+  <!-- L1 section -->
+  <rect x="68" y="506" width="375" height="200" rx="6" fill="white" stroke="#1E3A8A" stroke-width="2.5"/>
+  <rect x="68" y="506" width="375" height="28" rx="6" fill="#1E3A8A"/>
+  <text x="255" y="524" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">L1 · DRAM 热数据层</text>
+  <text x="78" y="550" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="12" font-weight="bold" fill="#1E3A8A">热页常驻 · 最高优先级</text>
+  <text x="78" y="566" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">延迟: ~100ns · 容量: 32GB</text>
+  <text x="78" y="580" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">带宽: 100% 基准</text>
+  <text x="78" y="596" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">优先保障: openclaw 活跃Tab</text>
+  <text x="78" y="610" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">数据类型: 渲染数据 · JS堆</text>
+  <rect x="78" y="620" width="355" height="12" rx="6" fill="#E2E8F0"/>
+  <rect x="78" y="620" width="355" height="12" rx="6" fill="#1E3A8A"/>
+  <text x="255" y="648" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">100% 带宽利用率 · 32GB全满载</text>
+  <rect x="78" y="654" width="355" height="42" rx="3" fill="#EFF6FF"/>
+  <text x="255" y="670" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#1E3A8A" text-anchor="middle">folio_isolate_lru · reclaim_pages</text>
+  <text x="255" y="685" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">最高性能层 · 零延迟体验</text>
+
+  <!-- L2 section -->
+  <rect x="451" y="506" width="375" height="200" rx="6" fill="white" stroke="#059669" stroke-width="2.5"/>
+  <rect x="451" y="506" width="375" height="28" rx="6" fill="#059669"/>
+  <text x="638" y="524" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">L2 · UB 借用内存 温数据层</text>
+  <text x="461" y="550" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="12" font-weight="bold" fill="#059669">温页迁移 · UB Stack</text>
+  <text x="461" y="566" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">延迟: ~1μs · 容量: 128GB</text>
+  <text x="461" y="580" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">带宽: ~60% 相对</text>
+  <text x="461" y="596" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">优先保障: 后台Tab DOM数据</text>
+  <text x="461" y="610" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">UB Stack: 借用邻机空闲内存</text>
+  <rect x="461" y="620" width="355" height="12" rx="6" fill="#E2E8F0"/>
+  <rect x="461" y="620" width="213" height="12" rx="6" fill="#059669"/>
+  <text x="638" y="648" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#059669" text-anchor="middle">60% 相对带宽</text>
+  <rect x="461" y="654" width="355" height="42" rx="3" fill="#F0FDF4"/>
+  <text x="638" y="670" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#059669" text-anchor="middle">DAMOS_DEMOTION · UB 协议栈</text>
+  <text x="638" y="685" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#475569" text-anchor="middle">中间缓冲层 · 透明扩展内存</text>
+
+  <!-- L3 section HIGHLIGHTED -->
+  <rect x="834" y="506" width="438" height="200" rx="6" fill="white" stroke="#D97706" stroke-width="3"/>
+  <rect x="834" y="506" width="438" height="28" rx="6" fill="#D97706"/>
+  <text x="1053" y="524" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle">L3 · NVMe SSD 冷数据层</text>
+  <rect x="1170" y="508" width="94" height="22" rx="11" fill="#EA580C"/>
+  <text x="1217" y="522" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" font-weight="bold" fill="white" text-anchor="middle">超分关键</text>
+  <text x="844" y="550" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="12" font-weight="bold" fill="#D97706">冷页换出 · 超分核心支柱</text>
+  <text x="844" y="566" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">延迟: ~100μs · 容量: 4TB</text>
+  <text x="844" y="580" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">带宽: ~15% · 异步回写</text>
+  <text x="844" y="596" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#475569">冷页类型: 关闭Tab · 历史缓存</text>
+  <text x="844" y="610" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#D97706">整机超分比: 1.0× → 1.8×</text>
+  <rect x="844" y="620" width="418" height="12" rx="6" fill="#E2E8F0"/>
+  <rect x="844" y="620" width="63" height="12" rx="6" fill="#D97706"/>
+  <text x="1053" y="648" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="10" fill="#D97706" text-anchor="middle">15% 相对带宽</text>
+  <rect x="844" y="654" width="418" height="42" rx="3" fill="#FEF3C7"/>
+  <text x="1053" y="670" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" font-weight="bold" fill="#D97706" text-anchor="middle">zswap 压缩 · 异步回写 · 按需预取</text>
+  <text x="1053" y="685" font-family="'Microsoft YaHei',Arial,sans-serif" font-size="11" fill="#92400E" text-anchor="middle">NVMe 4TB 承载 → DRAM 释放 → VM 数量增加</text>
+
+  <!-- Band divider lines -->
+  <line x1="60" y1="284" x2="1280" y2="284" stroke="#CBD5E1" stroke-width="1.5"/>
+  <line x1="60" y1="496" x2="1280" y2="496" stroke="#CBD5E1" stroke-width="1.5"/>
+</svg>
+</body>
+</html>

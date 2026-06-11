@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 工程蓝图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Courier New', 'Consolas', 'PingFang SC', monospace;
+    background: #E8EDF4;
+    color: #1A2A3A;
+  }
+  .slide { width: 1920px; height: 1080px; position: relative; }
+
+  /* Blueprint grid background */
+  .blueprint-bg {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(rgba(100,140,200,0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100,140,200,0.12) 1px, transparent 1px),
+      linear-gradient(rgba(100,140,200,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100,140,200,0.06) 1px, transparent 1px);
+    background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  }
+
+  /* Title block - engineering style */
+  .title-block {
+    position: absolute; top: 0; left: 0; right: 0; height: 72px;
+    background: #1E3A5F; border-bottom: 3px solid #3D7AB5;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+  }
+  .tb-left { display: flex; align-items: center; gap: 20px; }
+  .tb-doc-num {
+    color: #8AAFD4; font-size: 10px; font-family: 'Courier New', monospace;
+    border: 1px solid #2D5A8E; padding: 4px 10px; border-radius: 2px;
+  }
+  .tb-title { color: #E8F0FA; font-size: 18px; font-weight: 700; font-family: 'PingFang SC', sans-serif; }
+  .tb-sub { color: #8AAFD4; font-size: 11px; margin-top: 2px; font-family: 'PingFang SC', sans-serif; }
+  .tb-right { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #8AAFD4; }
+  .tb-info { text-align: right; }
+  .tb-info-label { color: #5A7A9A; font-size: 9px; letter-spacing: 1px; }
+  .tb-info-val { color: #A8C8E8; font-size: 11px; font-weight: 600; }
+  .tb-sep { width: 1px; height: 36px; background: #2D5A8E; }
+
+  /* Main blueprint area */
+  .blueprint-main {
+    position: absolute; top: 72px; left: 0; right: 0; bottom: 56px;
+    padding: 20px 32px;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: 1fr;
+    gap: 20px;
+  }
+
+  /* Left: Main architectural drawing */
+  .arch-drawing {
+    position: relative;
+    background: rgba(255,255,255,0.85);
+    border: 2px solid #3D7AB5;
+    border-radius: 4px;
+  }
+
+  /* Component boxes in blueprint style */
+  .bp-box {
+    position: absolute;
+    border: 2px solid;
+    background: rgba(255,255,255,0.9);
+    border-radius: 3px;
+  }
+  .bp-box-title {
+    position: absolute; top: -10px; left: 10px;
+    background: #fff; padding: 0 6px;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .bp-box-inner {
+    padding: 10px 14px;
+    display: flex; flex-direction: column; justify-content: center;
+    height: 100%;
+  }
+  .bp-main-title { font-size: 14px; font-weight: 700; font-family: 'PingFang SC', sans-serif; }
+  .bp-main-sub { font-size: 11px; color: #64748B; margin-top: 3px; font-family: 'PingFang SC', sans-serif; }
+  .bp-spec-row { display: flex; gap: 12px; margin-top: 8px; }
+  .bp-spec { font-size: 10px; }
+  .bp-spec-k { color: #94A3B8; }
+  .bp-spec-v { font-weight: 700; color: #1A2A3A; }
+  /* Callout lines */
+  .callout {
+    position: absolute;
+    border: 1px solid #3D7AB5;
+    background: #EBF3FC;
+    border-radius: 3px;
+    padding: 5px 8px;
+    font-size: 10px; color: #1E3A5F;
+    font-family: 'PingFang SC', sans-serif;
+  }
+  .callout-line {
+    position: absolute; background: #3D7AB5; z-index: 2;
+  }
+
+  /* Right spec table */
+  .spec-panel {
+    display: flex; flex-direction: column; gap: 10px;
+    font-family: 'PingFang SC', sans-serif;
+  }
+  .sp-box {
+    border: 1px solid #3D7AB5; background: rgba(255,255,255,0.9);
+    border-radius: 3px;
+    position: relative;
+  }
+  .sp-box-title {
+    position: absolute; top: -9px; left: 8px;
+    background: #E8EDF4; padding: 0 6px;
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    color: #3D7AB5; text-transform: uppercase;
+  }
+  .sp-body { padding: 14px 14px 10px; }
+  .sp-row {
+    display: flex; justify-content: space-between;
+    font-size: 11px; padding: 4px 0;
+    border-bottom: 1px solid #EEF2F7;
+  }
+  .sp-row:last-child { border-bottom: none; }
+  .sp-key { color: #64748B; }
+  .sp-val { font-weight: 700; color: #1A2A3A; }
+  .sp-val-blue { color: #1E3A5F; }
+  .sp-val-green { color: #0D5C4A; }
+  .sp-val-amber { color: #7C5A1A; }
+
+  /* Legend items */
+  .legend-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #EEF2F7; }
+  .legend-row:last-child { border-bottom: none; }
+  .legend-color { width: 20px; height: 8px; border: 1px solid; border-radius: 1px; flex-shrink: 0; }
+  .legend-text { font-size: 11px; color: #475569; }
+
+  /* Dimension lines and annotations */
+  .dim-line { position: absolute; background: #94A3B8; }
+  .dim-text { position: absolute; font-size: 9px; color: #475569; font-family: 'Courier New', monospace; }
+
+  /* Footer */
+  .footer-block {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 56px;
+    background: #1E3A5F; border-top: 2px solid #3D7AB5;
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+    align-items: center;
+    padding: 0 40px; gap: 0;
+  }
+  .fb-item { text-align: center; }
+  .fb-num { font-size: 22px; font-weight: 800; color: #7BC8F0; }
+  .fb-label { font-size: 10px; color: #8AAFD4; margin-top: 1px; }
+  .fb-sep { width: 1px; height: 36px; background: #2D5A8E; margin: auto; }
+
+  .annotation-bubble {
+    position: absolute;
+    background: #1E3A5F; color: #E8F0FA;
+    padding: 6px 10px; border-radius: 4px;
+    font-size: 11px; font-family: 'PingFang SC', sans-serif;
+    white-space: nowrap;
+  }
+  .annotation-bubble::before {
+    content: ''; position: absolute;
+    border: 5px solid transparent;
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="blueprint-bg"></div>
+
+  <!-- Title block -->
+  <div class="title-block">
+    <div class="tb-left">
+      <div class="tb-doc-num">DOC-SMAP-V2-001</div>
+      <div>
+        <div class="tb-title">smap 内存分层超分方案 · 工程架构图</div>
+        <div class="tb-sub">字节火山 AI 平台 · openclaw browser 场景 · L2 UB 借用内存 + L3 NVMe</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-info">
+        <div class="tb-info-label">PROJECT</div>
+        <div class="tb-info-val">ByteDance Infra</div>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-info">
+        <div class="tb-info-label">REVISION</div>
+        <div class="tb-info-val">v2.0</div>
+      </div>
+      <div class="tb-sep"></div>
+      <div class="tb-info">
+        <div class="tb-info-label">DATE</div>
+        <div class="tb-info-val">2026</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main blueprint area -->
+  <div class="blueprint-main">
+    <!-- Architecture drawing -->
+    <div class="arch-drawing">
+      <!-- Drawing title in corner -->
+      <div style="position:absolute;top:8px;left:12px;font-size:10px;color:#3D7AB5;font-weight:700;letter-spacing:1.5px;">SYSTEM ARCHITECTURE · 系统架构视图</div>
+      <div style="position:absolute;top:8px;right:12px;font-size:10px;color:#94A3B8;">SCALE: LOGICAL | NOT TO SCALE</div>
+
+      <!-- Zone 1: Platform box -->
+      <div class="bp-box" style="left:60px;top:40px;right:60px;height:68px;border-color:#1E3A5F;">
+        <div class="bp-box-title" style="color:#1E3A5F;">ZONE-A · 基础设施层</div>
+        <div class="bp-box-inner" style="flex-direction:row;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="bp-main-title" style="color:#1E3A5F;">🌋 字节火山 AI 服务平台 (Volcano Engine)</div>
+            <div class="bp-main-sub">大规模 AI 推理集群 · 高密度混部 · 万级物理节点</div>
+          </div>
+          <div class="bp-spec-row">
+            <div class="bp-spec"><span class="bp-spec-k">规模: </span><span class="bp-spec-v">万级节点</span></div>
+            <div class="bp-spec"><span class="bp-spec-k">负载: </span><span class="bp-spec-v">AI 推理/在线服务</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vertical connector line down from platform -->
+      <div style="position:absolute;left:50%;top:108px;width:2px;height:30px;background:#3D7AB5;"></div>
+      <div style="position:absolute;left:calc(50% - 6px);top:133px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #3D7AB5;"></div>
+
+      <!-- Zone 2: VM + openclaw -->
+      <div class="bp-box" style="left:60px;top:140px;width:520px;height:105px;border-color:#2D5A8E;">
+        <div class="bp-box-title" style="color:#2D5A8E;">ZONE-B · 虚机层</div>
+        <div class="bp-box-inner">
+          <div class="bp-main-title" style="color:#2D5A8E;">VM · 2U4G · KVM 虚拟化</div>
+          <div class="bp-main-sub">2 vCPU / 4 GB DRAM</div>
+          <div class="bp-spec-row">
+            <div class="bp-spec"><span class="bp-spec-k">CPU: </span><span class="bp-spec-v">2 vCPU</span></div>
+            <div class="bp-spec"><span class="bp-spec-k">内存: </span><span class="bp-spec-v">4 GB DRAM</span></div>
+            <div class="bp-spec"><span class="bp-spec-k">OS: </span><span class="bp-spec-v">Linux Guest</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- openclaw box inside VM (nested) -->
+      <div class="bp-box" style="left:200px;top:153px;right:70px;height:80px;border-color:#0D6B8C;background:rgba(230,245,241,0.9);">
+        <div class="bp-box-title" style="color:#0D6B8C;">PROC · 核心业务进程</div>
+        <div class="bp-box-inner" style="flex-direction:row;align-items:center;gap:16px;">
+          <div>
+            <div style="font-size:18px;font-weight:800;color:#0D4A5A;font-family:'PingFang SC',sans-serif;">🌐 openclaw browser</div>
+            <div style="font-size:11px;color:#3A7A94;margin-top:3px;font-family:'PingFang SC',sans-serif;">内存访问模式：冷热分层明显</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span style="background:#EBF3FC;color:#1E3A5F;border:1px solid #BDD4EC;padding:3px 7px;border-radius:3px;font-size:10px;font-weight:600;">前台热数据</span>
+            <span style="background:#E6F5F1;color:#0D5C4A;border:1px solid #B0D9CF;padding:3px 7px;border-radius:3px;font-size:10px;font-weight:600;">后台温数据</span>
+            <span style="background:#FEF9EC;color:#7C5A1A;border:1px solid #F0DFA0;padding:3px 7px;border-radius:3px;font-size:10px;font-weight:600;">历史冷数据</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- smap engine box -->
+      <div class="bp-box" style="left:60px;top:268px;width:520px;height:84px;border-color:#2C4A6E;background:rgba(235,243,252,0.9);">
+        <div class="bp-box-title" style="color:#2C4A6E;">ENGINE · smap 内存管理子系统</div>
+        <div class="bp-box-inner">
+          <div class="bp-main-title" style="color:#2C4A6E;">⚙️ 热度感知调度引擎</div>
+          <div class="bp-main-sub">PTE Access Bit 扫描 · 迁移决策 · 异步 DMA/RDMA 搬运</div>
+          <div class="bp-spec-row">
+            <div class="bp-spec"><span class="bp-spec-k">扫描周期: </span><span class="bp-spec-v">~100ms</span></div>
+            <div class="bp-spec"><span class="bp-spec-k">迁移粒度: </span><span class="bp-spec-v">4K/2M 页</span></div>
+            <div class="bp-spec"><span class="bp-spec-k">接入方式: </span><span class="bp-spec-v">内核层透明</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connector from VM to smap -->
+      <div style="position:absolute;left:320px;top:245px;width:2px;height:23px;background:#3D7AB5;"></div>
+      <div style="position:absolute;left:314px;top:262px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #3D7AB5;"></div>
+
+      <!-- Three memory tier boxes -->
+      <!-- L1 -->
+      <div class="bp-box" style="left:60px;top:382px;width:300px;height:160px;border-color:#2D5A8E;background:rgba(235,243,252,0.95);">
+        <div class="bp-box-title" style="color:#2D5A8E;">L1 · 热数据层</div>
+        <div class="bp-box-inner">
+          <div class="bp-main-title" style="color:#1E3A5F;">本地 DRAM</div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div class="bp-spec-row" style="flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">容量</span><span style="font-weight:700;">4 GB</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">延迟</span><span style="font-weight:700;">~100 ns</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">带宽</span><span style="font-weight:700;">50+ GB/s</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">接口</span><span style="font-weight:700;">本地总线</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">内容</span><span style="font-weight:700;color:#0D6B8C;">热 Tab / JS引擎</span></div>
+          </div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div style="height:6px;background:#EEF2F7;border-radius:3px;overflow:hidden;">
+            <div style="width:85%;height:100%;background:#3D7AB5;border-radius:3px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#3D7AB5;">85% 占用</span><span style="color:#94A3B8;">3.4/4 GB</span></div>
+        </div>
+      </div>
+
+      <!-- L2 -->
+      <div class="bp-box" style="left:400px;top:382px;width:300px;height:160px;border-color:#2D7A5A;background:rgba(230,245,241,0.95);">
+        <div class="bp-box-title" style="color:#2D7A5A;">L2 · 温数据层</div>
+        <div class="bp-box-inner">
+          <div class="bp-main-title" style="color:#0D5C4A;">UB 借用内存</div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div class="bp-spec-row" style="flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">容量</span><span style="font-weight:700;">动态扩展</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">延迟</span><span style="font-weight:700;">&lt;2 ms</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">带宽</span><span style="font-weight:700;">10-25 GB/s</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">协议</span><span style="font-weight:700;">UB RDMA</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">内容</span><span style="font-weight:700;color:#0D6B8C;">后台 Tab / 网络缓存</span></div>
+          </div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div style="height:6px;background:#EEF2F7;border-radius:3px;overflow:hidden;">
+            <div style="width:60%;height:100%;background:#1B8A6A;border-radius:3px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#1B8A6A;">60% 占用</span><span style="color:#94A3B8;">1.8 GB</span></div>
+        </div>
+      </div>
+
+      <!-- L3 -->
+      <div class="bp-box" style="left:740px;top:382px;width:300px;height:160px;border-color:#9A7A40;background:rgba(254,249,236,0.95);">
+        <div class="bp-box-title" style="color:#9A7A40;">L3 · 冷数据层</div>
+        <div class="bp-box-inner">
+          <div class="bp-main-title" style="color:#7C5A1A;">NVMe SSD</div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div class="bp-spec-row" style="flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">容量</span><span style="font-weight:700;">TB 级</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">延迟</span><span style="font-weight:700;">~100 μs</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">带宽</span><span style="font-weight:700;">3-7 GB/s</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">协议</span><span style="font-weight:700;">NVMe PCIe</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#64748B;">内容</span><span style="font-weight:700;color:#9A7A40;">历史 Tab / 离线缓存</span></div>
+          </div>
+          <div style="height:1px;background:#DDE4EE;margin:6px 0;"></div>
+          <div style="height:6px;background:#EEF2F7;border-radius:3px;overflow:hidden;">
+            <div style="width:35%;height:100%;background:#B89060;border-radius:3px;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#B89060;">35% 占用</span><span style="color:#94A3B8;">2.1 GB</span></div>
+        </div>
+      </div>
+
+      <!-- Connectors: smap to L1/L2/L3 -->
+      <div style="position:absolute;left:210px;top:352px;width:2px;height:30px;background:#3D7AB5;"></div>
+      <div style="position:absolute;left:204px;top:377px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #3D7AB5;"></div>
+
+      <div style="position:absolute;left:322px;top:364px;width:2px;height:18px;background:#1B8A6A;"></div>
+      <div style="position:absolute;left:316px;top:377px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #1B8A6A;"></div>
+
+      <div style="position:absolute;left:436px;top:364px;width:300px;height:2px;background:#B89060;"></div>
+      <div style="position:absolute;left:730px;top:358px;width:2px;height:24px;background:#B89060;"></div>
+      <div style="position:absolute;left:724px;top:377px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #B89060;"></div>
+
+      <!-- Label annotations -->
+      <div style="position:absolute;left:230px;top:360px;font-size:9px;color:#3D7AB5;font-weight:700;background:#EBF3FC;padding:1px 5px;border-radius:2px;">热数据</div>
+      <div style="position:absolute;left:330px;top:360px;font-size:9px;color:#1B8A6A;font-weight:700;background:#E6F5F1;padding:1px 5px;border-radius:2px;">迁移</div>
+      <div style="position:absolute;left:460px;top:356px;font-size:9px;color:#B89060;font-weight:700;background:#FEF9EC;padding:1px 5px;border-radius:2px;">冷归档</div>
+
+      <!-- Bidirectional Prefetch annotation -->
+      <div style="position:absolute;left:550px;top:410px;font-size:9px;color:#1E3A5F;background:#EBF3FC;border:1px solid #BDD4EC;padding:3px 7px;border-radius:3px;">⇄ Prefetch</div>
+    </div>
+
+    <!-- Right spec panel -->
+    <div class="spec-panel">
+      <!-- Project info -->
+      <div class="sp-box">
+        <div class="sp-box-title">PROJECT INFO</div>
+        <div class="sp-body">
+          <div class="sp-row"><span class="sp-key">项目名称</span><span class="sp-val sp-val-blue">smap 内存超分</span></div>
+          <div class="sp-row"><span class="sp-key">应用平台</span><span class="sp-val">字节火山 AI</span></div>
+          <div class="sp-row"><span class="sp-key">目标负载</span><span class="sp-val" style="color:#0D6B8C;font-weight:700;">openclaw browser</span></div>
+          <div class="sp-row"><span class="sp-key">VM 规格</span><span class="sp-val">2U4G</span></div>
+          <div class="sp-row"><span class="sp-key">版本</span><span class="sp-val">v2.0</span></div>
+        </div>
+      </div>
+
+      <!-- Performance specs -->
+      <div class="sp-box">
+        <div class="sp-box-title">PERFORMANCE SPECS</div>
+        <div class="sp-body">
+          <div class="sp-row"><span class="sp-key">L1 延迟</span><span class="sp-val sp-val-blue">~100 ns</span></div>
+          <div class="sp-row"><span class="sp-key">L2 延迟</span><span class="sp-val sp-val-green">&lt;2 ms</span></div>
+          <div class="sp-row"><span class="sp-key">L3 延迟</span><span class="sp-val sp-val-amber">~100 μs</span></div>
+          <div class="sp-row"><span class="sp-key">L1 带宽</span><span class="sp-val sp-val-blue">50+ GB/s</span></div>
+          <div class="sp-row"><span class="sp-key">L2 带宽</span><span class="sp-val sp-val-green">10-25 GB/s</span></div>
+          <div class="sp-row"><span class="sp-key">L3 带宽</span><span class="sp-val sp-val-amber">3-7 GB/s</span></div>
+          <div class="sp-row"><span class="sp-key">热度扫描</span><span class="sp-val">~100 ms</span></div>
+        </div>
+      </div>
+
+      <!-- Benefits -->
+      <div class="sp-box">
+        <div class="sp-box-title">EXPECTED BENEFITS</div>
+        <div class="sp-body">
+          <div class="sp-row"><span class="sp-key">超分比提升</span><span class="sp-val sp-val-blue">2-3×</span></div>
+          <div class="sp-row"><span class="sp-key">装机密度</span><span class="sp-val sp-val-green">↑ 40%</span></div>
+          <div class="sp-row"><span class="sp-key">成本节约</span><span class="sp-val sp-val-amber">↓ 35%</span></div>
+          <div class="sp-row"><span class="sp-key">应用改动</span><span class="sp-val">零</span></div>
+          <div class="sp-row"><span class="sp-key">业务中断</span><span class="sp-val">零</span></div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="sp-box">
+        <div class="sp-box-title">LEGEND</div>
+        <div class="sp-body">
+          <div class="legend-row">
+            <div class="legend-color" style="background:#EBF3FC;border-color:#2D5A8E;"></div>
+            <div class="legend-text">L1 本地 DRAM · 热数据</div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-color" style="background:#E6F5F1;border-color:#2D7A5A;"></div>
+            <div class="legend-text">L2 UB 借用内存 · 温数据</div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-color" style="background:#FEF9EC;border-color:#9A7A40;"></div>
+            <div class="legend-text">L3 NVMe SSD · 冷数据</div>
+          </div>
+          <div class="legend-row">
+            <div style="width:20px;height:2px;background:#3D7AB5;margin-top:3px;"></div>
+            <div class="legend-text">数据流 / 连接关系</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer metrics bar -->
+  <div class="footer-block">
+    <div class="fb-item">
+      <div class="fb-num">2-3×</div>
+      <div class="fb-label">整机超分比提升</div>
+    </div>
+    <div class="fb-sep"></div>
+    <div class="fb-item">
+      <div class="fb-num">40%</div>
+      <div class="fb-label">装机密度提升</div>
+    </div>
+    <div class="fb-sep"></div>
+    <div class="fb-item">
+      <div class="fb-num">35%</div>
+      <div class="fb-label">内存成本节约</div>
+    </div>
+    <div class="fb-sep"></div>
+    <div class="fb-item">
+      <div class="fb-num" style="font-size:18px;">&lt;2ms L2</div>
+      <div class="fb-label">UB 借用内存访问延迟</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

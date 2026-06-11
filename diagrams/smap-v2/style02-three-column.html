@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 三栏信息图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #FFFFFF;
+    color: #1A2332;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+  }
+  /* Top banner */
+  .top-banner {
+    background: #F7F9FB;
+    border-bottom: 2px solid #DDE4EE;
+    padding: 0 56px;
+    height: 88px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .banner-left { display: flex; align-items: center; gap: 20px; }
+  .brand-block {
+    background: #1E3A5F; color: #fff;
+    padding: 8px 16px; border-radius: 6px;
+  }
+  .brand-name { font-size: 12px; font-weight: 700; letter-spacing: 2px; }
+  .brand-sub { font-size: 10px; color: #9AB4CC; margin-top: 1px; }
+  .title-block h1 { font-size: 24px; font-weight: 700; color: #1E2A3A; }
+  .title-block p { font-size: 13px; color: #64748B; margin-top: 2px; }
+  .banner-right { display: flex; gap: 10px; }
+  .tag {
+    padding: 5px 14px; border-radius: 4px; font-size: 12px; font-weight: 600;
+    border: 1px solid;
+  }
+  .tag-blue { background: #EBF3FC; color: #1E3A5F; border-color: #BDD4EC; }
+  .tag-teal { background: #E6F5F1; color: #0D5C4A; border-color: #B0D9CF; }
+  .tag-amber { background: #FEF9EC; color: #854D0E; border-color: #F9D87A; }
+
+  /* Three columns */
+  .columns {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 2px 1fr 2px 1fr;
+    background: #fff;
+  }
+  .col-divider { background: #DDE4EE; }
+  .col { padding: 28px 36px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* Column 1: Business Stack */
+  .col1 { background: #F9FBFE; }
+  .col2 { background: #fff; }
+  .col3 { background: #F9FBF9; }
+
+  .col-header {
+    display: flex; align-items: center; gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid;
+    margin-bottom: 4px;
+  }
+  .col-header-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .col-header-text { flex: 1; }
+  .col-header-title { font-size: 16px; font-weight: 700; }
+  .col-header-sub { font-size: 12px; margin-top: 2px; }
+
+  /* Stacked info boxes */
+  .info-box {
+    border-radius: 8px; padding: 14px 16px;
+    border: 1px solid;
+  }
+  .info-box-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .info-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 5px; font-size: 13px;
+  }
+  .info-key { color: #64748B; }
+  .info-val { font-weight: 600; color: #1A2332; }
+  .info-desc { font-size: 12px; color: #64748B; line-height: 1.5; margin-top: 6px; }
+
+  /* Memory tier visual */
+  .mem-visual { display: flex; flex-direction: column; gap: 8px; }
+  .mem-tier {
+    border-radius: 8px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 14px;
+    border: 1px solid;
+  }
+  .tier-badge {
+    width: 44px; height: 44px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .tier-badge-label { font-size: 10px; font-weight: 700; }
+  .tier-badge-level { font-size: 16px; font-weight: 800; }
+  .tier-info { flex: 1; }
+  .tier-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .tier-spec { font-size: 11px; color: #64748B; }
+  .tier-bar-wrap { margin-top: 6px; }
+  .tier-bar { height: 4px; border-radius: 2px; }
+
+  /* Benefit items */
+  .benefit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .benefit-tile {
+    border-radius: 8px; padding: 14px; text-align: center;
+    border: 1px solid;
+  }
+  .benefit-num { font-size: 28px; font-weight: 800; }
+  .benefit-unit { font-size: 12px; margin-left: 2px; }
+  .benefit-label { font-size: 11px; color: #64748B; margin-top: 4px; }
+  .benefit-arrow { font-size: 14px; font-weight: 700; }
+
+  .flow-mini {
+    border-radius: 8px; padding: 14px 16px; border: 1px solid;
+  }
+  .flow-mini-title { font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .flow-steps { display: flex; align-items: center; gap: 0; }
+  .flow-step {
+    flex: 1; text-align: center; padding: 8px 4px;
+    font-size: 11px; font-weight: 600; color: #475569;
+    background: #F1F5FA; border-radius: 6px;
+  }
+  .flow-step-num { font-size: 16px; font-weight: 800; color: #1E3A5F; margin-bottom: 2px; }
+  .flow-sep { color: #BDD4EC; font-size: 18px; padding: 0 4px; }
+
+  /* Bottom strip */
+  .bottom-strip {
+    height: 52px; background: #1E3A5F;
+    display: flex; align-items: center; padding: 0 56px;
+    flex-shrink: 0;
+    gap: 40px;
+  }
+  .strip-item { display: flex; align-items: center; gap: 8px; color: #8AAFD4; font-size: 12px; }
+  .strip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- Top Banner -->
+  <div class="top-banner">
+    <div class="banner-left">
+      <div class="brand-block">
+        <div class="brand-name">BYTEDANCE</div>
+        <div class="brand-sub">火山引擎</div>
+      </div>
+      <div class="title-block">
+        <h1>smap 内存分层超分方案</h1>
+        <p>openclaw browser 场景 · L2 UB 借用内存 + L3 NVMe · 整机超分比提升</p>
+      </div>
+    </div>
+    <div class="banner-right">
+      <span class="tag tag-blue">火山 AI 平台</span>
+      <span class="tag tag-teal">openclaw browser</span>
+      <span class="tag tag-amber">超分比提升</span>
+    </div>
+  </div>
+
+  <!-- Three Columns -->
+  <div class="columns">
+
+    <!-- Column 1: 业务场景 -->
+    <div class="col col1">
+      <div class="col-header" style="border-color:#3D7AB5;">
+        <div class="col-header-icon" style="background:#EBF3FC;">🏗️</div>
+        <div class="col-header-text">
+          <div class="col-header-title" style="color:#1E3A5F;">业务场景</div>
+          <div class="col-header-sub" style="color:#5A87B5;">部署环境与应用负载详情</div>
+        </div>
+      </div>
+
+      <div class="info-box" style="background:#EBF3FC;border-color:#BDD4EC;">
+        <div class="info-box-title" style="color:#1E3A5F;">基础设施环境</div>
+        <div class="info-row"><span class="info-key">平台</span><span class="info-val">字节火山 AI 服务平台</span></div>
+        <div class="info-row"><span class="info-key">规模</span><span class="info-val">万级物理节点</span></div>
+        <div class="info-row"><span class="info-key">负载类型</span><span class="info-val">AI 推理 / 在线服务</span></div>
+        <div class="info-desc">高密度混部环境，对内存利用率有极高要求，现有超分方案受限于物理 DRAM 容量上限</div>
+      </div>
+
+      <div class="info-box" style="background:#F0F6FF;border-color:#C8DAF0;">
+        <div class="info-box-title" style="color:#2D5A8E;">业务应用负载</div>
+        <div class="info-row"><span class="info-key">VM 规格</span><span class="info-val">2U4G (2vCPU / 4GB)</span></div>
+        <div class="info-row"><span class="info-key">核心进程</span><span class="info-val" style="color:#0D6B8C;font-size:14px;">openclaw browser</span></div>
+        <div class="info-row"><span class="info-key">内存模式</span><span class="info-val">冷热分层访问</span></div>
+        <div class="info-desc">openclaw browser 是核心业务进程。内存访问具有显著的时间局部性：前台 Tab 热，后台 Tab 冷</div>
+      </div>
+
+      <div class="info-box" style="background:#fff;border-color:#DDE4EE;">
+        <div class="info-box-title" style="color:#475569;">访问热度分布</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <div style="flex:3;background:#C5DDF5;border-radius:4px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1E3A5F;">热数据 ~30%</div>
+          <div style="flex:3;background:#B8E0D4;border-radius:4px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1A4A3A;">温数据 ~40%</div>
+          <div style="flex:4;background:#E8E0C8;border-radius:4px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#4A3A1A;">冷数据 ~30%</div>
+        </div>
+        <div class="info-desc">热数据：活跃 Tab / JS 引擎；温数据：最近使用页面；冷数据：后台/历史 Tab</div>
+      </div>
+
+      <div class="flow-mini" style="background:#F7F9FB;border-color:#DDE4EE;">
+        <div class="flow-mini-title">数据访问路径</div>
+        <div class="flow-steps">
+          <div class="flow-step"><div class="flow-step-num">1</div>缺页触发</div>
+          <div class="flow-sep">→</div>
+          <div class="flow-step"><div class="flow-step-num">2</div>热度判断</div>
+          <div class="flow-sep">→</div>
+          <div class="flow-step"><div class="flow-step-num">3</div>层级路由</div>
+          <div class="flow-sep">→</div>
+          <div class="flow-step"><div class="flow-step-num">4</div>数据返回</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-divider"></div>
+
+    <!-- Column 2: smap 分层架构 -->
+    <div class="col col2">
+      <div class="col-header" style="border-color:#0D7377;">
+        <div class="col-header-icon" style="background:#E6F5F1;">⚙️</div>
+        <div class="col-header-text">
+          <div class="col-header-title" style="color:#0D5C4A;">smap 分层内存架构</div>
+          <div class="col-header-sub" style="color:#2D8A6A;">三层自适应调度 · 透明内存扩展</div>
+        </div>
+      </div>
+
+      <div class="mem-visual">
+        <div class="mem-tier" style="background:#EBF3FC;border-color:#BDD4EC;">
+          <div class="tier-badge" style="background:#1E3A5F;color:#fff;">
+            <div class="tier-badge-label" style="color:#8AAFD4;">TIER</div>
+            <div class="tier-badge-level">L1</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#1E3A5F;">本地 DRAM · 热数据层</div>
+            <div class="tier-spec">容量：4 GB · 延迟：~100 ns · 带宽：50+ GB/s</div>
+            <div class="tier-spec" style="margin-top:2px;">openclaw 热 Tab / JS 引擎 / DOM 树</div>
+            <div class="tier-bar-wrap"><div class="tier-bar" style="width:100%;background:#3D7AB5;"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:4px 0;color:#94A3B8;font-size:20px;font-weight:300;">⇅ 热度感知页面迁移</div>
+
+        <div class="mem-tier" style="background:#E6F5F1;border-color:#B0D9CF;">
+          <div class="tier-badge" style="background:#0D5C4A;color:#fff;">
+            <div class="tier-badge-label" style="color:#7CC4B4;">TIER</div>
+            <div class="tier-badge-level">L2</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#0D5C4A;">UB 借用内存 · 温数据层</div>
+            <div class="tier-spec">容量：动态扩展 · 延迟：&lt;2 ms · 协议：UB RDMA</div>
+            <div class="tier-spec" style="margin-top:2px;">最近切换的 Tab / 缓存数据 / 网络资源</div>
+            <div class="tier-bar-wrap"><div class="tier-bar" style="width:75%;background:#1B8A6A;"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:4px 0;color:#94A3B8;font-size:20px;font-weight:300;">⇅ 异步预取 + 延迟写回</div>
+
+        <div class="mem-tier" style="background:#FEF9EC;border-color:#F0DFA0;">
+          <div class="tier-badge" style="background:#7C5A1A;color:#fff;">
+            <div class="tier-badge-label" style="color:#D4B070;">TIER</div>
+            <div class="tier-badge-level">L3</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#7C5A1A;">NVMe SSD · 冷数据层</div>
+            <div class="tier-spec">容量：TB 级 · 延迟：~100 μs · 协议：NVMe PCIe</div>
+            <div class="tier-spec" style="margin-top:2px;">历史 Tab / 离线缓存 / 快照数据</div>
+            <div class="tier-bar-wrap"><div class="tier-bar" style="width:50%;background:#B89060;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box" style="background:#F7F9FB;border-color:#DDE4EE;">
+        <div class="info-box-title" style="color:#475569;">smap 核心调度逻辑</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:#fff;border:1px solid #DDE4EE;border-radius:6px;padding:10px;">
+            <div style="font-size:10px;color:#64748B;margin-bottom:4px;">热度追踪</div>
+            <div style="font-size:12px;color:#1E2A3A;font-weight:600;">PTE Access Bit 扫描</div>
+            <div style="font-size:11px;color:#64748B;margin-top:3px;">周期性扫描页表，统计访问频率</div>
+          </div>
+          <div style="background:#fff;border:1px solid #DDE4EE;border-radius:6px;padding:10px;">
+            <div style="font-size:10px;color:#64748B;margin-bottom:4px;">迁移决策</div>
+            <div style="font-size:12px;color:#1E2A3A;font-weight:600;">阈值 + 代价模型</div>
+            <div style="font-size:11px;color:#64748B;margin-top:3px;">综合热度分、迁移代价决策</div>
+          </div>
+          <div style="background:#fff;border:1px solid #DDE4EE;border-radius:6px;padding:10px;">
+            <div style="font-size:10px;color:#64748B;margin-bottom:4px;">迁移执行</div>
+            <div style="font-size:12px;color:#1E2A3A;font-weight:600;">异步 DMA 搬运</div>
+            <div style="font-size:11px;color:#64748B;margin-top:3px;">不阻塞业务进程，后台执行</div>
+          </div>
+          <div style="background:#fff;border:1px solid #DDE4EE;border-radius:6px;padding:10px;">
+            <div style="font-size:10px;color:#64748B;margin-bottom:4px;">预取策略</div>
+            <div style="font-size:12px;color:#1E2A3A;font-weight:600;">访问预测 + Prefetch</div>
+            <div style="font-size:11px;color:#64748B;margin-top:3px;">预判下次访问，提前调入 L1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-divider"></div>
+
+    <!-- Column 3: 方案收益 -->
+    <div class="col col3">
+      <div class="col-header" style="border-color:#7C5A1A;">
+        <div class="col-header-icon" style="background:#FEF9EC;">📊</div>
+        <div class="col-header-text">
+          <div class="col-header-title" style="color:#7C5A1A;">方案收益与指标</div>
+          <div class="col-header-sub" style="color:#9A7A40;">整机超分比提升 · 成本优化</div>
+        </div>
+      </div>
+
+      <div class="benefit-grid">
+        <div class="benefit-tile" style="background:#EBF3FC;border-color:#BDD4EC;">
+          <div class="benefit-num" style="color:#1E3A5F;">2-3<span class="benefit-unit" style="color:#5A87B5;">×</span></div>
+          <div class="benefit-label">内存超分比提升</div>
+          <div style="font-size:10px;color:#5A87B5;margin-top:4px;">L2+L3 扩展容量</div>
+        </div>
+        <div class="benefit-tile" style="background:#E6F5F1;border-color:#B0D9CF;">
+          <div class="benefit-num" style="color:#0D5C4A;">40<span class="benefit-unit" style="color:#2D8A6A;">%</span></div>
+          <div class="benefit-label">装机密度提升</div>
+          <div style="font-size:10px;color:#2D8A6A;margin-top:4px;">同等硬件更多 VM</div>
+        </div>
+        <div class="benefit-tile" style="background:#FEF9EC;border-color:#F0DFA0;">
+          <div class="benefit-num" style="color:#7C5A1A;">35<span class="benefit-unit" style="color:#9A7A40;">%</span></div>
+          <div class="benefit-label">内存成本节约</div>
+          <div style="font-size:10px;color:#9A7A40;margin-top:4px;">降低 DRAM 采购</div>
+        </div>
+        <div class="benefit-tile" style="background:#F5F0FB;border-color:#D4C4EC;">
+          <div class="benefit-num" style="color:#4A2A7A;">&lt;2<span class="benefit-unit" style="color:#7A5AB4;">ms</span></div>
+          <div class="benefit-label">L2 访问延迟</div>
+          <div style="font-size:10px;color:#7A5AB4;margin-top:4px;">满足业务 SLA</div>
+        </div>
+      </div>
+
+      <div class="info-box" style="background:#fff;border-color:#DDE4EE;">
+        <div class="info-box-title" style="color:#475569;">openclaw 专项适配</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="width:24px;height:24px;background:#0D6B8C;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0;margin-top:1px;">🌐</div>
+            <div style="font-size:12px;color:#374151;line-height:1.5;">前台 Tab 热数据锁定 L1 DRAM，openclaw 交互路径零延迟感知</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="width:24px;height:24px;background:#1B8A6A;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0;margin-top:1px;">📄</div>
+            <div style="font-size:12px;color:#374151;line-height:1.5;">后台 Tab 页面自动降级至 L2，切换时触发快速 Prefetch</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <div style="width:24px;height:24px;background:#B89060;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;flex-shrink:0;margin-top:1px;">💾</div>
+            <div style="font-size:12px;color:#374151;line-height:1.5;">历史 Tab 快照归档 L3 NVMe，恢复时异步预取回前台</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box" style="background:#F7F9FB;border-color:#DDE4EE;">
+        <div class="info-box-title" style="color:#475569;">部署与兼容性</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> 无需修改 openclaw
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> KVM 虚拟化兼容
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> 在线热迁移
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> 渐进式部署
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> 自适应调参
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;">
+            <span style="color:#1B8A6A;font-weight:700;">✓</span> 监控可观测
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#1E3A5F;border-radius:8px;padding:16px;color:#E8F0FA;">
+        <div style="font-size:11px;color:#8AAFD4;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">核心价值主张</div>
+        <div style="font-size:14px;line-height:1.6;">通过 smap 三层内存分层，在不增加 DRAM 采购的前提下，将 openclaw 场景下的整机内存超分比提升 <strong style="color:#7BC8F0;font-size:16px;">2-3×</strong>，显著降低单 VM 内存成本，提高火山 AI 平台整体资源利用率。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Strip -->
+  <div class="bottom-strip">
+    <div class="strip-item"><div class="strip-dot" style="background:#3D7AB5;"></div>L1 本地 DRAM · 热数据 · ~100ns</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#1B8A6A;"></div>L2 UB 借用内存 · 温数据 · &lt;2ms</div>
+    <div class="strip-item"><div class="strip-dot" style="background:#B89060;"></div>L3 NVMe · 冷数据 · ~100μs</div>
+    <div style="flex:1;"></div>
+    <div style="color:#6B8BAA;font-size:12px;">字节跳动基础架构部 · smap v2 · 2026</div>
+  </div>
+</div>
+</body>
+</html>

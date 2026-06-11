@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 叙事信息图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F7F8FA;
+    color: #1A2332;
+  }
+  .slide { width: 1920px; height: 1080px; display: grid; grid-template-columns: 300px 1fr; }
+
+  /* Left sidebar */
+  .sidebar {
+    background: #1E3A5F;
+    display: flex; flex-direction: column;
+    padding: 36px 28px;
+  }
+  .sb-logo { color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .sb-divider { width: 40px; height: 2px; background: #3D7AB5; margin: 12px 0; }
+  .sb-title { color: #E8F0FA; font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+  .sb-sub { color: #7AACD0; font-size: 13px; line-height: 1.5; }
+  .sb-spacer { flex: 1; }
+  .sb-section-title { color: #5A87B5; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+  .sb-metric { margin-bottom: 16px; }
+  .sb-num { font-size: 32px; font-weight: 800; line-height: 1; }
+  .sb-label { font-size: 11px; color: #7AACD0; margin-top: 3px; }
+  .sb-desc { font-size: 10px; color: #4A6A8A; margin-top: 2px; }
+  .sb-env-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .sb-env-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .sb-env-text { color: #8AAFD4; font-size: 12px; }
+  .sb-footer { color: #3A5A7A; font-size: 10px; margin-top: 16px; border-top: 1px solid #2A3A50; padding-top: 12px; }
+
+  /* Main content: 4 columns (narrative + 3 tiers) */
+  .main {
+    display: flex; flex-direction: column; padding: 24px 32px; gap: 16px;
+  }
+
+  /* Top: Problem statement */
+  .problem-bar {
+    background: #fff; border-radius: 10px; padding: 16px 24px;
+    display: flex; align-items: center; gap: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-top: 3px solid #B42020; flex-shrink: 0;
+  }
+  .prob-icon { font-size: 24px; flex-shrink: 0; }
+  .prob-title { font-size: 15px; font-weight: 700; color: #7F1D1D; margin-bottom: 3px; }
+  .prob-desc { font-size: 12px; color: #64748B; }
+  .prob-sep { width: 1px; height: 48px; background: #E2E8F0; flex-shrink: 0; }
+
+  /* Center: solution tiers in equal columns */
+  .tier-columns {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px; flex: 1;
+  }
+
+  .tier-col {
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column;
+  }
+  .tc-header {
+    padding: 18px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tc-badge-row { display: flex; align-items: center; gap: 10px; }
+  .tc-badge {
+    width: 44px; height: 44px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff;
+  }
+  .tc-badge-tier { font-size: 8px; font-weight: 700; opacity: 0.8; }
+  .tc-badge-num { font-size: 20px; font-weight: 900; }
+  .tc-name { font-size: 16px; font-weight: 800; }
+  .tc-type { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+  .tc-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+  .tc-spec { background: rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 8px; }
+  .tc-spec-label { font-size: 9px; opacity: 0.7; }
+  .tc-spec-val { font-size: 12px; font-weight: 700; color: #fff; }
+  .tc-body {
+    flex: 1; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .tc-section-title { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+  .tc-data-item {
+    display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #374151;
+    line-height: 1.45; padding: 8px 10px; background: #F5F8FC; border-radius: 6px;
+    border: 1px solid #EEF2F7;
+  }
+  .tc-data-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+  .tc-usage-section { }
+  .tc-bar-bg { height: 6px; background: #EEF2F7; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .tc-bar-fill { height: 100%; border-radius: 3px; }
+  .tc-usage-label { display: flex; justify-content: space-between; font-size: 11px; }
+  .tc-use-case {
+    background: #F5F8FC; border: 1px solid #EEF2F7; border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .tc-use-case-title { font-size: 10px; font-weight: 700; color: #64748B; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+  .tc-use-tag {
+    display: inline-block; padding: 3px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; margin: 2px 3px 2px 0;
+    border: 1px solid;
+  }
+
+  /* Bottom: result row */
+  .result-row {
+    background: #1E3A5F; border-radius: 10px; padding: 18px 28px;
+    display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr 1px 1fr;
+    align-items: center; flex-shrink: 0;
+  }
+  .rr-sep { background: rgba(255,255,255,0.1); height: 40px; }
+  .rr-metric { text-align: center; }
+  .rr-num { font-size: 28px; font-weight: 800; }
+  .rr-unit { font-size: 14px; font-weight: 600; margin-left: 2px; }
+  .rr-label { font-size: 11px; color: #8AAFD4; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-logo">ByteDance</div>
+    <div style="color:#7AACD0;font-size:11px;margin-bottom:16px;">字节跳动基础架构部</div>
+    <div class="sb-divider"></div>
+    <div class="sb-title">smap 内存分层超分方案</div>
+    <div class="sb-sub">利用 L2 UB 借用内存 + L3 NVMe，突破 DRAM 容量上限，提升整机超分比</div>
+
+    <div style="height:20px;"></div>
+    <div class="sb-section-title">部署环境</div>
+    <div class="sb-env-item"><div class="sb-env-dot" style="background:#3D7AB5;"></div><div class="sb-env-text">字节火山 AI 服务平台</div></div>
+    <div class="sb-env-item"><div class="sb-env-dot" style="background:#5A87B5;"></div><div class="sb-env-text">2U4G 虚机 (2 vCPU / 4 GB DRAM)</div></div>
+    <div class="sb-env-item"><div class="sb-env-dot" style="background:#0D6B8C;"></div><div class="sb-env-text"><strong style="color:#6BD4F0;">openclaw browser</strong> 核心业务进程</div></div>
+    <div class="sb-env-item"><div class="sb-env-dot" style="background:#9A7A40;"></div><div class="sb-env-text">内存访问：冷热分层天然契合</div></div>
+
+    <div class="sb-spacer"></div>
+    <div class="sb-section-title">关键收益</div>
+    <div class="sb-metric">
+      <div class="sb-num" style="color:#4A90C4;">2-3×</div>
+      <div class="sb-label">整机超分比提升</div>
+    </div>
+    <div class="sb-metric">
+      <div class="sb-num" style="color:#4ABA8A;">40%</div>
+      <div class="sb-label">装机密度提升</div>
+    </div>
+    <div class="sb-metric">
+      <div class="sb-num" style="color:#C4A050;">35%</div>
+      <div class="sb-label">内存成本节约</div>
+    </div>
+    <div class="sb-footer">smap v2 · 2026 · 内存超分专项</div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+    <!-- Problem bar -->
+    <div class="problem-bar">
+      <div class="prob-icon">⚠️</div>
+      <div>
+        <div class="prob-title">现状痛点：DRAM-only 方案超分比受限</div>
+        <div class="prob-desc">火山 AI 平台 openclaw 场景 DRAM 水位高，超分比硬卡在物理容量上限，新 VM 无法继续装机，DRAM 成本压力大</div>
+      </div>
+      <div class="prob-sep"></div>
+      <div class="prob-icon">💡</div>
+      <div>
+        <div class="prob-title">解决方案：smap 三层内存分级超分</div>
+        <div class="prob-desc">感知 openclaw 冷热访问模式，将温/冷数据自动迁移至 L2 UB 借用内存或 L3 NVMe，释放 L1 DRAM 供更多 VM 使用</div>
+      </div>
+      <div class="prob-sep"></div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="background:#EBF3FC;border:2px solid #3D7AB5;border-radius:8px;padding:8px 14px;text-align:center;">
+          <div style="font-size:11px;color:#5A87B5;font-weight:600;">核心进程</div>
+          <div style="font-size:16px;font-weight:800;color:#0D4A5A;">🌐 openclaw</div>
+        </div>
+        <div style="font-size:20px;color:#94A3B8;">→</div>
+        <div style="background:#F0F7F4;border:2px solid #1B8A6A;border-radius:8px;padding:8px 14px;text-align:center;">
+          <div style="font-size:11px;color:#2D7A5A;font-weight:600;">调度引擎</div>
+          <div style="font-size:16px;font-weight:800;color:#0D4A3A;">⚙️ smap</div>
+        </div>
+        <div style="font-size:20px;color:#94A3B8;">→</div>
+        <div style="display:flex;gap:4px;">
+          <div style="background:#EBF3FC;border:1px solid #3D7AB5;border-radius:6px;padding:6px 10px;text-align:center;">
+            <div style="font-size:10px;color:#3D7AB5;">L1</div>
+            <div style="font-size:12px;font-weight:700;color:#1E3A5F;">DRAM</div>
+          </div>
+          <div style="background:#E6F5F1;border:1px solid #1B8A6A;border-radius:6px;padding:6px 10px;text-align:center;">
+            <div style="font-size:10px;color:#1B8A6A;">L2</div>
+            <div style="font-size:12px;font-weight:700;color:#0D5C4A;">UB</div>
+          </div>
+          <div style="background:#FEF9EC;border:1px solid #B89060;border-radius:6px;padding:6px 10px;text-align:center;">
+            <div style="font-size:10px;color:#B89060;">L3</div>
+            <div style="font-size:12px;font-weight:700;color:#7C5A1A;">NVMe</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tier columns -->
+    <div class="tier-columns">
+      <!-- L1 -->
+      <div class="tier-col">
+        <div class="tc-header" style="background:linear-gradient(135deg,#2D5A8E,#1E3A5F);color:#fff;">
+          <div class="tc-badge-row">
+            <div class="tc-badge" style="background:rgba(255,255,255,0.15);">
+              <div class="tc-badge-tier">TIER</div>
+              <div class="tc-badge-num">L1</div>
+            </div>
+            <div>
+              <div class="tc-name">本地 DRAM</div>
+              <div class="tc-type">热数据层 · 最高性能</div>
+            </div>
+          </div>
+          <div class="tc-specs">
+            <div class="tc-spec"><div class="tc-spec-label">容量</div><div class="tc-spec-val">4 GB</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">延迟</div><div class="tc-spec-val">~100 ns</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">带宽</div><div class="tc-spec-val">50+ GB/s</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">接口</div><div class="tc-spec-val">本地总线</div></div>
+          </div>
+        </div>
+        <div class="tc-body" style="background:#fff;">
+          <div class="tc-section-title">工作机制</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#3D7AB5;"></div>前台 Tab 工作集、JS 引擎堆、DOM 树常驻 L1，保障 openclaw 交互延迟最优</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#3D7AB5;"></div>smap 周期扫描 PTE Access Bit，实时追踪页面访问热度分，驱动迁移决策</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#3D7AB5;"></div>热度低于阈值触发 L1→L2 异步迁移，L2 数据回调时立即提升至 L1</div>
+          <div class="tc-section-title">openclaw 适配</div>
+          <div class="tc-use-case">
+            <div class="tc-use-case-title">此层存储内容</div>
+            <span class="tc-use-tag" style="background:#EBF3FC;color:#1E3A5F;border-color:#BDD4EC;">前台 Tab 页面</span>
+            <span class="tc-use-tag" style="background:#EBF3FC;color:#1E3A5F;border-color:#BDD4EC;">JS 引擎</span>
+            <span class="tc-use-tag" style="background:#EBF3FC;color:#1E3A5F;border-color:#BDD4EC;">DOM 树</span>
+            <span class="tc-use-tag" style="background:#EBF3FC;color:#1E3A5F;border-color:#BDD4EC;">活跃脚本</span>
+          </div>
+          <div class="tc-usage-section">
+            <div class="tc-usage-label"><span style="color:#64748B;">当前使用率</span><span style="color:#1E3A5F;font-weight:600;">85%</span></div>
+            <div class="tc-bar-bg"><div class="tc-bar-fill" style="width:85%;background:#3D7AB5;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- L2 -->
+      <div class="tier-col">
+        <div class="tc-header" style="background:linear-gradient(135deg,#2D7A5A,#1A5040);color:#fff;">
+          <div class="tc-badge-row">
+            <div class="tc-badge" style="background:rgba(255,255,255,0.15);">
+              <div class="tc-badge-tier">TIER</div>
+              <div class="tc-badge-num">L2</div>
+            </div>
+            <div>
+              <div class="tc-name">UB 借用内存</div>
+              <div class="tc-type">温数据层 · 低延迟扩展</div>
+            </div>
+          </div>
+          <div class="tc-specs">
+            <div class="tc-spec"><div class="tc-spec-label">容量</div><div class="tc-spec-val">动态扩展</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">延迟</div><div class="tc-spec-val">&lt;2 ms</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">带宽</div><div class="tc-spec-val">10-25 GB/s</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">协议</div><div class="tc-spec-val">UB RDMA</div></div>
+          </div>
+        </div>
+        <div class="tc-body" style="background:#fff;">
+          <div class="tc-section-title">工作机制</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#1B8A6A;"></div>接收 L1 降级的温数据，利用 UB 协议的 RDMA 能力实现低延迟远端访问</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#1B8A6A;"></div>用户切换 Tab 时，smap 触发 L2→L1 快速 Prefetch，延迟 &lt;2ms 满足交互 SLA</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#1B8A6A;"></div>超分主力层：将有效可用内存容量扩展至 L1 的 2-3 倍，贡献超分比提升主体</div>
+          <div class="tc-section-title">openclaw 适配</div>
+          <div class="tc-use-case">
+            <div class="tc-use-case-title">此层存储内容</div>
+            <span class="tc-use-tag" style="background:#E6F5F1;color:#0D5C4A;border-color:#B0D9CF;">后台 Tab 数据</span>
+            <span class="tc-use-tag" style="background:#E6F5F1;color:#0D5C4A;border-color:#B0D9CF;">网络缓存</span>
+            <span class="tc-use-tag" style="background:#E6F5F1;color:#0D5C4A;border-color:#B0D9CF;">图片资源</span>
+            <span class="tc-use-tag" style="background:#E6F5F1;color:#0D5C4A;border-color:#B0D9CF;">最近页面</span>
+          </div>
+          <div class="tc-usage-section">
+            <div class="tc-usage-label"><span style="color:#64748B;">当前使用率</span><span style="color:#0D5C4A;font-weight:600;">60%</span></div>
+            <div class="tc-bar-bg"><div class="tc-bar-fill" style="width:60%;background:#1B8A6A;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- L3 -->
+      <div class="tier-col">
+        <div class="tc-header" style="background:linear-gradient(135deg,#9A7A40,#7A5A2A);color:#fff;">
+          <div class="tc-badge-row">
+            <div class="tc-badge" style="background:rgba(255,255,255,0.15);">
+              <div class="tc-badge-tier">TIER</div>
+              <div class="tc-badge-num">L3</div>
+            </div>
+            <div>
+              <div class="tc-name">NVMe SSD</div>
+              <div class="tc-type">冷数据层 · 大容量兜底</div>
+            </div>
+          </div>
+          <div class="tc-specs">
+            <div class="tc-spec"><div class="tc-spec-label">容量</div><div class="tc-spec-val">TB 级</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">延迟</div><div class="tc-spec-val">~100 μs</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">带宽</div><div class="tc-spec-val">3-7 GB/s</div></div>
+            <div class="tc-spec"><div class="tc-spec-label">协议</div><div class="tc-spec-val">NVMe PCIe</div></div>
+          </div>
+        </div>
+        <div class="tc-body" style="background:#fff;">
+          <div class="tc-section-title">工作机制</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#B89060;"></div>接收 L2 进一步降级的冷数据，以 swap 语义写入本地 NVMe，释放 L2 空间</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#B89060;"></div>异步 Prefetch：访问前预测性提前读取至 L2/L1，降低 openclaw Tab 恢复延迟</div>
+          <div class="tc-data-item"><div class="tc-data-dot" style="background:#B89060;"></div>容量兜底层：TB 级存储空间承接长期不访问的冷数据，确保内存超分上限</div>
+          <div class="tc-section-title">openclaw 适配</div>
+          <div class="tc-use-case">
+            <div class="tc-use-case-title">此层存储内容</div>
+            <span class="tc-use-tag" style="background:#FEF9EC;color:#7C5A1A;border-color:#F0DFA0;">历史 Tab 快照</span>
+            <span class="tc-use-tag" style="background:#FEF9EC;color:#7C5A1A;border-color:#F0DFA0;">离线缓存</span>
+            <span class="tc-use-tag" style="background:#FEF9EC;color:#7C5A1A;border-color:#F0DFA0;">已关闭 Tab</span>
+          </div>
+          <div class="tc-usage-section">
+            <div class="tc-usage-label"><span style="color:#64748B;">当前使用率</span><span style="color:#7C5A1A;font-weight:600;">35%</span></div>
+            <div class="tc-bar-bg"><div class="tc-bar-fill" style="width:35%;background:#B89060;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result row -->
+    <div class="result-row">
+      <div class="rr-metric">
+        <div class="rr-num" style="color:#7BC8F0;">2-3<span class="rr-unit">×</span></div>
+        <div class="rr-label">整机内存超分比提升</div>
+      </div>
+      <div class="rr-sep"></div>
+      <div class="rr-metric">
+        <div class="rr-num" style="color:#4ABA8A;">40<span class="rr-unit">%</span></div>
+        <div class="rr-label">装机密度提升</div>
+      </div>
+      <div class="rr-sep"></div>
+      <div class="rr-metric">
+        <div class="rr-num" style="color:#C4A050;">35<span class="rr-unit">%</span></div>
+        <div class="rr-label">内存采购成本节约</div>
+      </div>
+      <div class="rr-sep"></div>
+      <div class="rr-metric">
+        <div class="rr-num" style="color:#A8C8E8;">&lt;2<span class="rr-unit">ms</span></div>
+        <div class="rr-label">L2 UB 访问延迟 · 满足 SLA</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

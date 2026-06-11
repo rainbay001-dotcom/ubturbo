@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 运营看板</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #1A2332;
+    color: #E2E8F0;
+  }
+  .slide { width: 1920px; height: 1080px; display: flex; flex-direction: column; }
+
+  .header {
+    background: #0F1724; height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; flex-shrink: 0;
+    border-bottom: 1px solid #2A3A50;
+  }
+  .h-left { display: flex; align-items: center; gap: 16px; }
+  .h-dot { width: 8px; height: 8px; border-radius: 50%; background: #4A90C4; }
+  .h-title { font-size: 18px; font-weight: 700; color: #E8F0FA; }
+  .h-sub { font-size: 11px; color: #5A7A9A; margin-top: 1px; }
+  .h-right { display: flex; gap: 8px; align-items: center; }
+  .status-badge { display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .status-live { background: rgba(27,138,106,0.2); color: #4ABA8A; border: 1px solid rgba(27,138,106,0.4); }
+  .status-info { background: rgba(61,122,181,0.2); color: #6BAED6; border: 1px solid rgba(61,122,181,0.4); }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ABA8A; }
+
+  /* Dashboard grid */
+  .dashboard {
+    flex: 1; padding: 16px 24px;
+    display: grid;
+    grid-template-columns: 280px 1fr 1fr 280px;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    background: #1E2D42; border-radius: 8px; padding: 16px 18px;
+    border: 1px solid #2A3A50;
+  }
+  .card-title {
+    font-size: 10px; font-weight: 700; color: #4A6A8A;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .card-title-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* Metric cards */
+  .metric-big { font-size: 36px; font-weight: 800; line-height: 1; }
+  .metric-unit { font-size: 16px; font-weight: 600; margin-left: 4px; }
+  .metric-label { font-size: 11px; color: #5A7A9A; margin-top: 6px; }
+  .metric-change { font-size: 11px; margin-top: 4px; }
+  .metric-up { color: #4ABA8A; }
+
+  /* Progress bars */
+  .prog-row { margin-bottom: 10px; }
+  .prog-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .prog-name { font-size: 11px; color: #8AAFD4; }
+  .prog-val { font-size: 11px; font-weight: 700; color: #E2E8F0; }
+  .prog-bg { height: 8px; background: #243045; border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; }
+
+  /* Bar chart */
+  .bar-chart { display: flex; align-items: flex-end; gap: 12px; height: 90px; margin-top: 8px; }
+  .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+  .bar { border-radius: 3px 3px 0 0; width: 100%; }
+  .bar-label { font-size: 9px; color: #4A6A8A; text-align: center; }
+  .bar-val { font-size: 10px; color: #8AAFD4; font-weight: 600; }
+
+  /* Memory tier visual */
+  .tier-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 6px; margin-bottom: 8px;
+    border: 1px solid;
+  }
+  .tier-icon {
+    width: 36px; height: 36px; border-radius: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .tier-icon-t { font-size: 8px; font-weight: 700; opacity: 0.8; }
+  .tier-icon-n { font-size: 15px; font-weight: 900; }
+  .tier-info { flex: 1; }
+  .tier-name { font-size: 12px; font-weight: 700; }
+  .tier-spec { font-size: 10px; color: #5A7A9A; margin-top: 2px; }
+  .tier-status { font-size: 10px; font-weight: 600; }
+  .tier-usage-bar { height: 4px; border-radius: 2px; margin-top: 4px; background: #243045; }
+  .tier-usage-fill { height: 100%; border-radius: 2px; }
+
+  /* OpenClaw process status */
+  .process-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #243045; border-radius: 6px; margin-bottom: 6px; }
+  .process-status { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .process-name { font-size: 12px; font-weight: 600; flex: 1; }
+  .process-mem { font-size: 11px; color: #8AAFD4; }
+  .process-tier { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
+
+  /* Spanning cells */
+  .span-col2 { grid-column: span 2; }
+  .span-row2 { grid-row: span 2; }
+
+  /* Summary box */
+  .summary-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #162030; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid; }
+  .si-num { font-size: 24px; font-weight: 800; }
+  .si-label { font-size: 11px; color: #5A7A9A; }
+  .si-desc { font-size: 10px; color: #4A6A8A; margin-top: 2px; }
+
+  .footer {
+    height: 44px; background: #0F1724;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; flex-shrink: 0;
+    border-top: 1px solid #2A3A50;
+  }
+  .f-l { color: #4A6A8A; font-size: 11px; display: flex; gap: 24px; }
+  .f-r { color: #3A5A7A; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="header">
+    <div class="h-left">
+      <div class="h-dot"></div>
+      <div>
+        <div class="h-title">smap 内存超分 · 运营监控看板</div>
+        <div class="h-sub">字节火山 AI 平台 · openclaw browser 场景 · L2 UB 借用 + L3 NVMe</div>
+      </div>
+    </div>
+    <div class="h-right">
+      <div class="status-badge status-live"><div class="live-dot"></div>smap 运行中</div>
+      <div class="status-badge status-info">2U4G 虚机 · openclaw</div>
+    </div>
+  </div>
+
+  <div class="dashboard">
+    <!-- Row 1 Col 1: 超分比 -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#4A90C4;"></div>整机内存超分比</div>
+      <div class="metric-big" style="color:#4A90C4;">2.8<span class="metric-unit" style="color:#4A90C4;">×</span></div>
+      <div class="metric-label">vs 传统 DRAM-only 方案</div>
+      <div class="metric-change metric-up">↑ 180% 提升</div>
+      <div style="height:1px;background:#2A3A50;margin:10px 0;"></div>
+      <div style="font-size:10px;color:#4A6A8A;margin-bottom:4px;">超分贡献分解</div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L2 UB 借用内存</span><span class="prog-val" style="color:#4ABA8A;">+120%</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:72%;background:#1B8A6A;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L3 NVMe 扩容</span><span class="prog-val" style="color:#C4A050;">+60%</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:45%;background:#9A7A40;"></div></div>
+      </div>
+    </div>
+
+    <!-- Row 1 Col 2-3: Platform + VM info -->
+    <div class="card span-col2">
+      <div class="card-title"><div class="card-title-dot" style="background:#3D7AB5;"></div>系统概览 · 字节火山 AI 平台 → 2U4G 虚机 → openclaw browser</div>
+      <div style="display:flex;gap:16px;align-items:center;">
+        <div style="background:#162030;border:1px solid #2A3A50;border-radius:8px;padding:14px 20px;display:flex;align-items:center;gap:12px;flex:1;">
+          <div style="font-size:28px;">🌋</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#C8DDF0;">字节火山 AI 服务平台</div>
+            <div style="font-size:11px;color:#4A6A8A;margin-top:2px;">Volcano Engine · 高密度混部 · AI 推理</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span style="background:rgba(61,122,181,0.2);color:#6BAED6;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">万级节点</span>
+              <span style="background:rgba(61,122,181,0.2);color:#6BAED6;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">AI 推理</span>
+            </div>
+          </div>
+        </div>
+        <div style="color:#2A3A50;font-size:24px;">→</div>
+        <div style="background:#162030;border:1px solid #2A3A50;border-radius:8px;padding:14px 20px;display:flex;align-items:center;gap:12px;flex:1;">
+          <div style="font-size:28px;">⬜</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#C8DDF0;">虚机 · 2U4G</div>
+            <div style="font-size:11px;color:#4A6A8A;margin-top:2px;">2 vCPU / 4 GB DRAM · KVM</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span style="background:rgba(61,122,181,0.15);color:#6BAED6;padding:2px 7px;border-radius:3px;font-size:10px;">高密度混部</span>
+            </div>
+          </div>
+        </div>
+        <div style="color:#2A3A50;font-size:24px;">→</div>
+        <div style="background:#0D2030;border:2px solid #0D6B8C;border-radius:8px;padding:14px 20px;display:flex;align-items:center;gap:12px;flex:1.3;">
+          <div style="font-size:28px;">🌐</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:#6BD4F0;">openclaw browser</div>
+            <div style="font-size:11px;color:#3A7A94;margin-top:2px;">冷热分层内存访问 · 核心业务进程</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span style="background:rgba(13,107,140,0.3);color:#6BD4F0;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">前台 Tab 热</span>
+              <span style="background:rgba(13,107,140,0.2);color:#5ABADA;padding:2px 7px;border-radius:3px;font-size:10px;">后台 Tab 冷</span>
+            </div>
+          </div>
+        </div>
+        <div style="color:#2A3A50;font-size:24px;">→</div>
+        <div style="background:#162030;border:1px solid #2A3A50;border-radius:8px;padding:14px 20px;display:flex;align-items:center;gap:12px;flex:1;">
+          <div style="font-size:28px;">⚙️</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:#C8DDF0;">smap 调度器</div>
+            <div style="font-size:11px;color:#4A6A8A;margin-top:2px;">热度感知 · 自适应迁移</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span style="background:rgba(61,122,181,0.15);color:#6BAED6;padding:2px 7px;border-radius:3px;font-size:10px;">透明代理</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1 Col 4: 装机密度 -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#4ABA8A;"></div>装机密度提升</div>
+      <div class="metric-big" style="color:#4ABA8A;">40<span class="metric-unit" style="color:#4ABA8A;">%</span></div>
+      <div class="metric-label">同等硬件可装机数量</div>
+      <div class="metric-change metric-up">↑ 更多 VM 可以上线</div>
+      <div style="height:1px;background:#2A3A50;margin:10px 0;"></div>
+      <div style="font-size:10px;color:#4A6A8A;margin-bottom:6px;">部署对比</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#4A6A8A;">传统方案</div>
+          <div style="width:100%;height:50px;background:#243045;border-radius:3px;display:flex;align-items:flex-end;overflow:hidden;">
+            <div style="width:100%;height:72%;background:#3A4A5A;border-radius:3px;"></div>
+          </div>
+          <div style="font-size:10px;color:#4A6A8A;">100%</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#4ABA8A;">smap</div>
+          <div style="width:100%;height:50px;background:#243045;border-radius:3px;display:flex;align-items:flex-end;overflow:hidden;">
+            <div style="width:100%;height:100%;background:#1B8A6A;border-radius:3px;"></div>
+          </div>
+          <div style="font-size:10px;color:#4ABA8A;">140%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2 Col 1: openclaw tab status -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#6BD4F0;"></div>openclaw Tab 热度状态</div>
+      <div class="process-item">
+        <div class="process-status" style="background:#4ABA8A;"></div>
+        <div class="process-name" style="color:#C8DDF0;">前台 Tab · 活跃</div>
+        <div class="process-mem">1.2 GB</div>
+        <span class="process-tier" style="background:rgba(61,122,181,0.2);color:#6BAED6;">L1 DRAM</span>
+      </div>
+      <div class="process-item">
+        <div class="process-status" style="background:#6BD4F0;"></div>
+        <div class="process-name" style="color:#A8C8D8;">后台 Tab × 3</div>
+        <div class="process-mem">1.8 GB</div>
+        <span class="process-tier" style="background:rgba(27,138,106,0.2);color:#4ABA8A;">L2 UB</span>
+      </div>
+      <div class="process-item">
+        <div class="process-status" style="background:#C4A050;"></div>
+        <div class="process-name" style="color:#8A9A7A;">历史 Tab × 8</div>
+        <div class="process-mem">2.1 GB</div>
+        <span class="process-tier" style="background:rgba(154,122,64,0.2);color:#C4A050;">L3 NVMe</span>
+      </div>
+      <div class="process-item">
+        <div class="process-status" style="background:#8A7AB4;"></div>
+        <div class="process-name" style="color:#7A8A9A;">JS 引擎堆</div>
+        <div class="process-mem">0.8 GB</div>
+        <span class="process-tier" style="background:rgba(61,122,181,0.2);color:#6BAED6;">L1 DRAM</span>
+      </div>
+    </div>
+
+    <!-- Row 2 Col 2: Memory tier distribution bar chart -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#3D7AB5;"></div>内存分布实时状态</div>
+      <div style="display:flex;gap:0;height:100px;align-items:flex-end;margin-bottom:6px;">
+        <!-- L1 -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#3D7AB5;font-weight:700;">L1</div>
+          <div style="width:80%;background:#3D7AB5;height:75px;border-radius:3px 3px 0 0;"></div>
+          <div style="font-size:9px;color:#4A6A8A;">4 GB</div>
+        </div>
+        <!-- spacer -->
+        <div style="width:8px;"></div>
+        <!-- Active hot data breakdown in L1 -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#2D6A9F;font-weight:700;">前台</div>
+          <div style="width:80%;background:#2D6A9F;height:58px;border-radius:3px 3px 0 0;"></div>
+          <div style="font-size:9px;color:#4A6A8A;">2 GB</div>
+        </div>
+        <!-- spacer -->
+        <div style="width:8px;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#4ABA8A;font-weight:700;">L2</div>
+          <div style="width:80%;background:#1B8A6A;height:50px;border-radius:3px 3px 0 0;"></div>
+          <div style="font-size:9px;color:#4A6A8A;">1.8 GB</div>
+        </div>
+        <!-- spacer -->
+        <div style="width:8px;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:10px;color:#C4A050;font-weight:700;">L3</div>
+          <div style="width:80%;background:#9A7A40;height:35px;border-radius:3px 3px 0 0;"></div>
+          <div style="font-size:9px;color:#4A6A8A;">2.1 GB</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-around;font-size:10px;color:#4A6A8A;">
+        <span>DRAM 总量</span>
+        <span>活跃数据</span>
+        <span>温数据</span>
+        <span>冷数据</span>
+      </div>
+    </div>
+
+    <!-- Row 2 Col 3: Migration metrics -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#C4A050;"></div>迁移性能指标</div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L1 → L2 迁移延迟</span><span class="prog-val" style="color:#4ABA8A;">&lt;500ms</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:30%;background:#1B8A6A;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L2 → L3 归档延迟</span><span class="prog-val" style="color:#C4A050;">&lt;5s</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:20%;background:#9A7A40;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L2 → L1 Prefetch</span><span class="prog-val" style="color:#6BAED6;">&lt;2ms</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:40%;background:#3D7AB5;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L3 → L1 恢复</span><span class="prog-val" style="color:#8AAFD4;">&lt;200ms</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:25%;background:#2D5A8E;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">热度扫描周期</span><span class="prog-val" style="color:#C8DDF0;">~100ms</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:15%;background:#475569;"></div></div>
+      </div>
+    </div>
+
+    <!-- Row 2 Col 4: Cost metrics -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#9A7A40;"></div>成本节约</div>
+      <div class="metric-big" style="color:#C4A050;">35<span class="metric-unit" style="color:#C4A050;">%</span></div>
+      <div class="metric-label">内存采购成本降低</div>
+      <div style="height:1px;background:#2A3A50;margin:10px 0;"></div>
+      <div style="font-size:10px;color:#4A6A8A;margin-bottom:6px;">层级成本对比 (相对 DRAM)</div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L1 DRAM</span><span class="prog-val">1.0×</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:100%;background:#3D7AB5;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L2 UB 借用</span><span class="prog-val">0.4×</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:40%;background:#1B8A6A;"></div></div>
+      </div>
+      <div class="prog-row">
+        <div class="prog-header"><span class="prog-name">L3 NVMe</span><span class="prog-val">0.05×</span></div>
+        <div class="prog-bg"><div class="prog-fill" style="width:5%;background:#9A7A40;"></div></div>
+      </div>
+    </div>
+
+    <!-- Row 3 Col 1: smap Engine status -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#8A7AB4;"></div>smap 引擎状态</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">热度追踪器</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 运行中</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">迁移调度器</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 运行中</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">L2 UB 连接</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 已连接</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">L3 NVMe 通道</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 已就绪</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">Prefetch 引擎</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 运行中</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;">
+          <span style="color:#5A7A9A;">页表代理</span>
+          <span style="color:#4ABA8A;font-weight:600;">● 透明拦截</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3 Col 2-3: Memory tier cards -->
+    <div class="card span-col2">
+      <div class="card-title"><div class="card-title-dot" style="background:#4A90C4;"></div>三层内存架构详情</div>
+      <div style="display:flex;gap:12px;height:calc(100% - 24px);">
+        <!-- L1 -->
+        <div class="tier-row" style="background:rgba(45,90,142,0.2);border-color:#2D5A8E;flex:1;">
+          <div class="tier-icon" style="background:#1E3A5F;color:#6BAED6;">
+            <div class="tier-icon-t">TIER</div>
+            <div class="tier-icon-n">L1</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#6BAED6;">本地 DRAM</div>
+            <div class="tier-spec">4 GB · ~100 ns · 50+ GB/s</div>
+            <div style="font-size:10px;color:#4A6A8A;margin-top:3px;">前台 Tab · JS 引擎 · DOM 热数据</div>
+            <div class="tier-usage-bar"><div class="tier-usage-fill" style="width:85%;background:#3D7AB5;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#3D7AB5;">使用 3.4/4 GB</span><span style="color:#4A6A8A;">85%</span></div>
+          </div>
+        </div>
+        <!-- L2 -->
+        <div class="tier-row" style="background:rgba(27,138,106,0.15);border-color:#1B8A6A;flex:1;">
+          <div class="tier-icon" style="background:#0D4A3A;color:#4ABA8A;">
+            <div class="tier-icon-t">TIER</div>
+            <div class="tier-icon-n">L2</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#4ABA8A;">UB 借用内存</div>
+            <div class="tier-spec">动态扩展 · &lt;2 ms · UB RDMA</div>
+            <div style="font-size:10px;color:#4A6A8A;margin-top:3px;">后台 Tab · 网络缓存 · 温数据</div>
+            <div class="tier-usage-bar"><div class="tier-usage-fill" style="width:60%;background:#1B8A6A;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#1B8A6A;">已借用 1.8 GB</span><span style="color:#4A6A8A;">60%</span></div>
+          </div>
+        </div>
+        <!-- L3 -->
+        <div class="tier-row" style="background:rgba(154,122,64,0.15);border-color:#9A7A40;flex:1;">
+          <div class="tier-icon" style="background:#4A3A1A;color:#C4A050;">
+            <div class="tier-icon-t">TIER</div>
+            <div class="tier-icon-n">L3</div>
+          </div>
+          <div class="tier-info">
+            <div class="tier-name" style="color:#C4A050;">NVMe SSD</div>
+            <div class="tier-spec">TB 级 · ~100 μs · NVMe PCIe</div>
+            <div style="font-size:10px;color:#4A6A8A;margin-top:3px;">历史 Tab · 离线缓存 · 冷数据</div>
+            <div class="tier-usage-bar"><div class="tier-usage-fill" style="width:35%;background:#9A7A40;"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;margin-top:2px;"><span style="color:#9A7A40;">已用 2.1 GB</span><span style="color:#4A6A8A;">35%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3 Col 4: key findings -->
+    <div class="card">
+      <div class="card-title"><div class="card-title-dot" style="background:#4ABA8A;"></div>核心结论</div>
+      <div class="summary-item" style="border-color:#3D7AB5;">
+        <div class="si-num" style="color:#4A90C4;">2-3×</div>
+        <div><div class="si-label">超分比提升</div><div class="si-desc">L2+L3 扩展突破 DRAM 上限</div></div>
+      </div>
+      <div class="summary-item" style="border-color:#1B8A6A;">
+        <div class="si-num" style="color:#4ABA8A;">0感知</div>
+        <div><div class="si-label">openclaw 零改动</div><div class="si-desc">内核层透明，业务无感知</div></div>
+      </div>
+      <div class="summary-item" style="border-color:#9A7A40;">
+        <div class="si-num" style="color:#C4A050;">35%</div>
+        <div><div class="si-label">成本节约</div><div class="si-desc">降低 DRAM 采购压力</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="f-l">
+      <span>字节跳动基础架构部</span>
+      <span>内存超分专项</span>
+      <span>smap v2</span>
+    </div>
+    <div class="f-r">2026</div>
+  </div>
+</div>
+</body>
+</html>

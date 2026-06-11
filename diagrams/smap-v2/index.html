@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap v2 示意图 - 风格选择</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F0F4F8; color: #1A2332; padding: 40px;
+  }
+  h1 { font-size: 28px; font-weight: 700; color: #1E3A5F; margin-bottom: 6px; }
+  .subtitle { color: #64748B; font-size: 14px; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+  .card {
+    background: #fff; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border: 1px solid #DDE4EE;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 6px 24px rgba(0,0,0,0.12); }
+  .card-preview {
+    height: 160px; background: #F5F8FC;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; border-bottom: 1px solid #EEF2F7;
+    overflow: hidden; position: relative;
+  }
+  .card-preview iframe {
+    width: 1920px; height: 1080px;
+    transform: scale(0.1875);
+    transform-origin: top left;
+    pointer-events: none;
+    border: none;
+  }
+  .card-body { padding: 14px 16px; }
+  .card-num { font-size: 10px; color: #94A3B8; font-weight: 700; letter-spacing: 1.5px; }
+  .card-title { font-size: 14px; font-weight: 700; color: #1E3A5F; margin: 4px 0; }
+  .card-desc { font-size: 12px; color: #64748B; line-height: 1.4; margin-bottom: 10px; }
+  .card-link {
+    display: inline-block; padding: 7px 16px;
+    background: #1E3A5F; color: #fff; text-decoration: none;
+    border-radius: 6px; font-size: 12px; font-weight: 600;
+    width: 100%; text-align: center;
+  }
+  .card-link:hover { background: #2D5A8E; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-right: 4px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h1>smap v2 · 场景示意图</h1>
+  <p class="subtitle">字节火山 AI 平台 · openclaw browser · L2 UB 借用内存 + L3 NVMe 超分方案 · 10 款 PPT 风格</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-preview" style="background:#F0F4F8;">
+        <iframe src="style01-vertical-flow.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 01</div>
+        <div class="card-title">纵向流程图</div>
+        <div class="card-desc">平台→VM→openclaw→smap→三层内存级联，左中右三栏，内容饱满</div>
+        <a href="style01-vertical-flow.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#fff;">
+        <iframe src="style02-three-column.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 02</div>
+        <div class="card-title">三栏信息图</div>
+        <div class="card-desc">业务场景 | smap分层架构 | 方案收益，三等列布局，信息均衡</div>
+        <a href="style02-three-column.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#F2F4F7;">
+        <iframe src="style03-before-after.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 03</div>
+        <div class="card-title">部署前后对比</div>
+        <div class="card-desc">左半痛点 + 右半收益，中间箭头分割，底部关键指标汇总</div>
+        <a href="style03-before-after.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#F5F6F8;">
+        <iframe src="style04-memory-pyramid.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 04</div>
+        <div class="card-title">内存金字塔</div>
+        <div class="card-desc">梯形金字塔可视化三层，左右双侧标注规格，层级关系直观</div>
+        <a href="style04-memory-pyramid.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#fff;">
+        <iframe src="style05-spec-matrix.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 05</div>
+        <div class="card-title">规格矩阵表</div>
+        <div class="card-desc">L1/L2/L3 多维对比表格，左侧场景说明，右侧数据驱动</div>
+        <a href="style05-spec-matrix.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#F8F9FB;">
+        <iframe src="style06-horizontal-process.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 06</div>
+        <div class="card-title">水平步骤流程</div>
+        <div class="card-desc">写入路径+读取路径双行横向步骤，底部三层内存卡片</div>
+        <a href="style06-horizontal-process.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#EEF1F5;">
+        <iframe src="style07-topology.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 07</div>
+        <div class="card-title">系统拓扑图</div>
+        <div class="card-desc">SVG 连线节点拓扑，多 VM 并列，右侧图例与指标面板</div>
+        <a href="style07-topology.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#1A2332;">
+        <iframe src="style08-dashboard.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 08</div>
+        <div class="card-title">深色运营看板</div>
+        <div class="card-desc">深色 Dashboard 网格，状态面板+进度条+指标卡，监控视角</div>
+        <a href="style08-dashboard.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#F7F8FA;">
+        <iframe src="style09-infographic.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 09</div>
+        <div class="card-title">叙事信息图</div>
+        <div class="card-desc">左侧边栏+问题陈述横幅+三层等高信息卡+底部结论条</div>
+        <a href="style09-infographic.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-preview" style="background:#E8EDF4;">
+        <iframe src="style10-blueprint.html" scrolling="no"></iframe>
+      </div>
+      <div class="card-body">
+        <div class="card-num">STYLE 10</div>
+        <div class="card-title">工程蓝图</div>
+        <div class="card-desc">仿工程制图网格背景，编号框+引线标注+右侧规格面板</div>
+        <a href="style10-blueprint.html" target="_blank" class="card-link">查看全图</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

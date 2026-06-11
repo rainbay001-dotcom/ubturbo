@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 水平流程图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F8F9FB;
+    color: #1A2332;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: flex; flex-direction: column;
+  }
+  /* Title bar */
+  .title-bar {
+    background: #fff; height: 70px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 52px;
+    border-bottom: 1px solid #E2E8F0;
+    flex-shrink: 0;
+  }
+  .tb-left { display: flex; align-items: center; gap: 18px; }
+  .tb-logo { background: #1E3A5F; color: #fff; padding: 6px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+  .tb-title { font-size: 20px; font-weight: 700; color: #1A2332; }
+  .tb-sub { font-size: 12px; color: #64748B; margin-top: 2px; }
+  .tb-right { display: flex; gap: 8px; }
+  .tb-tag { padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid; }
+
+  /* Content area */
+  .content { flex: 1; display: flex; flex-direction: column; gap: 0; padding: 20px 40px; }
+
+  /* Top row: system components horizontal flow */
+  .system-flow {
+    display: flex; align-items: stretch;
+    background: #fff; border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+    flex-shrink: 0; height: 130px;
+    margin-bottom: 16px;
+  }
+  .sf-node {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 12px 16px; text-align: center;
+    border-right: 1px solid #EEF2F7;
+    position: relative;
+  }
+  .sf-node:last-child { border-right: none; }
+  .sf-icon { font-size: 22px; margin-bottom: 6px; }
+  .sf-name { font-size: 13px; font-weight: 700; }
+  .sf-sub { font-size: 10px; color: #64748B; margin-top: 2px; }
+  .sf-arrow {
+    width: 28px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #94A3B8; font-size: 22px; font-weight: 300;
+    background: #FAFBFC;
+  }
+  .sf-node-platform { background: #EBF3FC; }
+  .sf-node-vm { background: #F0F4FA; }
+  .sf-node-oc { background: #E6F5F1; border: none; }
+  .sf-node-smap { background: #F5F0FF; }
+
+  /* Bottom: two rows of process steps */
+  .process-section { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .process-row-label {
+    font-size: 11px; font-weight: 700; color: #64748B;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 2px;
+  }
+  .process-steps { display: flex; align-items: stretch; gap: 0; }
+  .step-box {
+    flex: 1; background: #fff; border-radius: 0;
+    padding: 14px 16px; border-right: 1px solid #EEF2F7;
+    border-top: 3px solid;
+    position: relative;
+  }
+  .step-box:first-child { border-radius: 8px 0 0 8px; }
+  .step-box:last-child { border-right: none; border-radius: 0 8px 8px 0; }
+  .step-num { font-size: 10px; font-weight: 800; color: #94A3B8; margin-bottom: 5px; letter-spacing: 1px; }
+  .step-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+  .step-body { font-size: 11px; color: #64748B; line-height: 1.45; }
+  .step-tag {
+    display: inline-block; margin-top: 6px;
+    background: #F5F8FC; border: 1px solid #DDE4EE;
+    border-radius: 3px; padding: 2px 7px; font-size: 10px; color: #475569; font-weight: 600;
+  }
+  .step-arrow-wrap {
+    width: 32px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #F8F9FB;
+  }
+  .step-arrow { color: #B0BEC5; font-size: 20px; }
+
+  /* Memory layer cards at bottom */
+  .mem-cards { display: flex; gap: 12px; flex-shrink: 0; }
+  .mem-card {
+    flex: 1; border-radius: 8px; padding: 14px 18px;
+    border: 1px solid; display: flex; align-items: center; gap: 14px;
+  }
+  .mc-badge {
+    width: 48px; height: 48px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff;
+  }
+  .mc-badge-tier { font-size: 9px; font-weight: 700; opacity: 0.8; }
+  .mc-badge-num { font-size: 20px; font-weight: 900; }
+  .mc-info { flex: 1; }
+  .mc-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .mc-specs { display: flex; gap: 12px; }
+  .mc-spec { font-size: 11px; color: #64748B; }
+  .mc-spec span { font-weight: 600; color: #374151; }
+  .mc-usage { font-size: 11px; color: #64748B; margin-top: 4px; }
+  .mc-bar { height: 4px; border-radius: 2px; margin-top: 6px; background: #EEF2F7; }
+  .mc-bar-fill { height: 100%; border-radius: 2px; }
+
+  /* Footer */
+  .footer {
+    height: 50px; background: #1E3A5F;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 52px; flex-shrink: 0;
+  }
+  .f-l { color: #8AAFD4; font-size: 12px; }
+  .f-r { color: #6B8BAA; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- Title bar -->
+  <div class="title-bar">
+    <div class="tb-left">
+      <span class="tb-logo">BYTEDANCE</span>
+      <div>
+        <div class="tb-title">smap 内存超分 · 端到端流程视图</div>
+        <div class="tb-sub">字节火山 AI 平台 · openclaw browser 场景 · L2 UB 借用 + L3 NVMe</div>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span class="tb-tag" style="background:#EBF3FC;color:#1E3A5F;border-color:#BDD4EC;">写入路径</span>
+      <span class="tb-tag" style="background:#E6F5F1;color:#0D5C4A;border-color:#B0D9CF;">读取路径</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- System Components Flow -->
+    <div class="system-flow">
+      <div class="sf-node sf-node-platform">
+        <div class="sf-icon">🌋</div>
+        <div class="sf-name" style="color:#1E3A5F;">火山 AI 平台</div>
+        <div class="sf-sub">Volcano Engine</div>
+        <div class="sf-sub">万级节点 · AI 推理</div>
+      </div>
+      <div class="sf-arrow">›</div>
+      <div class="sf-node sf-node-vm">
+        <div class="sf-icon">⬜</div>
+        <div class="sf-name" style="color:#2D5A8E;">虚机 · 2U4G</div>
+        <div class="sf-sub">KVM 虚拟化</div>
+        <div class="sf-sub">2 vCPU / 4 GB DRAM</div>
+      </div>
+      <div class="sf-arrow">›</div>
+      <div class="sf-node sf-node-oc" style="flex:1.5;">
+        <div class="sf-icon">🌐</div>
+        <div class="sf-name" style="color:#0D5C4A;font-size:15px;">openclaw browser</div>
+        <div class="sf-sub" style="font-size:11px;">核心业务进程 · 冷热分层内存访问模式</div>
+        <div style="display:flex;gap:6px;margin-top:5px;justify-content:center;">
+          <span style="background:#EBF3FC;color:#1E3A5F;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;">前台 Tab 热</span>
+          <span style="background:#E6F5F1;color:#0D5C4A;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;">后台 Tab 温</span>
+          <span style="background:#FEF9EC;color:#7C5A1A;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;">历史 Tab 冷</span>
+        </div>
+      </div>
+      <div class="sf-arrow">›</div>
+      <div class="sf-node sf-node-smap">
+        <div class="sf-icon">⚙️</div>
+        <div class="sf-name" style="color:#4A2A7A;">smap 调度器</div>
+        <div class="sf-sub">热度感知</div>
+        <div class="sf-sub">自适应迁移</div>
+      </div>
+      <div class="sf-arrow">→</div>
+      <div class="sf-node" style="background:#EBF3FC;flex:1.2;">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+          <span style="background:#2D5A8E;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">L1</span>
+          <span style="background:#1A5A42;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">L2</span>
+          <span style="background:#7A5A2A;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">L3</span>
+        </div>
+        <div class="sf-name" style="color:#1E3A5F;">三层内存</div>
+        <div class="sf-sub">DRAM + UB + NVMe</div>
+      </div>
+    </div>
+
+    <div class="process-section">
+      <!-- Write path -->
+      <div>
+        <div class="process-row-label" style="color:#3D7AB5;">▶ 写入路径（内存分配 / 页面迁移）</div>
+        <div class="process-steps" style="box-shadow:0 2px 8px rgba(0,0,0,0.05);border-radius:8px;overflow:hidden;">
+          <div class="step-box" style="border-color:#3D7AB5;">
+            <div class="step-num">STEP 01</div>
+            <div class="step-title" style="color:#1E3A5F;">openclaw 分配内存</div>
+            <div class="step-body">browser 进程请求分配新内存页，内核 mm 介入。smap 记录分配时间戳与初始热度评分。</div>
+            <span class="step-tag">malloc / mmap</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#2D6A9F;">
+            <div class="step-num">STEP 02</div>
+            <div class="step-title" style="color:#2D6A9F;">初始置于 L1 DRAM</div>
+            <div class="step-body">新分配页面默认置于本地 DRAM，保障初始访问延迟最优。smap 开始追踪 PTE Access Bit。</div>
+            <span class="step-tag">L1 驻留</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#1B8A6A;">
+            <div class="step-num">STEP 03</div>
+            <div class="step-title" style="color:#1B8A6A;">热度衰减 → 迁移至 L2</div>
+            <div class="step-body">smap 周期扫描，检测 Tab 切换或页面长期未访问，触发 L1→L2 异步迁移。更新页表映射至 UB 借用内存。</div>
+            <span class="step-tag">UB RDMA 搬运</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#B89060;">
+            <div class="step-num">STEP 04</div>
+            <div class="step-title" style="color:#B89060;">继续衰减 → 归档 L3</div>
+            <div class="step-body">L2 中长期不访问的页面进一步降级至 NVMe，以 swap 语义写入 NVMe 设备，释放 L2 空间。</div>
+            <span class="step-tag">NVMe 写入</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#64748B;">
+            <div class="step-num">STEP 05</div>
+            <div class="step-title" style="color:#475569;">超分空间释放</div>
+            <div class="step-body">冷数据归档后，L1 DRAM 空间释放，可供新 VM 分配。整机装机密度提升，超分比达到目标。</div>
+            <span class="step-tag">超分比 ↑ 2-3×</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Read path -->
+      <div>
+        <div class="process-row-label" style="color:#1B8A6A;">▶ 读取路径（Tab 激活 / 数据预取）</div>
+        <div class="process-steps" style="box-shadow:0 2px 8px rgba(0,0,0,0.05);border-radius:8px;overflow:hidden;">
+          <div class="step-box" style="border-color:#1B8A6A;">
+            <div class="step-num">STEP 01</div>
+            <div class="step-title" style="color:#1B8A6A;">Tab 激活 / 内存访问</div>
+            <div class="step-body">openclaw 切换到后台 Tab 或访问已迁移内存，触发缺页异常（Page Fault），进入 smap 处理流程。</div>
+            <span class="step-tag">Page Fault 触发</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#0D7A6A;">
+            <div class="step-num">STEP 02</div>
+            <div class="step-title" style="color:#0D5C4A;">查询 smap 位置索引</div>
+            <div class="step-body">smap 查询内存位置索引，确认目标页面当前驻留在 L2 (UB) 还是 L3 (NVMe)，决定 Fetch 路径。</div>
+            <span class="step-tag">位置查找 O(1)</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#2D7A5A;">
+            <div class="step-num">STEP 03</div>
+            <div class="step-title" style="color:#2D7A5A;">L2/L3 → L1 Prefetch</div>
+            <div class="step-body">触发异步 DMA/RDMA 操作，将目标页面从 L2 或 L3 搬运至 L1 DRAM。同时 Prefetch 相邻页面。</div>
+            <span class="step-tag">DMA 搬运</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#3D7AB5;">
+            <div class="step-num">STEP 04</div>
+            <div class="step-title" style="color:#1E3A5F;">页表更新 · 返回数据</div>
+            <div class="step-body">更新 VM 页表映射至新 L1 地址，解除 Page Fault，openclaw 访问恢复正常。全程对业务透明。</div>
+            <span class="step-tag">透明恢复</span>
+          </div>
+          <div class="step-arrow-wrap"><div class="step-arrow">›</div></div>
+          <div class="step-box" style="border-color:#475569;">
+            <div class="step-num">STEP 05</div>
+            <div class="step-title" style="color:#475569;">热度更新 · 驻留 L1</div>
+            <div class="step-body">访问后 smap 更新热度评分，频繁访问的页面稳定驻留 L1，确保 openclaw 前台 Tab 交互延迟满足 SLA。</div>
+            <span class="step-tag">SLA 保障</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memory tier summary -->
+      <div class="mem-cards">
+        <div class="mem-card" style="background:#EBF3FC;border-color:#BDD4EC;">
+          <div class="mc-badge" style="background:#1E3A5F;">
+            <div class="mc-badge-tier">TIER</div>
+            <div class="mc-badge-num">L1</div>
+          </div>
+          <div class="mc-info">
+            <div class="mc-name" style="color:#1E3A5F;">本地 DRAM · 热数据</div>
+            <div class="mc-specs">
+              <div class="mc-spec">容量 <span>4 GB</span></div>
+              <div class="mc-spec">延迟 <span>~100 ns</span></div>
+              <div class="mc-spec">带宽 <span>50+ GB/s</span></div>
+            </div>
+            <div class="mc-bar"><div class="mc-bar-fill" style="width:100%;background:#3D7AB5;"></div></div>
+          </div>
+        </div>
+        <div class="mem-card" style="background:#E6F5F1;border-color:#B0D9CF;">
+          <div class="mc-badge" style="background:#0D5C4A;">
+            <div class="mc-badge-tier">TIER</div>
+            <div class="mc-badge-num">L2</div>
+          </div>
+          <div class="mc-info">
+            <div class="mc-name" style="color:#0D5C4A;">UB 借用内存 · 温数据</div>
+            <div class="mc-specs">
+              <div class="mc-spec">容量 <span>动态扩展</span></div>
+              <div class="mc-spec">延迟 <span>&lt;2 ms</span></div>
+              <div class="mc-spec">协议 <span>UB RDMA</span></div>
+            </div>
+            <div class="mc-bar"><div class="mc-bar-fill" style="width:72%;background:#1B8A6A;"></div></div>
+          </div>
+        </div>
+        <div class="mem-card" style="background:#FEF9EC;border-color:#F0DFA0;">
+          <div class="mc-badge" style="background:#7A5A2A;">
+            <div class="mc-badge-tier">TIER</div>
+            <div class="mc-badge-num">L3</div>
+          </div>
+          <div class="mc-info">
+            <div class="mc-name" style="color:#7A5A2A;">NVMe SSD · 冷数据</div>
+            <div class="mc-specs">
+              <div class="mc-spec">容量 <span>TB 级</span></div>
+              <div class="mc-spec">延迟 <span>~100 μs</span></div>
+              <div class="mc-spec">协议 <span>NVMe PCIe</span></div>
+            </div>
+            <div class="mc-bar"><div class="mc-bar-fill" style="width:45%;background:#B89060;"></div></div>
+          </div>
+        </div>
+        <div class="mem-card" style="background:#F5F0FF;border-color:#D4C4EC;border-style:dashed;">
+          <div style="text-align:center;width:100%;">
+            <div style="font-size:11px;color:#6B8BAA;margin-bottom:6px;font-weight:600;letter-spacing:1px;">整机超分效果</div>
+            <div style="font-size:32px;font-weight:800;color:#1E3A5F;line-height:1;">2-3×</div>
+            <div style="font-size:11px;color:#64748B;margin-top:4px;">内存超分比提升</div>
+            <div style="font-size:11px;color:#64748B;">装机密度 ↑ 40% · 成本 ↓ 35%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="f-l">字节跳动基础架构部 · 内存超分专项</div>
+    <div class="f-r">smap v2 · 2026</div>
+  </div>
+</div>
+</body>
+</html>

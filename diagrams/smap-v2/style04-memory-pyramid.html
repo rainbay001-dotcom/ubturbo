@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 内存金字塔</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F5F6F8;
+    color: #1A2332;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: grid;
+    grid-template-rows: 72px 1fr 56px;
+  }
+  .header {
+    background: #FFFFFF;
+    border-bottom: 2px solid #E2E8F0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 56px;
+  }
+  .h-left { display: flex; align-items: center; gap: 20px; }
+  .h-badge {
+    background: #1E3A5F; color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    padding: 7px 14px; border-radius: 4px;
+  }
+  .h-title { font-size: 22px; font-weight: 700; color: #1A2332; }
+  .h-sub { font-size: 12px; color: #64748B; }
+  .h-right { font-size: 12px; color: #64748B; }
+
+  /* Main grid: left annotations + center pyramid + right annotations */
+  .main {
+    display: grid;
+    grid-template-columns: 380px 1fr 380px;
+    padding: 24px 32px;
+    gap: 24px;
+  }
+  .left-col, .right-col {
+    display: flex; flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+  }
+  .annot-card {
+    background: #fff; border-radius: 10px; padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-left: 4px solid;
+    position: relative;
+  }
+  .annot-tier { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+  .annot-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .annot-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .annot-key { color: #64748B; }
+  .annot-val { font-weight: 600; }
+  .annot-desc { font-size: 11px; color: #64748B; line-height: 1.45; margin-top: 6px; padding-top: 6px; border-top: 1px solid #F0F4F8; }
+
+  /* Center pyramid */
+  .center-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0;
+  }
+  .pyramid-wrap {
+    width: 100%; display: flex; flex-direction: column; align-items: center;
+    gap: 0;
+  }
+  /* Top section: platform + VM */
+  .platform-block {
+    background: #1E3A5F; color: #fff;
+    border-radius: 10px 10px 0 0;
+    width: 680px; padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .platform-left { }
+  .platform-name { font-size: 16px; font-weight: 700; }
+  .platform-sub { font-size: 11px; color: #8AAFD4; margin-top: 2px; }
+  .platform-right { display: flex; gap: 12px; }
+  .platform-chip {
+    background: rgba(255,255,255,0.12); color: #C8DDF0;
+    padding: 4px 12px; border-radius: 4px; font-size: 11px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .vm-block {
+    width: 680px; background: #2D5A8E; color: #fff;
+    padding: 12px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .vm-left { display: flex; align-items: center; gap: 14px; }
+  .vm-icon { font-size: 22px; }
+  .vm-name { font-size: 14px; font-weight: 700; }
+  .vm-spec { font-size: 11px; color: #8AAFD4; }
+  .vm-right { display: flex; align-items: center; gap: 8px; }
+  .vm-app-badge {
+    background: #0D6B8C; color: #fff;
+    padding: 5px 14px; border-radius: 6px;
+    font-size: 13px; font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .smap-block {
+    width: 680px; background: #1B5E7B; color: #fff;
+    padding: 10px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .smap-left { display: flex; align-items: center; gap: 10px; }
+  .smap-icon { font-size: 18px; }
+  .smap-name { font-size: 13px; font-weight: 700; }
+  .smap-sub { font-size: 11px; color: #7AB8D4; }
+  .smap-chips { display: flex; gap: 6px; }
+  .smap-chip {
+    background: rgba(255,255,255,0.1); color: #B0D8E8;
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+  }
+
+  /* Pyramid tiers */
+  .tier-l1 {
+    clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%);
+    width: 680px; height: 120px; background: #2D5A8E;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .tier-l2 {
+    clip-path: polygon(5% 0%, 95% 0%, 100% 100%, 0% 100%);
+    width: 780px; height: 130px; background: #2D7A5A;
+    margin-top: -1px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .tier-l3 {
+    clip-path: polygon(0% 0%, 100% 0%, 95% 100%, 5% 100%);
+    width: 900px; height: 140px; background: #7A5A2A;
+    margin-top: -1px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  .tier-label {
+    font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.9);
+    letter-spacing: 1px;
+  }
+  .tier-sublabel { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+
+  /* Transfer arrows between tiers */
+  .tier-arrow {
+    width: 680px; display: flex; justify-content: center; align-items: center;
+    height: 20px; color: #94A3B8; font-size: 18px;
+    z-index: 10; position: relative;
+  }
+  .transfer-label {
+    font-size: 10px; color: #94A3B8; background: #F5F6F8;
+    padding: 1px 8px; border-radius: 4px; font-weight: 600;
+  }
+
+  /* Openclaw highlight */
+  .openclaw-highlight {
+    width: 680px; background: #fff;
+    border: 2px solid #0D6B8C; border-radius: 0;
+    padding: 10px 20px;
+    display: flex; gap: 24px; align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .oc-item { text-align: center; }
+  .oc-val { font-size: 18px; font-weight: 800; color: #0D4A5A; }
+  .oc-label { font-size: 10px; color: #64748B; margin-top: 2px; }
+  .oc-sep { width: 1px; height: 36px; background: #DDE4EE; }
+
+  /* Footer */
+  .footer {
+    background: #1E3A5F;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 56px;
+  }
+  .f-left { color: #8AAFD4; font-size: 12px; }
+  .f-right { display: flex; gap: 24px; }
+  .f-item { display: flex; align-items: center; gap: 6px; color: #8AAFD4; font-size: 11px; }
+  .f-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Connecting lines from pyramid to annotations */
+  .conn-line {
+    position: absolute; right: -24px; top: 50%;
+    width: 24px; height: 2px;
+    background: currentColor;
+    transform: translateY(-50%);
+  }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="header">
+    <div class="h-left">
+      <div class="h-badge">BYTEDANCE</div>
+      <div>
+        <div class="h-title">smap 三层内存架构 · 金字塔视图</div>
+        <div class="h-sub">字节火山 AI 平台 · openclaw browser · 冷热分层超分方案</div>
+      </div>
+    </div>
+    <div class="h-right">字节跳动基础架构部 · 2026</div>
+  </div>
+
+  <div class="main">
+    <!-- Left Annotations -->
+    <div class="left-col">
+      <div class="annot-card" style="border-color:#3D7AB5;">
+        <div class="annot-tier" style="color:#3D7AB5;">L1 · 热数据层</div>
+        <div class="annot-title" style="color:#1E3A5F;">本地 DRAM</div>
+        <div class="annot-row"><span class="annot-key">容量</span><span class="annot-val" style="color:#1E3A5F;">4 GB</span></div>
+        <div class="annot-row"><span class="annot-key">延迟</span><span class="annot-val" style="color:#1E3A5F;">~100 ns</span></div>
+        <div class="annot-row"><span class="annot-key">带宽</span><span class="annot-val" style="color:#1E3A5F;">50+ GB/s</span></div>
+        <div class="annot-desc">openclaw 前台 Tab 活跃数据、JS 引擎堆、DOM 树常驻于此。热度最高，性能最优先。</div>
+      </div>
+      <div class="annot-card" style="border-color:#1B8A6A;">
+        <div class="annot-tier" style="color:#1B8A6A;">L2 · 温数据层</div>
+        <div class="annot-title" style="color:#0D5C4A;">UB 借用内存</div>
+        <div class="annot-row"><span class="annot-key">容量</span><span class="annot-val" style="color:#0D5C4A;">动态扩展</span></div>
+        <div class="annot-row"><span class="annot-key">延迟</span><span class="annot-val" style="color:#0D5C4A;">&lt;2 ms</span></div>
+        <div class="annot-row"><span class="annot-key">协议</span><span class="annot-val" style="color:#0D5C4A;">UB RDMA</span></div>
+        <div class="annot-desc">最近使用的 Tab 数据、网络资源缓存。切换 Tab 时 Prefetch 回 L1，满足交互延迟 SLA。</div>
+      </div>
+      <div class="annot-card" style="border-color:#B89060;">
+        <div class="annot-tier" style="color:#B89060;">L3 · 冷数据层</div>
+        <div class="annot-title" style="color:#7C5A1A;">NVMe SSD</div>
+        <div class="annot-row"><span class="annot-key">容量</span><span class="annot-val" style="color:#7C5A1A;">TB 级</span></div>
+        <div class="annot-row"><span class="annot-key">延迟</span><span class="annot-val" style="color:#7C5A1A;">~100 μs</span></div>
+        <div class="annot-row"><span class="annot-key">协议</span><span class="annot-val" style="color:#7C5A1A;">NVMe PCIe</span></div>
+        <div class="annot-desc">历史 Tab 快照、离线缓存、冷数据归档。大容量低成本，实现内存容量最大化扩展。</div>
+      </div>
+    </div>
+
+    <!-- Center Pyramid -->
+    <div class="center-col">
+      <div class="pyramid-wrap">
+        <!-- Platform -->
+        <div class="platform-block">
+          <div class="platform-left">
+            <div class="platform-name">🌋 字节火山 AI 服务平台</div>
+            <div class="platform-sub">Volcano Engine · 大规模 AI 推理集群 · 高密度混部</div>
+          </div>
+          <div class="platform-right">
+            <span class="platform-chip">万级节点</span>
+            <span class="platform-chip">AI 推理</span>
+          </div>
+        </div>
+
+        <!-- VM -->
+        <div class="vm-block">
+          <div class="vm-left">
+            <div class="vm-icon">⬜</div>
+            <div>
+              <div class="vm-name">虚机 · 2U4G</div>
+              <div class="vm-spec">2 vCPU / 4 GB DRAM · KVM 虚拟化</div>
+            </div>
+          </div>
+          <div class="vm-right">
+            <div class="vm-app-badge">🌐 openclaw browser</div>
+          </div>
+        </div>
+
+        <!-- smap engine -->
+        <div class="smap-block">
+          <div class="smap-left">
+            <div class="smap-icon">⚙️</div>
+            <div>
+              <div class="smap-name">smap 内存管理子系统</div>
+              <div class="smap-sub">热度感知 · 自适应迁移 · 三层调度</div>
+            </div>
+          </div>
+          <div class="smap-chips">
+            <span class="smap-chip">访问追踪</span>
+            <span class="smap-chip">迁移决策</span>
+            <span class="smap-chip">异步 Prefetch</span>
+          </div>
+        </div>
+
+        <!-- L1 tier -->
+        <div style="width:680px;height:110px;background:linear-gradient(180deg,#2D5A8E,#1E3A5F);display:flex;align-items:center;justify-content:center;flex-direction:column;clip-path:polygon(8% 0%,92% 0%,100% 100%,0% 100%);position:relative;">
+          <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,0.95);letter-spacing:2px;">L1 · 本地 DRAM · 热数据</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:4px;">4 GB · ~100 ns · 50+ GB/s</div>
+          <div style="position:absolute;bottom:8px;right:60px;display:flex;gap:6px;">
+            <span style="background:rgba(255,255,255,0.15);color:#C8DDF0;font-size:10px;padding:2px 8px;border-radius:3px;">前台 Tab 热数据</span>
+            <span style="background:rgba(255,255,255,0.15);color:#C8DDF0;font-size:10px;padding:2px 8px;border-radius:3px;">JS 引擎</span>
+          </div>
+        </div>
+
+        <!-- Transfer L1→L2 -->
+        <div style="width:780px;display:flex;align-items:center;justify-content:center;height:18px;z-index:10;position:relative;background:#F5F6F8;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#94A3B8;font-weight:600;">
+            <span>⇅</span><span style="background:#E8EEF5;padding:1px 8px;border-radius:3px;">热度感知页面迁移 · smap 自动调度</span><span>⇅</span>
+          </div>
+        </div>
+
+        <!-- L2 tier -->
+        <div style="width:780px;height:120px;background:linear-gradient(180deg,#2D7A5A,#1A5040);display:flex;align-items:center;justify-content:center;flex-direction:column;clip-path:polygon(4% 0%,96% 0%,100% 100%,0% 100%);position:relative;">
+          <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,0.95);letter-spacing:2px;">L2 · UB 借用内存 · 温数据</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:4px;">动态容量 · &lt;2 ms · UB RDMA 协议</div>
+          <div style="position:absolute;bottom:8px;right:60px;display:flex;gap:6px;">
+            <span style="background:rgba(255,255,255,0.15);color:#A0D4C0;font-size:10px;padding:2px 8px;border-radius:3px;">最近 Tab 数据</span>
+            <span style="background:rgba(255,255,255,0.15);color:#A0D4C0;font-size:10px;padding:2px 8px;border-radius:3px;">网络缓存</span>
+          </div>
+        </div>
+
+        <!-- Transfer L2→L3 -->
+        <div style="width:900px;display:flex;align-items:center;justify-content:center;height:18px;z-index:10;position:relative;background:#F5F6F8;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#94A3B8;font-weight:600;">
+            <span>⇅</span><span style="background:#E8EEF5;padding:1px 8px;border-radius:3px;">异步预取 + 延迟写回</span><span>⇅</span>
+          </div>
+        </div>
+
+        <!-- L3 tier -->
+        <div style="width:900px;height:130px;background:linear-gradient(180deg,#7A5A2A,#5A3A0A);display:flex;align-items:center;justify-content:center;flex-direction:column;clip-path:polygon(0% 0%,100% 0%,96% 100%,4% 100%);position:relative;">
+          <div style="font-size:13px;font-weight:800;color:rgba(255,255,255,0.95);letter-spacing:2px;">L3 · NVMe SSD · 冷数据</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:4px;">TB 级容量 · ~100 μs · NVMe PCIe</div>
+          <div style="position:absolute;bottom:8px;right:60px;display:flex;gap:6px;">
+            <span style="background:rgba(255,255,255,0.15);color:#D4B880;font-size:10px;padding:2px 8px;border-radius:3px;">历史 Tab 快照</span>
+            <span style="background:rgba(255,255,255,0.15);color:#D4B880;font-size:10px;padding:2px 8px;border-radius:3px;">离线缓存</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Annotations -->
+    <div class="right-col">
+      <div class="annot-card" style="border-color:#3D7AB5;">
+        <div class="annot-tier" style="color:#3D7AB5;">超分收益</div>
+        <div class="annot-title" style="color:#1E3A5F;">整机超分比 ↑ 2-3×</div>
+        <div style="height:8px;background:#E2EAF4;border-radius:4px;overflow:hidden;margin:8px 0;">
+          <div style="height:100%;width:85%;background:linear-gradient(90deg,#3D7AB5,#6BAED6);border-radius:4px;"></div>
+        </div>
+        <div class="annot-desc">L2 + L3 扩展可用内存，打破 DRAM 物理上限，实现整机内存超分比大幅跃升</div>
+      </div>
+      <div class="annot-card" style="border-color:#1B8A6A;">
+        <div class="annot-tier" style="color:#1B8A6A;">openclaw 适配</div>
+        <div class="annot-title" style="color:#0D5C4A;">Tab 冷热天然匹配</div>
+        <div class="annot-row"><span class="annot-key">前台 Tab</span><span class="annot-val" style="color:#1E3A5F;">L1 DRAM</span></div>
+        <div class="annot-row"><span class="annot-key">后台 Tab</span><span class="annot-val" style="color:#1B8A6A;">L2 UB 内存</span></div>
+        <div class="annot-row"><span class="annot-key">历史 Tab</span><span class="annot-val" style="color:#B89060;">L3 NVMe</span></div>
+        <div class="annot-desc">openclaw 访问模式与 smap 三层架构高度契合，无需修改应用代码</div>
+      </div>
+      <div class="annot-card" style="border-color:#B89060;">
+        <div class="annot-tier" style="color:#B89060;">部署特性</div>
+        <div class="annot-title" style="color:#7C5A1A;">透明接入 · 渐进部署</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;"><span style="color:#1B8A6A;font-weight:700;font-size:14px;">✓</span> 内核层透明，无需改 openclaw</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;"><span style="color:#1B8A6A;font-weight:700;font-size:14px;">✓</span> 支持在线热迁移不中断</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;"><span style="color:#1B8A6A;font-weight:700;font-size:14px;">✓</span> 自适应调参，零运维</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="f-left">字节跳动基础架构部 · 内存超分专项 · smap v2</div>
+    <div class="f-right">
+      <div class="f-item"><div class="f-dot" style="background:#3D7AB5;"></div>L1 热数据</div>
+      <div class="f-item"><div class="f-dot" style="background:#1B8A6A;"></div>L2 温数据</div>
+      <div class="f-item"><div class="f-dot" style="background:#B89060;"></div>L3 冷数据</div>
+      <div style="color:#6B8BAA;font-size:11px;margin-left:16px;">2026</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

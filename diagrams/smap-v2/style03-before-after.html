@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>smap 内存超分方案 - 部署前后对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F2F4F7;
+    color: #1A2332;
+  }
+  .slide {
+    width: 1920px; height: 1080px;
+    display: grid;
+    grid-template-rows: 76px 1fr 64px;
+  }
+  /* Header */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid #DDE4EE;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 52px;
+  }
+  .h-left { display: flex; align-items: center; gap: 16px; }
+  .h-brand {
+    background: #1E3A5F; color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    padding: 6px 14px; border-radius: 4px;
+  }
+  .h-title { font-size: 22px; font-weight: 700; color: #1A2332; }
+  .h-sub { font-size: 12px; color: #64748B; margin-top: 2px; }
+  .h-right { display: flex; gap: 8px; }
+  .h-tag {
+    font-size: 11px; padding: 4px 12px;
+    border-radius: 4px; font-weight: 600;
+  }
+  /* Body: split screen */
+  .body {
+    display: grid;
+    grid-template-columns: 1fr 64px 1fr;
+    padding: 20px 32px;
+    gap: 0;
+  }
+  /* Before panel */
+  .before-panel {
+    background: #fff; border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column;
+  }
+  .before-header {
+    background: #475569; color: #fff;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .after-header {
+    background: #1E3A5F; color: #fff;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-label { font-size: 13px; font-weight: 700; }
+  .panel-desc { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+  .panel-body { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; }
+  /* Middle arrow */
+  .middle-arrow {
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px;
+  }
+  .arrow-circle {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #1E3A5F; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700;
+    box-shadow: 0 4px 16px rgba(30,58,95,0.3);
+  }
+  .arrow-label { font-size: 10px; color: #64748B; text-align: center; font-weight: 600; letter-spacing: 1px; }
+  /* VM stacks */
+  .vm-stack { display: flex; flex-direction: column; gap: 8px; }
+  .vm-row { display: flex; gap: 8px; align-items: stretch; }
+  .vm-block {
+    border-radius: 6px; padding: 10px 12px;
+    border: 1px solid; display: flex; flex-direction: column;
+    justify-content: center;
+  }
+  .vm-name { font-size: 12px; font-weight: 700; }
+  .vm-spec { font-size: 11px; margin-top: 2px; }
+  .vm-app { font-size: 11px; margin-top: 3px; font-style: italic; }
+  /* Problem items */
+  .problem-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: #FFF4F4; border: 1px solid #FECACA;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .problem-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .problem-title { font-size: 13px; font-weight: 700; color: #7F1D1D; margin-bottom: 3px; }
+  .problem-desc { font-size: 11px; color: #6B2222; line-height: 1.4; }
+  /* Solution items */
+  .solution-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: #F0F7F4; border: 1px solid #B0D9CF;
+    border-radius: 8px; padding: 12px 14px;
+  }
+  .solution-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .solution-title { font-size: 13px; font-weight: 700; color: #0D4A3A; margin-bottom: 3px; }
+  .solution-desc { font-size: 11px; color: #1A5A48; line-height: 1.4; }
+  /* Memory visual */
+  .mem-before {
+    background: #F8F9FA; border: 1px solid #DDE4EE; border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .mem-after {
+    background: #F0F7F4; border: 1px solid #B0D9CF; border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .mem-title { font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .mem-bar-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .mem-bar-label { font-size: 11px; color: #475569; width: 80px; flex-shrink: 0; }
+  .mem-bar-bg { flex: 1; height: 20px; background: #EEF2F7; border-radius: 4px; overflow: hidden; position: relative; }
+  .mem-bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; }
+  .mem-bar-text { font-size: 10px; font-weight: 700; color: #fff; }
+  .mem-bar-overflow { position: absolute; top: 0; right: -2px; height: 100%; width: 12px; background: repeating-linear-gradient(45deg, #ef4444, #ef4444 2px, #fca5a5 2px, #fca5a5 4px); border-radius: 0 4px 4px 0; }
+  /* Footer */
+  .footer {
+    background: #1E3A5F;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    align-items: center;
+    padding: 0 52px;
+    gap: 32px;
+  }
+  .footer-metric {
+    text-align: center;
+  }
+  .footer-num { font-size: 22px; font-weight: 800; color: #7BC8F0; }
+  .footer-label { font-size: 11px; color: #8AAFD4; margin-top: 1px; }
+  .footer-divider { width: 1px; height: 36px; background: #2D5A8E; margin: auto; }
+</style>
+</head>
+<body>
+<div class="slide">
+  <!-- Header -->
+  <div class="header">
+    <div class="h-left">
+      <div class="h-brand">BYTEDANCE</div>
+      <div>
+        <div class="h-title">smap 部署前后对比 · openclaw browser 场景</div>
+        <div class="h-sub">字节火山 AI 服务平台 · L2 UB 借用内存 + L3 NVMe · 整机超分比提升</div>
+      </div>
+    </div>
+    <div class="h-right">
+      <span class="h-tag" style="background:#FFF4F4;color:#7F1D1D;border:1px solid #FECACA;">部署前：问题</span>
+      <span class="h-tag" style="background:#F0F7F4;color:#0D4A3A;border:1px solid #B0D9CF;">部署后：收益</span>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Before Panel -->
+    <div class="before-panel">
+      <div class="before-header">
+        <div style="width:32px;height:32px;border-radius:6px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:16px;">⚠️</div>
+        <div>
+          <div class="panel-label">部署前 · 现状痛点</div>
+          <div class="panel-desc">传统 DRAM-only 方案 · 内存超分受限</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <!-- VM layout before -->
+        <div style="background:#F8F9FA;border:1px solid #DDE4EE;border-radius:8px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#64748B;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">物理节点内存分配</div>
+          <div class="vm-row">
+            <div class="vm-block" style="background:#FEF9EC;border-color:#F0DFA0;flex:1;">
+              <div class="vm-name" style="color:#7C5A1A;">VM #1 · 2U4G</div>
+              <div class="vm-app" style="color:#9A7A40;">openclaw browser</div>
+              <div style="margin-top:6px;height:16px;background:#F0D070;border-radius:3px;position:relative;overflow:hidden;">
+                <div style="width:95%;height:100%;background:#D4A020;border-radius:3px;"></div>
+                <div style="position:absolute;top:0;right:0;width:8px;height:100%;background:repeating-linear-gradient(45deg,#ef4444,#ef4444 2px,#fca5a5 2px,#fca5a5 4px);"></div>
+              </div>
+              <div style="font-size:10px;color:#B87A20;margin-top:3px;">DRAM 近满 ≈ 3.8/4 GB</div>
+            </div>
+            <div class="vm-block" style="background:#FEF9EC;border-color:#F0DFA0;flex:1;">
+              <div class="vm-name" style="color:#7C5A1A;">VM #2 · 2U4G</div>
+              <div class="vm-app" style="color:#9A7A40;">openclaw browser</div>
+              <div style="margin-top:6px;height:16px;background:#F0D070;border-radius:3px;position:relative;overflow:hidden;">
+                <div style="width:90%;height:100%;background:#D4A020;border-radius:3px;"></div>
+              </div>
+              <div style="font-size:10px;color:#B87A20;margin-top:3px;">DRAM 使用 ≈ 3.6/4 GB</div>
+            </div>
+            <div class="vm-block" style="background:#FEF9EC;border-color:#F0DFA0;flex:1;">
+              <div class="vm-name" style="color:#7C5A1A;">VM #3 · 2U4G</div>
+              <div class="vm-app" style="color:#9A7A40;">openclaw browser</div>
+              <div style="margin-top:6px;height:16px;background:#F0D070;border-radius:3px;position:relative;overflow:hidden;">
+                <div style="width:98%;height:100%;background:#D4A020;border-radius:3px;"></div>
+                <div style="position:absolute;top:0;right:0;width:8px;height:100%;background:repeating-linear-gradient(45deg,#ef4444,#ef4444 2px,#fca5a5 2px,#fca5a5 4px);"></div>
+              </div>
+              <div style="font-size:10px;color:#B87A20;margin-top:3px;">DRAM 溢出 ≈ OOM 风险</div>
+            </div>
+          </div>
+          <div style="background:#FFF4F4;border:1px solid #FECACA;border-radius:4px;padding:8px 10px;margin-top:8px;font-size:11px;color:#7F1D1D;">
+            ⚠️ 物理内存：<strong>3 × 4 GB = 12 GB</strong> · 超分上限受 DRAM 容量约束，无法进一步装机
+          </div>
+        </div>
+
+        <div class="problem-item">
+          <div class="problem-icon">📉</div>
+          <div>
+            <div class="problem-title">超分比受限 · 无法扩展</div>
+            <div class="problem-desc">内存超分比硬卡在 DRAM 物理容量，openclaw 内存水位高，导致新 VM 无法继续装机。整机资源利用率低。</div>
+          </div>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon">🔄</div>
+          <div>
+            <div class="problem-title">内存 Swap 性能差</div>
+            <div class="problem-desc">传统 Linux Swap 将全部冷数据打平写入磁盘，openclaw 后台 Tab 激活时触发大量随机 I/O，延迟高达秒级，严重影响用户体验。</div>
+          </div>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon">💰</div>
+          <div>
+            <div class="problem-title">DRAM 成本压力大</div>
+            <div class="problem-desc">为保障 openclaw 性能不得不过度配置 DRAM，单物理节点内存采购成本高，制约了 AI 服务平台的规模扩展。</div>
+          </div>
+        </div>
+        <div class="problem-item">
+          <div class="problem-icon">👁️</div>
+          <div>
+            <div class="problem-title">缺乏冷热感知机制</div>
+            <div class="problem-desc">内核标准 mm 对 openclaw 访问模式无感，不区分前台/后台 Tab 冷热差异，无法针对性优化内存分配策略。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle Arrow -->
+    <div class="middle-arrow">
+      <div class="arrow-circle">→</div>
+      <div class="arrow-label">SMAP<br/>部署</div>
+    </div>
+
+    <!-- After Panel -->
+    <div class="before-panel">
+      <div class="after-header">
+        <div style="width:32px;height:32px;border-radius:6px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;">✅</div>
+        <div>
+          <div class="panel-label">部署后 · smap 方案收益</div>
+          <div class="panel-desc">L1 DRAM + L2 UB借用内存 + L3 NVMe 三层分级</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <!-- VM layout after -->
+        <div style="background:#F0F7F4;border:1px solid #B0D9CF;border-radius:8px;padding:14px;">
+          <div style="font-size:11px;font-weight:700;color:#0D5C4A;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">smap 三层内存分配</div>
+          <div class="vm-row">
+            <div class="vm-block" style="background:#E8F4F0;border-color:#9ACFC4;flex:1;">
+              <div class="vm-name" style="color:#0D4A3A;">VM #1</div>
+              <div class="vm-app" style="color:#2D7A6A;">openclaw browser</div>
+              <div style="margin-top:6px;display:flex;height:16px;gap:2px;">
+                <div style="flex:3;background:#3D7AB5;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="font-size:8px;color:#fff;font-weight:700;">L1 30%</span></div>
+                <div style="flex:4;background:#1B8A6A;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="font-size:8px;color:#fff;font-weight:700;">L2 40%</span></div>
+                <div style="flex:3;background:#B89060;border-radius:2px;display:flex;align-items:center;justify-content:center;"><span style="font-size:8px;color:#fff;font-weight:700;">L3 30%</span></div>
+              </div>
+            </div>
+            <div class="vm-block" style="background:#E8F4F0;border-color:#9ACFC4;flex:1;">
+              <div class="vm-name" style="color:#0D4A3A;">VM #2</div>
+              <div class="vm-app" style="color:#2D7A6A;">openclaw browser</div>
+              <div style="margin-top:6px;display:flex;height:16px;gap:2px;">
+                <div style="flex:3;background:#3D7AB5;border-radius:2px;"></div>
+                <div style="flex:4;background:#1B8A6A;border-radius:2px;"></div>
+                <div style="flex:3;background:#B89060;border-radius:2px;"></div>
+              </div>
+            </div>
+            <div class="vm-block" style="background:#E8F4F0;border-color:#9ACFC4;flex:1;">
+              <div class="vm-name" style="color:#0D4A3A;">VM #3</div>
+              <div class="vm-app" style="color:#2D7A6A;">openclaw browser</div>
+              <div style="margin-top:6px;display:flex;height:16px;gap:2px;">
+                <div style="flex:3;background:#3D7AB5;border-radius:2px;"></div>
+                <div style="flex:4;background:#1B8A6A;border-radius:2px;"></div>
+                <div style="flex:3;background:#B89060;border-radius:2px;"></div>
+              </div>
+            </div>
+            <div class="vm-block" style="background:#E8F4F0;border-color:#9ACFC4;flex:1;border-style:dashed;">
+              <div class="vm-name" style="color:#0D4A3A;">VM #4 ✨</div>
+              <div class="vm-app" style="color:#2D7A6A;">openclaw browser</div>
+              <div style="margin-top:6px;display:flex;height:16px;gap:2px;">
+                <div style="flex:3;background:#3D7AB5;border-radius:2px;opacity:0.7;"></div>
+                <div style="flex:4;background:#1B8A6A;border-radius:2px;opacity:0.7;"></div>
+                <div style="flex:3;background:#B89060;border-radius:2px;opacity:0.7;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:#D4F0E8;border:1px solid #7ABFAE;border-radius:4px;padding:8px 10px;margin-top:8px;font-size:11px;color:#0D4A3A;">
+            ✅ 有效内存：<strong>L1 4GB + L2 扩展 + L3 TB级</strong> · 可装机数量提升 40%+，超分比 2-3×
+          </div>
+        </div>
+
+        <div class="solution-item">
+          <div class="solution-icon">📈</div>
+          <div>
+            <div class="solution-title">超分比显著提升 · 2-3×</div>
+            <div class="solution-desc">L2 UB 借用内存 + L3 NVMe 将有效内存容量扩展 2-3 倍，同等物理资源装机密度提升 40% 以上，整机超分比突破 DRAM 上限。</div>
+          </div>
+        </div>
+        <div class="solution-item">
+          <div class="solution-icon">⚡</div>
+          <div>
+            <div class="solution-title">智能冷热分层 · 零感知</div>
+            <div class="solution-desc">smap 热度感知引擎自动区分 openclaw 前后台 Tab，热数据锁定 L1 DRAM，温数据迁移 L2（&lt;2ms），冷数据归档 L3，业务进程零感知。</div>
+          </div>
+        </div>
+        <div class="solution-item">
+          <div class="solution-icon">💡</div>
+          <div>
+            <div class="solution-title">Tab 激活快速响应</div>
+            <div class="solution-desc">用户切换 Tab 时，smap 触发 L2→L1 快速 Prefetch，相比传统 Swap 延迟降低 10-100×，openclaw 交互体验满足 SLA 要求。</div>
+          </div>
+        </div>
+        <div class="solution-item">
+          <div class="solution-icon">💰</div>
+          <div>
+            <div class="solution-title">DRAM 采购成本降低 35%</div>
+            <div class="solution-desc">通过 L2/L3 承接冷温数据，降低 DRAM 配置需求。同等服务能力下，单节点内存采购成本下降约 35%，整体 TCO 显著优化。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer: Key Metrics -->
+  <div class="footer">
+    <div class="footer-metric">
+      <div class="footer-num">2-3×</div>
+      <div class="footer-label">内存超分比提升</div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-metric">
+      <div class="footer-num">40%+</div>
+      <div class="footer-label">装机密度提升</div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-metric">
+      <div class="footer-num">35%</div>
+      <div class="footer-label">内存成本节约</div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-metric">
+      <div class="footer-num">&lt;2ms</div>
+      <div class="footer-label">L2 访问延迟</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

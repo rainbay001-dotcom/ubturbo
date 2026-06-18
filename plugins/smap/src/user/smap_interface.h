@@ -329,6 +329,24 @@ int ubturbo_smap_process_config_query(int nid, struct OldProcessPayload *result,
  */
 int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t length);
 
+/* *
+ * @brief   配置NVMe swap设备并启用swap功能
+ *
+ * @param device_path [IN] NVMe设备路径，如"/dev/nvme0n1p3"
+ * @param priority    [IN] swap优先级 (0-32767)
+ * @param enable      [IN] 是否启用swap
+ * @return int  0：操作成功；非0：操作失败
+ */
+int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable);
+
+/* *
+ * @brief   设置swap冷页窗口阈值
+ *
+ * @param threshold [IN] 连续零频次窗口数阈值（默认5）
+ * @return int  0：操作成功；非0：操作失败
+ */
+int ubturbo_smap_swap_set_threshold(uint32_t threshold);
+
 #ifdef __cplusplus
 }
 #endif

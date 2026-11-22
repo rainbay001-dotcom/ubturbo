@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 void MextDefaultConfig(MextConfig *cfg);
+void MextApplyZramPreset(MextConfig *cfg);
 
 int MextEngineStart(int mig_fd, const MextConfig *cfg);
 void MextEngineStop(void);

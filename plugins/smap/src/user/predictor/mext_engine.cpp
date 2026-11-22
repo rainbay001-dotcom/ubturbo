@@ -347,32 +347,66 @@ bool MextEngine::PopRingEvent(mext_ring_event *out)
 
 size_t MextEngine::ProcessRingOnce(size_t max_events)
 {
-    size_t count = 0;
-    mext_ring_event ev{};
-    while (count < max_events) {
-        {
-            std::lock_guard<std::mutex> lk(mu_);
-            if (!PopRingEvent(&ev)) {
-                break;
-            }
+    std::vector<mext_ring_event> batch;
+    batch.reserve(std::min<size_t>(max_events, 64));
+
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        mext_ring_event ev{};
+        while (batch.size() < max_events && PopRingEvent(&ev)) {
+            batch.push_back(ev);
         }
+    }
+
+    if (batch.empty()) {
+        return 0;
+    }
+
+    /*
+     * Frontier Coalescing: when fast synchronous swap backends (like zram) burst
+     * multiple faults before the worker wakes up, fast-forward intermediate faults
+     * through state tracking only and emit predictions/prefaults exclusively from
+     * each PID's newest frontier fault so the helper thread never chases stale VAs.
+     */
+    std::unordered_map<uint32_t, size_t> last_fault_idx;
+    for (size_t i = 0; i < batch.size(); ++i) {
+        if (batch[i].type == MEXT_EVT_SWAP_FAULT) {
+            last_fault_idx[batch[i].pid] = i;
+        }
+    }
+
+    for (size_t i = 0; i < batch.size(); ++i) {
+        const auto &ev = batch[i];
         if (ev.type == MEXT_EVT_EVICTED) {
             HandleEvictionEvent(static_cast<int32_t>(ev.pid), ev.vpn, ev.aux);
         } else if (ev.type == MEXT_EVT_SWAP_FAULT) {
+            bool is_frontier = (last_fault_idx[ev.pid] == i);
             HandleFaultEvent(static_cast<int32_t>(ev.pid), ev.vpn,
-                             static_cast<uint8_t>(ev.aux & 0x1fULL), ev.timestamp);
+                             static_cast<uint8_t>(ev.aux & 0x1fULL), ev.timestamp, is_frontier);
         }
-        ++count;
     }
-    return count;
+    return batch.size();
 }
 
 void MextEngine::WorkerLoop()
 {
+    uint32_t idle_spins = 0;
     while (running_.load(std::memory_order_acquire)) {
         size_t processed = ProcessRingOnce(256);
-        if (processed == 0) {
-            std::this_thread::sleep_for(std::chrono::microseconds(250));
+        if (processed > 0) {
+            idle_spins = 0;
+            continue;
+        }
+        /*
+         * Adaptive hybrid poll: spin-yield briefly during active fault bursts
+         * (essential for ~2-5 us synchronous zram faults), then back off to
+         * low-power sleep when idle so quiet periods consume ~0% CPU.
+         */
+        if (idle_spins < 512U) {
+            ++idle_spins;
+            std::this_thread::yield();
+        } else {
+            std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     }
 }
@@ -517,7 +551,8 @@ void MextEngine::DispatchCandidates(int32_t pid,
     prefault_issued_ += prefault_vpns.size();
 }
 
-void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot, uint64_t timestamp_ns)
+void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
+                                  uint64_t timestamp_ns, bool emit_predictions)
 {
     if (pid <= 0 || vpn == 0) {
         return;
@@ -592,8 +627,14 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot, u
 
     /* Tier 1: Sub-microsecond heuristic candidates */
     std::vector<CandidatePage> raw_cands;
-    raw_cands.reserve(32);
-    tier1_.ObserveAndPredict(pid, vpn, vma_slot, has_evict, evict_seq, evict_epoch, shadow_map_, &raw_cands);
+    if (emit_predictions) {
+        raw_cands.reserve(32);
+    }
+    tier1_.ObserveAndPredict(pid, vpn, vma_slot, has_evict, evict_seq, evict_epoch,
+                             shadow_map_, emit_predictions ? &raw_cands : nullptr);
+    if (!emit_predictions) {
+        return;
+    }
     tier1_preds_ += raw_cands.size();
 
     /* Tier 2: INT8 TinyTransformer with circular RoPE KV cache */
@@ -724,6 +765,32 @@ void MextDefaultConfig(MextConfig *cfg)
     cfg->prefetch_threshold = 0.25f;
     cfg->prefault_threshold = 0.75f;
     cfg->psi_stall_limit = 25.0;
+}
+
+void MextApplyZramPreset(MextConfig *cfg)
+{
+    if (!cfg) {
+        return;
+    }
+    /*
+     * zram (SWP_SYNCHRONOUS_IO) tuning:
+     *   1. Favor SMAP_MIG_PREFAULT (threshold 0.50) over MADV_WILLNEED (0.38) so
+     *      decompressed pages install directly into PTEs and immediately free the
+     *      compressed zram slot, avoiding DRAM Swap-Cache + zram double-buffering.
+     *   2. Because PTE-prefaulted pages bypass do_swap_page completely, the fault
+     *      stream is already naturally subsampled by ~top_k (only 1 boundary fault
+     *      per prefault batch). Use fault_trigger_stride = 1 so every batch-boundary
+     *      miss immediately renews the next lookahead batch (~0.37 us/page amortized).
+     */
+    cfg->enabled = true;
+    cfg->enable_transformer = true;
+    cfg->enable_online_adapt = true;
+    cfg->enable_prefault = true;
+    cfg->fault_trigger_stride = 1;
+    cfg->top_k = 12;
+    cfg->prefetch_threshold = 0.38f;
+    cfg->prefault_threshold = 0.50f;
+    cfg->psi_stall_limit = 20.0;
 }
 
 int MextEngineStart(int mig_fd, const MextConfig *cfg)

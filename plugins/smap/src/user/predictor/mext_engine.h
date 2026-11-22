@@ -57,7 +57,8 @@ public:
 
     /* Direct event injection entrypoints (used by ring consumer & trace harness) */
     void HandleEvictionEvent(int32_t pid, uint64_t vpn, uint64_t epoch);
-    void HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot, uint64_t timestamp_ns);
+    void HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
+                          uint64_t timestamp_ns, bool emit_predictions = true);
 
     /* Bootstrap pre-training on canonical multi-stream + co-eviction patterns */
     static void BootstrapPretrain(TinyTransformer *tf, uint32_t epochs = 6);

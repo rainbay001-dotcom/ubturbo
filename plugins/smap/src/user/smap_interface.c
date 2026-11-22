@@ -2259,8 +2259,13 @@ int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable)
         ValidateZswapConfig();
         manager->swapPolicy.swap_enabled = true;
 
-        /* Start MEXT predictive memory engine alongside NVMe swap */
-        manager->mextConfig.enabled = true;
+        /* Start MEXT predictive memory engine alongside NVMe/zram swap */
+        if (IsZramDevicePath(device_path)) {
+            MextApplyZramPreset(&manager->mextConfig);
+            SMAP_LOGGER_INFO("Detected zram swap backend (%s): applied MEXT zram preset.", device_path);
+        } else {
+            manager->mextConfig.enabled = true;
+        }
         if (MextEngineStart(manager->fds.migrate, &manager->mextConfig) == 0) {
             SyncManagedPidsToMext(manager);
             SMAP_LOGGER_INFO("MEXT predictive memory engine started.");

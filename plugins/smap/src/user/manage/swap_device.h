@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+bool IsZramDevicePath(const char *path);
 bool IsSwapDeviceActive(const char *path);
 int ReadSwapDeviceStatus(const char *path, uint64_t *total_kb, uint64_t *used_kb);
 int SwapDeviceInit(SwapDeviceConfig *cfg);

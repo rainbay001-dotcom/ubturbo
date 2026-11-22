@@ -63,7 +63,7 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
                                    const SwapShadowMap &shadow,
                                    std::vector<CandidatePage> *out_candidates)
 {
-    if (!out_candidates || pid <= 0 || vpn == 0) {
+    if (pid <= 0 || vpn == 0) {
         return;
     }
 
@@ -83,7 +83,7 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
             vs.streak = 1;
         }
 
-        if (vs.streak >= 2) {
+        if (out_candidates && vs.streak >= 2) {
             uint32_t depth = std::min<uint32_t>(4U, vs.streak);
             float base_conf = std::min(0.88f, 0.45f + 0.10f * static_cast<float>(vs.streak));
             for (uint32_t step = 1; step <= depth; ++step) {
@@ -110,7 +110,7 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
         if (cur_exact) {
             uint32_t cur_slot = static_cast<uint32_t>(dvpn + MEXT_MAX_EXACT_DELTA);
             const MarkovEntry &me = st.markov[cur_slot];
-            if (me.total >= 3) {
+            if (out_candidates && me.total >= 3) {
                 for (int i = 0; i < 2; ++i) {
                     if (me.count[i] >= 2 && me.offset[i] != 0) {
                         float share = static_cast<float>(me.count[i]) / static_cast<float>(me.total);
@@ -147,19 +147,21 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
         st.last_evict_seq = evict_seq;
         st.last_evict_epoch = evict_epoch;
 
-        uint32_t lookahead = (st.epoch_burst >= 2) ? std::min<uint32_t>(8U, 2U + st.epoch_burst) : 2U;
-        float base_prob = (st.epoch_burst >= 2)
-                              ? std::min(0.85f, 0.42f + 0.08f * static_cast<float>(st.epoch_burst))
-                              : 0.30f;
-        for (uint32_t k = 1; k <= lookahead; ++k) {
-            uint64_t nbr_vpn = 0;
-            uint64_t nbr_epoch = 0;
-            if (shadow.ResolveEvictNeighbor(pid, evict_seq, static_cast<int32_t>(k), &nbr_vpn, &nbr_epoch)) {
-                float p = base_prob * (1.0f - 0.08f * static_cast<float>(k - 1));
-                if (nbr_epoch == evict_epoch) {
-                    p = std::min(0.88f, p + 0.08f);
+        if (out_candidates) {
+            uint32_t lookahead = (st.epoch_burst >= 2) ? std::min<uint32_t>(8U, 2U + st.epoch_burst) : 2U;
+            float base_prob = (st.epoch_burst >= 2)
+                                  ? std::min(0.85f, 0.42f + 0.08f * static_cast<float>(st.epoch_burst))
+                                  : 0.30f;
+            for (uint32_t k = 1; k <= lookahead; ++k) {
+                uint64_t nbr_vpn = 0;
+                uint64_t nbr_epoch = 0;
+                if (shadow.ResolveEvictNeighbor(pid, evict_seq, static_cast<int32_t>(k), &nbr_vpn, &nbr_epoch)) {
+                    float p = base_prob * (1.0f - 0.08f * static_cast<float>(k - 1));
+                    if (nbr_epoch == evict_epoch) {
+                        p = std::min(0.88f, p + 0.08f);
+                    }
+                    out_candidates->push_back(CandidatePage{ nbr_vpn, p });
                 }
-                out_candidates->push_back(CandidatePage{ nbr_vpn, p });
             }
         }
     }

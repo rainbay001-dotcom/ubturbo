@@ -104,6 +104,14 @@ static bool ReadFileBool(const char *path)
     return result;
 }
 
+bool IsZramDevicePath(const char *path)
+{
+    if (!path) {
+        return false;
+    }
+    return strncmp(path, "/dev/zram", 9) == 0;
+}
+
 bool IsSwapDeviceActive(const char *path)
 {
     if (!IsSafeDevicePath(path)) {

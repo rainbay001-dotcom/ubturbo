@@ -100,6 +100,49 @@ typedef struct {
     double psi_some_avg10;         /* current /proc/pressure/memory stall % */
 } MextStats;
 
+/* Dynamic Proactive Reclaim urgency regimes */
+typedef enum {
+    RECLAIM_CALM      = 0, /* Free >= W_dyn and ample TTE: keep working set in DRAM */
+    RECLAIM_PROACTIVE = 1, /* Free < W_dyn: gentle out-of-cycle drain of cold pages */
+    RECLAIM_BURST     = 2, /* High allocation velocity / low TTE: ramp swap & step cold age */
+    RECLAIM_EMERGENCY = 3, /* Imminent WMARK_MIN cliff: max batch & warm-cold fallback */
+} ProactiveReclaimUrgency;
+
+/* Dynamic Proactive Reclaim controller runtime configuration */
+typedef struct {
+    bool enabled;
+    bool is_zram_backend;           /* true when swap device is synchronous zram */
+    uint32_t poll_interval_ms;      /* fast watchdog sample period (default 15 ms; zram 10 ms) */
+    uint32_t lookahead_horizon_ms;  /* drain horizon tau (default 80 ms NVMe; 35 ms zram) */
+    double base_headroom_ratio;     /* steady-state floor multiplier over WMARK_LOW (default 1.15) */
+    double max_headroom_ratio;      /* max dynamic headroom as fraction of total RAM (default 0.20) */
+    double velocity_gain;           /* alpha gain on A(t)*tau (default 1.35) */
+    double accel_gain;              /* beta gain on 0.5*max(0,dA/dt)*tau^2 (default 0.50) */
+    double psi_full_brake_limit;    /* PSI full avg10 % where thrash brake engages (default 15.0) */
+    uint32_t min_cold_window;       /* minimum cold window under burst/emergency (default 1) */
+    uint32_t calm_cold_window;      /* relaxed cold window in RECLAIM_CALM (default 8) */
+    uint64_t max_pages_per_tick;    /* per-tick eviction cap (default 8192) */
+} ProactiveReclaimConfig;
+
+/* Dynamic Proactive Reclaim live telemetry snapshot */
+typedef struct {
+    uint64_t ticks_total;
+    uint64_t proactive_wakeups;         /* kernel MEXT_EVT_MEM_PRESSURE + urgent triggers */
+    uint64_t burst_activations;         /* ticks spent in BURST or EMERGENCY */
+    uint64_t thrash_brake_events;       /* ticks damped by PSI/uncompensated-refault brake */
+    uint64_t pages_reclaimed_proactive; /* cumulative pages evicted proactively */
+    uint64_t kernel_allocstalls_observed;
+    uint32_t current_urgency;           /* ProactiveReclaimUrgency */
+    uint32_t effective_cold_window;     /* live cold_window_threshold [1..255] */
+    uint64_t current_free_pages;
+    uint64_t dynamic_wmark_pages;       /* W_dyn(t) in pages */
+    uint64_t static_wmark_low_pages;
+    double alloc_velocity_mbps;         /* compensation-aware demand velocity (MB/s) */
+    double alloc_accel_mbps2;           /* smoothed demand acceleration (MB/s^2) */
+    double estimated_tte_ms;            /* estimated Time-To-Exhaustion before WMARK_MIN */
+    double thrash_brake_scale;          /* [0.20 .. 1.0] active thrash-protection multiplier */
+} ProactiveReclaimStats;
+
 #ifdef __cplusplus
 }
 #endif

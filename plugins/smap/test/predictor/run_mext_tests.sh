@@ -8,6 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SMAP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PRED_DIR="${SMAP_DIR}/src/user/predictor"
+RECLAIM_DIR="${SMAP_DIR}/src/user/reclaim"
 BUILD_DIR="${SCRIPT_DIR}/build_mext_tests"
 
 CXX_BIN="${CXX:-}"
@@ -32,14 +33,14 @@ COMMON_SRCS=(
 )
 CXXFLAGS=(-std=c++17 -O3 -Wall -Wextra -I"${SMAP_DIR}/src/user")
 
-echo "[1/3] Building & running core MEXT verification suite (${CXX_BIN})..."
+echo "[1/4] Building & running core MEXT verification suite (${CXX_BIN})..."
 "${CXX_BIN}" "${CXXFLAGS[@]}" \
     "${SCRIPT_DIR}/test_mext_predictor.cpp" "${COMMON_SRCS[@]}" \
     -lpthread -o "${BUILD_DIR}/test_mext_predictor"
 "${BUILD_DIR}/test_mext_predictor"
 
 echo ""
-echo "[2/3] Building & running NVMe + CPU timing benchmark..."
+echo "[2/4] Building & running NVMe + CPU timing benchmark..."
 "${CXX_BIN}" "${CXXFLAGS[@]}" \
     "${SCRIPT_DIR}/bench_mext_perf.cpp" "${COMMON_SRCS[@]}" \
     -lpthread -o "${BUILD_DIR}/bench_mext_perf"
@@ -47,15 +48,24 @@ echo "[2/3] Building & running NVMe + CPU timing benchmark..."
 
 echo ""
 if echo '#include <zlib.h>' | "${CXX_BIN}" -E -x c++ - >/dev/null 2>&1; then
-    echo "[3/3] Building & running live two-thread zram compression/offload suite..."
+    echo "[3/4] Building & running live two-thread zram compression/offload suite..."
     "${CXX_BIN}" "${CXXFLAGS[@]}" \
         "${SCRIPT_DIR}/test_mext_zram.cpp" "${COMMON_SRCS[@]}" \
         -lpthread -lz -o "${BUILD_DIR}/test_mext_zram"
     "${BUILD_DIR}/test_mext_zram"
 else
-    echo "[3/3] Skipping test_mext_zram (zlib-devel / zlib1g-dev headers not installed)."
+    echo "[3/4] Skipping test_mext_zram (zlib-devel / zlib1g-dev headers not installed)."
 fi
+
+echo ""
+echo "[4/4] Building & running Dynamic Proactive Reclaim & burst benchmark suite..."
+"${CXX_BIN}" "${CXXFLAGS[@]}" \
+    "${SCRIPT_DIR}/test_proactive_reclaim.cpp" \
+    "${RECLAIM_DIR}/proactive_reclaim.cpp" \
+    "${COMMON_SRCS[@]}" \
+    -lpthread -o "${BUILD_DIR}/test_proactive_reclaim"
+"${BUILD_DIR}/test_proactive_reclaim"
 
 rm -rf "${BUILD_DIR}"
 echo ""
-echo "All SMAP-MEXT suites completed successfully."
+echo "All SMAP-MEXT & Proactive Reclaim suites completed successfully."

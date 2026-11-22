@@ -67,6 +67,11 @@ int ubturbo_smap_mext_config(const MextConfig *cfg);
 
 /* Query live MEXT telemetry ("RAM View": hit rate, avg_infer_us, prefetches, prefaults, PSI) */
 int ubturbo_smap_mext_query_stats(MextStats *stats_out);
+
+/* Dynamic Proactive Reclaim controls & live telemetry (see MEXT_PROACTIVE_RECLAIM.md) */
+int ubturbo_smap_proactive_reclaim_enable(bool enable);
+int ubturbo_smap_reclaim_config(const ProactiveReclaimConfig *cfg);
+int ubturbo_smap_reclaim_query_stats(ProactiveReclaimStats *stats_out);
 ```
 
 ---
@@ -75,14 +80,15 @@ int ubturbo_smap_mext_query_stats(MextStats *stats_out);
 
 ### A. 10-Second Standalone Verification & Benchmarks (Any Linux or macOS Machine)
 ```bash
-git clone -b feat/mext-predictive-memory https://github.com/rainbay001-dotcom/ubturbo.git
+git clone -b feat/mext-proactive-reclaim https://github.com/rainbay001-dotcom/ubturbo.git
 cd ubturbo
 bash plugins/smap/test/predictor/run_mext_tests.sh
 ```
-This compiles and runs all three suites automatically:
+This compiles and runs all four suites automatically:
 1. `test_mext_predictor` — 6-suite unit, numerical gradient, lockless ring concurrency & CPU latency verification.
 2. `bench_mext_perf` — 50% DRAM + 50% NVMe event-driven timing benchmark across 4 workloads.
 3. `test_mext_zram` — Live two-thread real `zlib` 4 KB page compression/decompression + `zram` offload benchmark.
+4. `test_proactive_reclaim` — Dynamic Proactive Reclaim + MEXT closed-loop verification & `4–5.5 GB/s` burst benchmark (see `MEXT_PROACTIVE_RECLAIM.md`).
 
 ### B. Full Kernel `.ko` + `libsmap.so` Deployment on openEuler OLK-6.6
 ```bash

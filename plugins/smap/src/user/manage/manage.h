@@ -332,6 +332,7 @@ struct ProcessManager {
     SwapPolicy swapPolicy;
     SwapDeviceConfig swapDevice;
     MextConfig mextConfig;
+    ProactiveReclaimConfig reclaimConfig;
     EnvMutex lock;
     EnvMutex threadLock;
 };

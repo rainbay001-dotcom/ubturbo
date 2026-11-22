@@ -33,6 +33,7 @@
 #include "swap_out.h"
 #include "manage/swap_device.h"
 #include "manage/swap_account.h"
+#include "reclaim/proactive_reclaim_c_api.h"
 
 #define MAX_MIG_ADDR_PRINT_LEN 2
 
@@ -684,9 +685,12 @@ int ScanMigrateWork(ThreadCtx *ctx)
     ret = PerformMigration(manager);
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
 
-    /* Phase 2: Cold page offload to NVMe swap (paired with MEXT predictive engine) */
+    /* Phase 2: Cold page offload to NVMe/zram swap (paired with MEXT + Proactive Reclaim) */
     if (manager->swapPolicy.swap_enabled &&
         IsSwapDeviceActive(manager->swapDevice.device_path)) {
+        bool dynamic_reclaim = ProactiveReclaimIsRunning();
+        uint32_t urgency = dynamic_reclaim ? ProactiveReclaimCurrentUrgency() : RECLAIM_PROACTIVE;
+
         EnvMutexLock(&manager->lock);
         for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
             UpdateColdWindowCounters(proc);
@@ -702,12 +706,28 @@ int ScanMigrateWork(ThreadCtx *ctx)
                 continue;
             }
 
-            uint8_t threshold = (uint8_t)manager->swapPolicy.cold_window_threshold;
+            /*
+             * When Dynamic Proactive Reclaim is active and host memory is in
+             * RECLAIM_CALM, skip aggressive periodic draining so warm working sets
+             * remain in DRAM; out-of-cycle proactive pulses handle all bursts.
+             */
+            uint8_t threshold = dynamic_reclaim
+                                    ? ProactiveReclaimRecommendedColdWindow()
+                                    : (uint8_t)manager->swapPolicy.cold_window_threshold;
+            uint64_t cycle_budget = manager->swapPolicy.max_swap_per_cycle;
+            if (dynamic_reclaim && urgency == RECLAIM_CALM) {
+                cycle_budget = cycle_budget / 4ULL;
+                if (cycle_budget == 0) {
+                    UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+                    continue;
+                }
+            }
+
             uint64_t nr_candidates = CountColdSwapCandidates(proc, threshold);
             if (nr_candidates > 0) {
-                int swapped = DoSwapOut(proc, manager->swapPolicy.max_swap_per_cycle, threshold);
-                SMAP_LOGGER_INFO("pid %d swapped %d/%lu cold pages to NVMe.",
-                                 proc->pid, swapped, nr_candidates);
+                int swapped = DoSwapOut(proc, cycle_budget, threshold);
+                SMAP_LOGGER_INFO("pid %d swapped %d/%lu cold pages to swap (cw=%u).",
+                                 proc->pid, swapped, nr_candidates, (unsigned)threshold);
             }
             UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
         }

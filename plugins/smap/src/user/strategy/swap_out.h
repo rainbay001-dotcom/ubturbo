@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 int DoSwapOut(ProcessAttr *process, uint64_t max_pages, uint8_t threshold);
+uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold);
 
 #ifdef __cplusplus
 }

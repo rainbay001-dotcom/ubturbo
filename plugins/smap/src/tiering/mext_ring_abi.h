@@ -34,9 +34,10 @@ extern "C" {
 #define MEXT_PREFAULT_FLAG_WRITE (1U << 0)
 
 enum mext_event_type {
-	MEXT_EVT_NONE       = 0,
-	MEXT_EVT_SWAP_FAULT = 1, /* do_swap_page major/minor swap fault */
-	MEXT_EVT_EVICTED    = 2, /* do_swap_out cold eviction to NVMe */
+	MEXT_EVT_NONE         = 0,
+	MEXT_EVT_SWAP_FAULT   = 1, /* do_swap_page major/minor swap fault */
+	MEXT_EVT_EVICTED      = 2, /* do_swap_out cold eviction to NVMe/zram */
+	MEXT_EVT_MEM_PRESSURE = 3, /* wakeup_kswapd early zone pressure signal */
 };
 
 /*
@@ -44,12 +45,18 @@ enum mext_event_type {
  * Producer writes payload fields first, then publishes `type` with
  * store-release. Single consumer reads `type` with load-acquire, copies
  * payload, clears `type` to MEXT_EVT_NONE, and advances `tail`.
+ *
+ * Payload encoding by `type`:
+ *   - MEXT_EVT_SWAP_FAULT:   pid = tgid, vpn = fault VPN, aux = vma_slot (0..31)
+ *   - MEXT_EVT_EVICTED:      pid = tgid, vpn = evicted VPN, aux = swapout_epoch
+ *   - MEXT_EVT_MEM_PRESSURE: pid = nid,  vpn = zone_free_pages,
+ *                            aux = (wmark_low_pages << 16) | (order & 0xffff)
  */
 struct mext_ring_event {
 	mext_u32 type;      /* enum mext_event_type (release/acquire state) */
-	mext_u32 pid;       /* target process TGID */
-	mext_u64 vpn;       /* virtual page number (vaddr >> PAGE_SHIFT) */
-	mext_u64 aux;       /* fault: vma_slot (0..31); evict: swapout_epoch */
+	mext_u32 pid;       /* target process TGID (or NUMA nid on MEM_PRESSURE) */
+	mext_u64 vpn;       /* virtual page number (or free_pages on MEM_PRESSURE) */
+	mext_u64 aux;       /* vma_slot / swapout_epoch / wmark_low+order */
 	mext_u64 timestamp; /* ktime_get_ns() */
 };
 
@@ -65,7 +72,8 @@ struct mext_ring_header {
 	mext_u64 tail;            /* single-consumer read cursor */
 	mext_u64 dropped;         /* ring overflow / busy slot counter */
 	mext_u64 swapout_epoch;   /* monotonic swap-out batch epoch */
-	mext_u64 reserved[2];
+	mext_u64 pressure_events; /* early wakeup_kswapd signals emitted */
+	mext_u64 reserved[1];
 };
 
 struct mext_ring_buffer {

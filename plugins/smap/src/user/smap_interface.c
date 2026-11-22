@@ -35,7 +35,9 @@
 #include "manage/swap_device.h"
 #include "manage/swap_account.h"
 #include "predictor/mext_predictor_c_api.h"
+#include "reclaim/proactive_reclaim_c_api.h"
 #include "strategy/migration.h"
+#include "strategy/swap_out.h"
 
 #include "smap_interface.h"
 #define DEFAULT_NODE_NUMBER_SIZE 16
@@ -1112,6 +1114,7 @@ int ubturbo_smap_stop(void)
     }
 
     struct ProcessManager *manager = GetProcessManager();
+    ProactiveReclaimStop();
     MextEngineStop();
     if (manager->swapPolicy.swap_enabled && manager->swapDevice.device_path[0] != '\0') {
         SwapDeviceShutdown(&manager->swapDevice);
@@ -1155,6 +1158,9 @@ void ubturbo_smap_urgent_migrate_out(uint64_t size)
 
     // 遍历pid看是否有足够的size，有则立即进行迁移
     SMAP_LOGGER_INFO("ubturbo_smap_urgent_migrate_out size = %llu.", size);
+    if (ProactiveReclaimIsRunning()) {
+        ProactiveReclaimTriggerUrgent(size);
+    }
     FindPidMigrateSize(size);
     SMAP_LOGGER_INFO("ubturbo_smap_urgent_migrate_out success.");
     return;
@@ -2259,26 +2265,35 @@ int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable)
         ValidateZswapConfig();
         manager->swapPolicy.swap_enabled = true;
 
-        /* Start MEXT predictive memory engine alongside NVMe/zram swap */
+        /* Start MEXT predictive memory + Dynamic Proactive Reclaim alongside NVMe/zram swap */
         if (IsZramDevicePath(device_path)) {
             MextApplyZramPreset(&manager->mextConfig);
-            SMAP_LOGGER_INFO("Detected zram swap backend (%s): applied MEXT zram preset.", device_path);
+            ProactiveReclaimApplyZramPreset(&manager->reclaimConfig);
+            SMAP_LOGGER_INFO("Detected zram swap backend (%s): applied MEXT & Proactive Reclaim zram presets.",
+                             device_path);
         } else {
             manager->mextConfig.enabled = true;
+            ProactiveReclaimDefaultConfig(&manager->reclaimConfig);
+            manager->reclaimConfig.enabled = true;
         }
         if (MextEngineStart(manager->fds.migrate, &manager->mextConfig) == 0) {
             SyncManagedPidsToMext(manager);
             SMAP_LOGGER_INFO("MEXT predictive memory engine started.");
         }
-        SMAP_LOGGER_INFO("NVMe swap enabled on %s with priority %d", device_path, priority);
+        if (ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch) == 0) {
+            SMAP_LOGGER_INFO("Dynamic Proactive Reclaim controller started.");
+        }
+        SMAP_LOGGER_INFO("Swap tier enabled on %s with priority %d", device_path, priority);
     } else {
+        ProactiveReclaimStop();
         MextEngineStop();
+        manager->reclaimConfig.enabled = false;
         manager->mextConfig.enabled = false;
         manager->swapPolicy.swap_enabled = false;
         if (manager->swapDevice.device_path[0] != '\0') {
             SwapDeviceShutdown(&manager->swapDevice);
         }
-        SMAP_LOGGER_INFO("NVMe swap and MEXT engine disabled.");
+        SMAP_LOGGER_INFO("Swap tier, MEXT engine, and Proactive Reclaim disabled.");
     }
     return 0;
 }
@@ -2327,4 +2342,43 @@ int ubturbo_smap_mext_query_stats(MextStats *stats_out)
         return -EINVAL;
     }
     return MextEngineQueryStats(stats_out);
+}
+
+int ubturbo_smap_proactive_reclaim_enable(bool enable)
+{
+    if (!ubturbo_smap_is_running()) {
+        return -EPERM;
+    }
+    struct ProcessManager *manager = GetProcessManager();
+    manager->reclaimConfig.enabled = enable;
+    if (enable) {
+        return ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+    }
+    ProactiveReclaimStop();
+    return 0;
+}
+
+int ubturbo_smap_reclaim_config(const ProactiveReclaimConfig *cfg)
+{
+    if (!cfg) {
+        return -EINVAL;
+    }
+    if (!ubturbo_smap_is_running()) {
+        return -EPERM;
+    }
+    struct ProcessManager *manager = GetProcessManager();
+    manager->reclaimConfig = *cfg;
+    if (cfg->enabled) {
+        return ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+    }
+    ProactiveReclaimStop();
+    return 0;
+}
+
+int ubturbo_smap_reclaim_query_stats(ProactiveReclaimStats *stats_out)
+{
+    if (!stats_out) {
+        return -EINVAL;
+    }
+    return ProactiveReclaimQueryStats(stats_out);
 }

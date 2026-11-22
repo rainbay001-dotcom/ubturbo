@@ -34,6 +34,7 @@
 #include "strategy/cold_tracker.h"
 #include "swap_account.h"
 #include "predictor/mext_predictor_c_api.h"
+#include "reclaim/proactive_reclaim_c_api.h"
 #include "manage.h"
 
 static struct ProcessManager g_processManager;
@@ -147,6 +148,8 @@ int ProcessManagerInit(uint32_t pageType)
     memset_s(&g_processManager.swapDevice, sizeof(SwapDeviceConfig), 0, sizeof(SwapDeviceConfig));
     MextDefaultConfig(&g_processManager.mextConfig);
     g_processManager.mextConfig.enabled = false;
+    ProactiveReclaimDefaultConfig(&g_processManager.reclaimConfig);
+    g_processManager.reclaimConfig.enabled = false;
 
     return 0;
 }

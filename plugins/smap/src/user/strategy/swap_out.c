@@ -16,6 +16,8 @@
 #include "securec.h"
 #include "manage/manage.h"
 #include "manage/smap_ioctl.h"
+#include "manage/swap_account.h"
+#include "manage/swap_device.h"
 #include "cold_tracker.h"
 #include "swap_out.h"
 
@@ -138,4 +140,111 @@ int DoSwapOut(ProcessAttr *process, uint64_t max_pages, uint8_t threshold)
     }
 
     return total_swapped;
+}
+
+static bool IsPidEligibleForProactiveSwap(struct ProcessManager *manager, ProcessAttr *proc)
+{
+    if (!proc || !proc->enableSwap) {
+        return false;
+    }
+    if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+        return false;
+    }
+    if (proc->swapAccounting.max_swap_kb > 0 &&
+        proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
+        return false;
+    }
+    return true;
+}
+
+/*
+ * Out-of-cycle multi-PID proactive swap executor driven by ProactiveReclaimController.
+ * Distributes `target_pages` proportionally across processes holding cold candidates
+ * so memory-heavy idle processes absorb bursts before lean latency-critical ones.
+ */
+uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
+{
+    if (target_pages == 0) {
+        return 0;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    if (!manager || !manager->swapPolicy.swap_enabled ||
+        !IsSwapDeviceActive(manager->swapDevice.device_path)) {
+        return 0;
+    }
+
+    uint64_t total_reclaimed = 0;
+    uint8_t eff_threshold = (threshold == 0) ? 1U : threshold;
+
+    EnvMutexLock(&manager->lock);
+    uint64_t total_candidates = 0;
+    for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+        if (!IsPidEligibleForProactiveSwap(manager, proc)) {
+            continue;
+        }
+        total_candidates += CountColdSwapCandidates(proc, eff_threshold);
+    }
+
+    /* Step down to threshold = 1 if burst demand exceeds stricter cold pool */
+    if (total_candidates < target_pages && eff_threshold > 1U) {
+        eff_threshold = 1U;
+        total_candidates = 0;
+        for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+            if (!IsPidEligibleForProactiveSwap(manager, proc)) {
+                continue;
+            }
+            total_candidates += CountColdSwapCandidates(proc, eff_threshold);
+        }
+    }
+
+    if (total_candidates == 0) {
+        EnvMutexUnlock(&manager->lock);
+        return 0;
+    }
+
+    uint64_t remaining = target_pages;
+    for (ProcessAttr *proc = manager->processes; proc && remaining > 0; proc = proc->next) {
+        if (!IsPidEligibleForProactiveSwap(manager, proc)) {
+            continue;
+        }
+        uint64_t pid_cand = CountColdSwapCandidates(proc, eff_threshold);
+        if (pid_cand == 0) {
+            continue;
+        }
+
+        uint64_t share = (target_pages * pid_cand + total_candidates - 1ULL) / total_candidates;
+        if (share == 0) {
+            share = 1ULL;
+        }
+        if (share > remaining) {
+            share = remaining;
+        }
+        if (proc->swapAccounting.max_swap_kb > proc->swapAccounting.current_swap_kb) {
+            uint64_t page_kb = (manager->tracking.pageSize >= 1024U)
+                                   ? (manager->tracking.pageSize / 1024U)
+                                   : 4ULL;
+            uint64_t quota_pages =
+                (proc->swapAccounting.max_swap_kb - proc->swapAccounting.current_swap_kb) / page_kb;
+            if (quota_pages == 0) {
+                continue;
+            }
+            if (share > quota_pages) {
+                share = quota_pages;
+            }
+        }
+
+        int swapped = DoSwapOut(proc, share, eff_threshold);
+        if (swapped > 0) {
+            total_reclaimed += (uint64_t)swapped;
+            if ((uint64_t)swapped >= remaining) {
+                remaining = 0;
+            } else {
+                remaining -= (uint64_t)swapped;
+            }
+            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+        }
+    }
+    EnvMutexUnlock(&manager->lock);
+    return total_reclaimed;
 }

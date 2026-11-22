@@ -327,6 +327,12 @@ void MextEngine::SetDispatchCallback(DispatchCallback cb)
     dispatch_cb_ = std::move(cb);
 }
 
+void MextEngine::SetPressureCallback(PressureCallback cb)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    pressure_cb_ = std::move(cb);
+}
+
 bool MextEngine::PopRingEvent(mext_ring_event *out)
 {
     if (!mmap_ring_ || !out) {
@@ -349,9 +355,11 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
 {
     std::vector<mext_ring_event> batch;
     batch.reserve(std::min<size_t>(max_events, 64));
+    PressureCallback pressure_cb;
 
     {
         std::lock_guard<std::mutex> lk(mu_);
+        pressure_cb = pressure_cb_;
         mext_ring_event ev{};
         while (batch.size() < max_events && PopRingEvent(&ev)) {
             batch.push_back(ev);
@@ -383,6 +391,12 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
             bool is_frontier = (last_fault_idx[ev.pid] == i);
             HandleFaultEvent(static_cast<int32_t>(ev.pid), ev.vpn,
                              static_cast<uint8_t>(ev.aux & 0x1fULL), ev.timestamp, is_frontier);
+        } else if (ev.type == MEXT_EVT_MEM_PRESSURE) {
+            if (pressure_cb) {
+                uint64_t wmark_low = ev.aux >> 16;
+                uint16_t order = static_cast<uint16_t>(ev.aux & 0xffffULL);
+                pressure_cb(ev.pid, ev.vpn, wmark_low, order, ev.timestamp);
+            }
         }
     }
     return batch.size();
@@ -737,11 +751,16 @@ MextStats MextEngine::GetStatsSnapshot()
     return st;
 }
 
-namespace {
-MextEngine &GlobalEngine()
+MextEngine &GlobalMextEngine()
 {
     static MextEngine instance;
     return instance;
+}
+
+namespace {
+MextEngine &GlobalEngine()
+{
+    return GlobalMextEngine();
 }
 } // namespace
 

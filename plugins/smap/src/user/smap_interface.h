@@ -330,11 +330,14 @@ int ubturbo_smap_process_config_query(int nid, struct OldProcessPayload *result,
  */
 int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t length);
 
-/* NVMe Swap & MEXT Predictive Memory SDK APIs */
+/* NVMe/zram Swap, MEXT Predictive Memory & Dynamic Proactive Reclaim SDK APIs */
 int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable);
 int ubturbo_smap_swap_set_threshold(uint32_t threshold);
 int ubturbo_smap_mext_config(const MextConfig *cfg);
 int ubturbo_smap_mext_query_stats(MextStats *stats_out);
+int ubturbo_smap_proactive_reclaim_enable(bool enable);
+int ubturbo_smap_reclaim_config(const ProactiveReclaimConfig *cfg);
+int ubturbo_smap_reclaim_query_stats(ProactiveReclaimStats *stats_out);
 
 #ifdef __cplusplus
 }

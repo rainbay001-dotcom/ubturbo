@@ -10,6 +10,7 @@ aux_source_directory(${USER_SRC}/manage LIBS_SRCS)
 aux_source_directory(${USER_SRC}/strategy LIBS_SRCS)
 aux_source_directory(${USER_SRC}/advanced-strategy LIBS_SRCS)
 aux_source_directory(${USER_SRC}/predictor LIBS_SRCS)
+aux_source_directory(${USER_SRC}/reclaim LIBS_SRCS)
 
 add_subdirectory(user_log)
 

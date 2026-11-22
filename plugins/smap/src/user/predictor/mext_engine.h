@@ -36,6 +36,11 @@ public:
     using DispatchCallback = std::function<void(int32_t pid,
                                                 const std::vector<uint64_t> &prefetch_vpns,
                                                 const std::vector<uint64_t> &prefault_vpns)>;
+    using PressureCallback = std::function<void(uint32_t nid,
+                                                uint64_t free_pages,
+                                                uint64_t wmark_low_pages,
+                                                uint16_t order,
+                                                uint64_t timestamp_ns)>;
 
     MextEngine();
     ~MextEngine();
@@ -48,9 +53,10 @@ public:
     int TrackPid(int32_t pid);
     void UntrackPid(int32_t pid);
 
-    /* Attach an in-memory ring buffer or dispatch callback (for tests/simulation) */
+    /* Attach an in-memory ring buffer or dispatch/pressure callbacks */
     void AttachExternalRing(mext_ring_buffer *ring);
     void SetDispatchCallback(DispatchCallback cb);
+    void SetPressureCallback(PressureCallback cb);
 
     /* Drain up to `max_events` from the shared ring buffer; returns events processed */
     size_t ProcessRingOnce(size_t max_events = 512);
@@ -115,6 +121,7 @@ private:
     TinyTransformer transformer_;
     std::unordered_map<int32_t, PidRuntimeState> pid_states_;
     DispatchCallback dispatch_cb_;
+    PressureCallback pressure_cb_;
 
     std::atomic<bool> running_{ false };
     std::thread worker_;
@@ -133,6 +140,8 @@ private:
     double psi_some_avg10_ = 0.0;
     uint64_t last_psi_check_ns_ = 0;
 };
+
+MextEngine &GlobalMextEngine();
 
 } // namespace mext
 } // namespace smap

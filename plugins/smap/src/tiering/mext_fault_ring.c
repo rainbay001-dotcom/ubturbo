@@ -10,6 +10,7 @@
 #include <linux/ktime.h>
 #include <linux/mm.h>
 #include <linux/mmap_lock.h>
+#include <linux/mmzone.h>
 #include <linux/mutex.h>
 #include <linux/pid.h>
 #include <linux/ptrace.h>
@@ -22,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+#include <linux/vmstat.h>
 
 #include "mext_fault_ring.h"
 
@@ -32,6 +34,8 @@
 #define MEXT_PID_HASH_SIZE (1U << MEXT_PID_HASH_BITS)
 #define MEXT_PID_HASH_MASK (MEXT_PID_HASH_SIZE - 1U)
 #define MEXT_CAS_MAX_RETRY 8
+#define MEXT_PRESSURE_NODE_SLOTS 64U
+#define MEXT_PRESSURE_MIN_INTERVAL_NS 1000000ULL /* max 1 pressure wakeup / ms / node */
 
 static struct mext_ring_buffer *g_mext_ring;
 static size_t g_mext_ring_alloc_bytes;
@@ -41,13 +45,16 @@ static DEFINE_MUTEX(g_kprobe_mutex);
 static s32 g_tracked_pids[MEXT_PID_HASH_SIZE];
 static bool g_track_all_pids;
 static bool g_kprobe_registered;
+static bool g_pressure_kp_registered;
 static bool g_capture_enabled;
 
 static atomic64_t g_faults_captured = ATOMIC64_INIT(0);
 static atomic64_t g_evicts_captured = ATOMIC64_INIT(0);
+static atomic64_t g_pressure_captured = ATOMIC64_INIT(0);
 static atomic64_t g_ring_dropped = ATOMIC64_INIT(0);
 static atomic64_t g_prefault_succeeded = ATOMIC64_INIT(0);
 static atomic64_t g_swapout_epoch = ATOMIC64_INIT(0);
+static atomic64_t g_last_pressure_ns[MEXT_PRESSURE_NODE_SLOTS];
 
 static inline u32 mext_hash_pid(u32 pid)
 {
@@ -228,6 +235,62 @@ static struct kprobe g_swap_fault_kp = {
 	.pre_handler = kp_do_swap_page_pre,
 };
 
+/*
+ * Early zone pressure hook on wakeup_kswapd(zone, gfp_flags, order, ...).
+ * Rate-limited to at most 1 event per ms per NUMA node so user-space SMAP
+ * Proactive Reclaim wakes up in microseconds ahead of __alloc_pages_slowpath.
+ */
+static int kp_wakeup_kswapd_pre(struct kprobe *p, struct pt_regs *regs)
+{
+	struct zone *zone;
+	int order;
+	u32 nid, slot;
+	u64 now_ns, prev_ns, free_pages, wmark_low, aux;
+
+	if (!READ_ONCE(g_capture_enabled))
+		return 0;
+
+#if defined(CONFIG_ARM64)
+	zone = (struct zone *)regs->regs[0];
+	order = (int)regs->regs[2];
+#elif defined(CONFIG_X86_64)
+	zone = (struct zone *)regs->di;
+	order = (int)regs->dx;
+#else
+	zone = (struct zone *)regs_get_kernel_argument(regs, 0);
+	order = (int)regs_get_kernel_argument(regs, 2);
+#endif
+	if (unlikely(!zone))
+		return 0;
+
+	nid = (u32)zone_to_nid(zone);
+	slot = nid & (MEXT_PRESSURE_NODE_SLOTS - 1U);
+	now_ns = ktime_get_ns();
+	prev_ns = (u64)atomic64_read(&g_last_pressure_ns[slot]);
+	if (now_ns - prev_ns < MEXT_PRESSURE_MIN_INTERVAL_NS)
+		return 0;
+	if ((u64)atomic64_cmpxchg(&g_last_pressure_ns[slot],
+				 (s64)prev_ns, (s64)now_ns) != prev_ns)
+		return 0;
+
+	free_pages = (u64)zone_page_state(zone, NR_FREE_PAGES);
+	wmark_low = (u64)low_wmark_pages(zone);
+	aux = (wmark_low << 16) | ((u64)(u32)order & 0xffffULL);
+
+	if (mext_ring_push(MEXT_EVT_MEM_PRESSURE, nid, free_pages, aux)) {
+		u64 cnt = (u64)atomic64_inc_return(&g_pressure_captured);
+
+		if (g_mext_ring)
+			WRITE_ONCE(g_mext_ring->hdr.pressure_events, cnt);
+	}
+	return 0;
+}
+
+static struct kprobe g_pressure_kp = {
+	.symbol_name = "wakeup_kswapd",
+	.pre_handler = kp_wakeup_kswapd_pre,
+};
+
 u64 mext_next_swapout_epoch(void)
 {
 	u64 epoch = (u64)atomic64_inc_return(&g_swapout_epoch);
@@ -354,6 +417,15 @@ static int mext_enable_kprobe_locked(void)
 		}
 		g_kprobe_registered = true;
 	}
+	if (!g_pressure_kp_registered) {
+		ret = register_kprobe(&g_pressure_kp);
+		if (ret == 0) {
+			g_pressure_kp_registered = true;
+		} else {
+			pr_warn("register_kprobe(wakeup_kswapd) unavailable (%d); using user-space telemetry\n",
+				ret);
+		}
+	}
 	WRITE_ONCE(g_capture_enabled, true);
 	return 0;
 }
@@ -412,6 +484,8 @@ int mext_ioctl_ctrl(void __user *argp)
 
 int mext_fault_ring_init(void)
 {
+	int i;
+
 	g_mext_ring_alloc_bytes = PAGE_ALIGN(sizeof(struct mext_ring_buffer));
 	g_mext_ring = vmalloc_user(g_mext_ring_alloc_bytes);
 	if (!g_mext_ring) {
@@ -428,9 +502,13 @@ int mext_fault_ring_init(void)
 	g_mext_ring->hdr.tail = 0;
 	g_mext_ring->hdr.dropped = 0;
 	g_mext_ring->hdr.swapout_epoch = 0;
+	g_mext_ring->hdr.pressure_events = 0;
+
+	for (i = 0; i < MEXT_PRESSURE_NODE_SLOTS; i++)
+		atomic64_set(&g_last_pressure_ns[i], 0);
 
 	mext_pid_filter_clear();
-	pr_info("MEXT fault/eviction ring initialized (%u slots, %zu bytes)\n",
+	pr_info("MEXT fault/eviction/pressure ring initialized (%u slots, %zu bytes)\n",
 		MEXT_RING_CAPACITY, g_mext_ring_alloc_bytes);
 	return 0;
 }
@@ -438,6 +516,10 @@ int mext_fault_ring_init(void)
 void mext_fault_ring_exit(void)
 {
 	WRITE_ONCE(g_capture_enabled, false);
+	if (g_pressure_kp_registered) {
+		unregister_kprobe(&g_pressure_kp);
+		g_pressure_kp_registered = false;
+	}
 	if (g_kprobe_registered) {
 		unregister_kprobe(&g_swap_fault_kp);
 		g_kprobe_registered = false;

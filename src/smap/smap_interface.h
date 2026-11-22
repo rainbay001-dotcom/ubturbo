@@ -314,6 +314,7 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
 
 int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable);
 int ubturbo_smap_swap_set_threshold(uint32_t threshold);
+int ubturbo_smap_proactive_reclaim_enable(bool enable);
 
 #ifdef __cplusplus
 }

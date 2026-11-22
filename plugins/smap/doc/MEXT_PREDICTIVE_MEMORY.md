@@ -71,21 +71,37 @@ int ubturbo_smap_mext_query_stats(MextStats *stats_out);
 
 ---
 
-## 4. Building & Running Verification Tests
+## 4. Quick Start for Teammates
 
-### Standalone Predictor Test & Benchmark Suite
+### A. 10-Second Standalone Verification & Benchmarks (Any Linux or macOS Machine)
 ```bash
-clang++ -std=c++17 -O3 -Wall -Wextra -Werror \
-  -Iplugins/smap/src/user \
-  plugins/smap/test/predictor/test_mext_predictor.cpp \
-  plugins/smap/src/user/predictor/swap_shadow_map.cpp \
-  plugins/smap/src/user/predictor/tier1_table.cpp \
-  plugins/smap/src/user/predictor/tiny_transformer.cpp \
-  plugins/smap/src/user/predictor/mext_engine.cpp \
-  -lpthread -o build_test_mext && ./build_test_mext
+git clone -b feat/mext-predictive-memory https://github.com/rainbay001-dotcom/ubturbo.git
+cd ubturbo
+bash plugins/smap/test/predictor/run_mext_tests.sh
+```
+This compiles and runs all three suites automatically:
+1. `test_mext_predictor` — 6-suite unit, numerical gradient, lockless ring concurrency & CPU latency verification.
+2. `bench_mext_perf` — 50% DRAM + 50% NVMe event-driven timing benchmark across 4 workloads.
+3. `test_mext_zram` — Live two-thread real `zlib` 4 KB page compression/decompression + `zram` offload benchmark.
+
+### B. Full Kernel `.ko` + `libsmap.so` Deployment on openEuler OLK-6.6
+```bash
+# 1. Build kernel modules (requires openEuler kernel-devel headers)
+make -C plugins/smap/src/drivers
+make -C plugins/smap/src/tiering
+sudo insmod plugins/smap/src/drivers/smap_tracking.ko
+sudo insmod plugins/smap/src/tiering/smap_tiering.ko
+
+# 2. Build SMAP user-space shared library (libsmap.so)
+git submodule update --init --recursive
+sh plugins/smap/build.sh
+
+# 3. Enable either NVMe partition OR /dev/zram0 via SDK:
+#    ubturbo_smap_swap_config("/dev/nvme0n1p2", 10, true);   // NVMe tier
+#    ubturbo_smap_swap_config("/dev/zram0",    100, true);   // zram tier (auto-applies MextApplyZramPreset)
 ```
 
-### Offline Model Pre-Training (`MXTF` Weight Export)
+### C. Offline Model Pre-Training (`MXTF` Weight Export)
 ```bash
 python3 scripts/train_mext_predictor.py --out /opt/ubturbo/conf/smap/mext_tiny_tf.bin --epochs 20
 ```

@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include "manage/smap_config.h"
+#include "manage/swap_types.h"
 #include "smap_env.h"
 
 #ifdef __cplusplus
@@ -328,6 +329,12 @@ int ubturbo_smap_process_config_query(int nid, struct OldProcessPayload *result,
  * @return int  0：操作成功；非0：操作失败
  */
 int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t length);
+
+/* NVMe Swap & MEXT Predictive Memory SDK APIs */
+int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable);
+int ubturbo_smap_swap_set_threshold(uint32_t threshold);
+int ubturbo_smap_mext_config(const MextConfig *cfg);
+int ubturbo_smap_mext_query_stats(MextStats *stats_out);
 
 #ifdef __cplusplus
 }

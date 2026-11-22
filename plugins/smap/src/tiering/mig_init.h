@@ -10,6 +10,7 @@
 #include <linux/types.h>
 
 #include "dump_info.h"
+#include "mext_ring_abi.h"
 #include "smap_migrate_pages.h"
 #include "smap_migrate_wrapper.h"
 
@@ -26,6 +27,9 @@
 #define SMAP_MIG_MIGRATE_NUMA _IOW(SMAP_MIG_MAGIC, 2, struct migrate_numa_msg)
 #define SMAP_MIG_PID_REMOTE_NUMA \
 	_IOW(SMAP_MIG_MAGIC, 3, struct migrate_pid_remote_numa_msg)
+#define SMAP_MIG_SWAP_OUT _IOW(SMAP_MIG_MAGIC, 4, struct migrate_msg)
+#define SMAP_MIG_PREFAULT _IOWR(SMAP_MIG_MAGIC, 5, struct mext_prefault_msg)
+#define SMAP_MIG_MEXT_CTRL _IOWR(SMAP_MIG_MAGIC, 6, struct mext_ctrl_msg)
 
 typedef struct {
 	u64 pme;

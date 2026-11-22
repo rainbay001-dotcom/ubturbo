@@ -32,6 +32,9 @@
 #include "manage/smap_ioctl.h"
 #include "manage/virt.h"
 #include "manage/smap_config.h"
+#include "manage/swap_device.h"
+#include "manage/swap_account.h"
+#include "predictor/mext_predictor_c_api.h"
 #include "strategy/migration.h"
 
 #include "smap_interface.h"
@@ -1109,6 +1112,11 @@ int ubturbo_smap_stop(void)
     }
 
     struct ProcessManager *manager = GetProcessManager();
+    MextEngineStop();
+    if (manager->swapPolicy.swap_enabled && manager->swapDevice.device_path[0] != '\0') {
+        SwapDeviceShutdown(&manager->swapDevice);
+        manager->swapPolicy.swap_enabled = false;
+    }
     EnvMutexLock(&manager->threadLock);
     DestroyAllThread(manager);
     EnvMutexUnlock(&manager->threadLock);
@@ -2209,4 +2217,109 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
     EnvMutexUnlock(&manager->lock);
     SMAP_LOGGER_INFO("ubturbo_smap_remote_numa_freq_query success.");
     return 0;
+}
+
+static void SyncManagedPidsToMext(struct ProcessManager *manager)
+{
+    EnvMutexLock(&manager->lock);
+    for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+        (void)MextEngineTrackPid(proc->pid);
+    }
+    EnvMutexUnlock(&manager->lock);
+}
+
+int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable)
+{
+    if (!ubturbo_smap_is_running()) {
+        SMAP_LOGGER_ERROR("SMAP not running, cannot configure swap.");
+        return -EPERM;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    if (enable && device_path && device_path[0] != '\0') {
+        int ret = snprintf_s(manager->swapDevice.device_path,
+                             sizeof(manager->swapDevice.device_path),
+                             sizeof(manager->swapDevice.device_path) - 1,
+                             "%s", device_path);
+        if (ret < 0) {
+            return -EINVAL;
+        }
+        manager->swapDevice.priority = priority;
+        manager->swapDevice.enable_discard = true;
+        manager->swapDevice.auto_swapon = true;
+        manager->swapDevice.type = SWAP_DEV_PARTITION;
+
+        ret = SwapDeviceInit(&manager->swapDevice);
+        if (ret) {
+            SMAP_LOGGER_ERROR("SwapDeviceInit failed: %d", ret);
+            return ret;
+        }
+
+        TuneKernelSwapParams();
+        ValidateZswapConfig();
+        manager->swapPolicy.swap_enabled = true;
+
+        /* Start MEXT predictive memory engine alongside NVMe swap */
+        manager->mextConfig.enabled = true;
+        if (MextEngineStart(manager->fds.migrate, &manager->mextConfig) == 0) {
+            SyncManagedPidsToMext(manager);
+            SMAP_LOGGER_INFO("MEXT predictive memory engine started.");
+        }
+        SMAP_LOGGER_INFO("NVMe swap enabled on %s with priority %d", device_path, priority);
+    } else {
+        MextEngineStop();
+        manager->mextConfig.enabled = false;
+        manager->swapPolicy.swap_enabled = false;
+        if (manager->swapDevice.device_path[0] != '\0') {
+            SwapDeviceShutdown(&manager->swapDevice);
+        }
+        SMAP_LOGGER_INFO("NVMe swap and MEXT engine disabled.");
+    }
+    return 0;
+}
+
+int ubturbo_smap_swap_set_threshold(uint32_t threshold)
+{
+    if (!ubturbo_smap_is_running()) {
+        return -EPERM;
+    }
+    if (threshold == 0 || threshold > COLD_TRACKER_MAX_WINDOWS) {
+        return -EINVAL;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    manager->swapPolicy.cold_window_threshold = threshold;
+    SMAP_LOGGER_INFO("Swap cold window threshold set to %u", threshold);
+    return 0;
+}
+
+int ubturbo_smap_mext_config(const MextConfig *cfg)
+{
+    if (!cfg) {
+        return -EINVAL;
+    }
+    if (!ubturbo_smap_is_running()) {
+        return -EPERM;
+    }
+
+    struct ProcessManager *manager = GetProcessManager();
+    manager->mextConfig = *cfg;
+    if (cfg->enabled) {
+        int ret = MextEngineStart(manager->fds.migrate, &manager->mextConfig);
+        if (ret != 0) {
+            return ret;
+        }
+        SyncManagedPidsToMext(manager);
+        return 0;
+    }
+    MextEngineStop();
+    return 0;
+}
+
+int ubturbo_smap_mext_query_stats(MextStats *stats_out)
+{
+    if (!stats_out) {
+        return -EINVAL;
+    }
+    return MextEngineQueryStats(stats_out);
 }

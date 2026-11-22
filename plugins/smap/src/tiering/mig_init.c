@@ -19,6 +19,8 @@
 #include "acpi_mem.h"
 #include "iomem.h"
 #include "ham_migration.h"
+#include "mext_fault_ring.h"
+#include "rmap.h"
 #include "mig_init.h"
 
 #undef pr_fmt
@@ -473,6 +475,181 @@ static int __ioctl_check_pagesize(void __user *argp)
 	return pageType == smap_pgsize ? 0 : -EINVAL;
 }
 
+#define SWAP_OUT_INVALID_PADDR 0
+#define SWAP_OUT_BATCH_SIZE 256
+
+/*
+ * do_swap_out - Reclaim cold pages to swap device and emit MEXT_EVT_EVICTED
+ *               events (with resolved VPNs) into the lockless MEXT ring.
+ */
+static int do_swap_out(struct migrate_msg *msg, struct mig_list *mig_list)
+{
+	int i;
+	u64 j, p_addr, epoch;
+	u64 *batch_vpns;
+	unsigned int total_reclaimed = 0;
+	unsigned long pfn;
+	struct page *page;
+	struct folio *folio;
+
+	if (!fp_reclaim_pages || !fp_folio_isolate_lru ||
+	    !fp_folio_putback_lru) {
+		pr_err("swap-out symbols not resolved\n");
+		return -ENOSYS;
+	}
+
+	if (msg->cnt == 0)
+		return 0;
+
+	batch_vpns = kcalloc(SWAP_OUT_BATCH_SIZE, sizeof(u64), GFP_KERNEL);
+	if (!batch_vpns)
+		return -ENOMEM;
+
+	epoch = mext_next_swapout_epoch();
+
+	for (i = 0; i < msg->cnt; i++) {
+		unsigned int nr_isolated = 0;
+		unsigned int nr_reclaimed = 0;
+		unsigned int nr_unevictable = 0;
+		unsigned int batch_count = 0;
+		unsigned int k;
+		LIST_HEAD(folio_list);
+
+		if (is_node_invalid(mig_list[i].from) ||
+		    mig_list[i].nr == 0 || mig_list[i].nr > MAX_MIG_LIST_NR)
+			continue;
+
+		for (j = 0; j < mig_list[i].nr; j++) {
+			unsigned long vaddr = 0;
+
+			p_addr = mig_list[i].addr[j];
+			if (p_addr == SWAP_OUT_INVALID_PADDR)
+				continue;
+
+			pfn = PHYS_PFN(p_addr);
+			if (!pfn_valid(pfn))
+				continue;
+
+			page = pfn_to_online_page(pfn);
+			if (!page || PageTail(page))
+				continue;
+
+			folio = page_folio(page);
+			if (!folio_test_lru(folio))
+				continue;
+
+			if (!folio_test_anon(folio) ||
+			    folio_likely_mapped_shared(folio))
+				continue;
+
+			if (!folio_try_get(folio))
+				continue;
+
+			if (unlikely(page_folio(page) != folio ||
+				     !folio_test_lru(folio))) {
+				folio_put(folio);
+				continue;
+			}
+
+			/* Resolve VA before reclaim unmaps the folio */
+			if (smap_folio_find_vaddr(folio, mig_list[i].pid,
+						  &vaddr))
+				batch_vpns[batch_count] =
+					(u64)(vaddr >> PAGE_SHIFT);
+			else
+				batch_vpns[batch_count] = 0;
+
+			folio_clear_referenced(folio);
+			folio_test_clear_young(folio);
+
+			if (!fp_folio_isolate_lru(folio)) {
+				folio_put(folio);
+				continue;
+			}
+
+			if (folio_test_unevictable(folio)) {
+				fp_folio_putback_lru(folio);
+				nr_unevictable++;
+			} else {
+				list_add(&folio->lru, &folio_list);
+				nr_isolated++;
+				batch_count++;
+			}
+			folio_put(folio);
+
+			if (batch_count >= SWAP_OUT_BATCH_SIZE) {
+				unsigned long rec =
+					fp_reclaim_pages(&folio_list, true);
+				nr_reclaimed += (unsigned int)rec;
+				if (rec > 0) {
+					for (k = 0; k < batch_count; k++) {
+						if (batch_vpns[k])
+							mext_record_eviction(
+								mig_list[i].pid,
+								batch_vpns[k],
+								epoch);
+					}
+				}
+				INIT_LIST_HEAD(&folio_list);
+				batch_count = 0;
+				cond_resched();
+			}
+		}
+
+		if (!list_empty(&folio_list)) {
+			unsigned long rec = fp_reclaim_pages(&folio_list, true);
+			nr_reclaimed += (unsigned int)rec;
+			if (rec > 0) {
+				for (k = 0; k < batch_count; k++) {
+					if (batch_vpns[k])
+						mext_record_eviction(
+							mig_list[i].pid,
+							batch_vpns[k], epoch);
+				}
+			}
+		}
+
+		pr_debug("swap_out[%d]: pid %d node %d isolated=%u reclaimed=%u unev=%u\n",
+			 i, mig_list[i].pid, mig_list[i].from, nr_isolated,
+			 nr_reclaimed, nr_unevictable);
+
+		mig_list[i].success_to_user = true;
+		mig_list[i].failed_mig_nr = mig_list[i].nr - nr_reclaimed;
+		total_reclaimed += nr_reclaimed;
+	}
+
+	kfree(batch_vpns);
+	return (int)total_reclaimed;
+}
+
+static int __ioctl_swap_out(void __user *argp)
+{
+	struct migrate_msg msg;
+	struct mig_list *mig_list;
+	int ret;
+
+	if (copy_from_user(&msg, argp, sizeof(msg)))
+		return -EFAULT;
+	if (!is_migrate_msg_valid(&msg))
+		return -EINVAL;
+
+	ret = build_migrate_list(&msg, &mig_list);
+	if (ret)
+		return ret;
+
+	ret = do_swap_out(&msg, mig_list);
+
+	if (copy_to_user(argp, &msg, sizeof(msg)))
+		pr_err("unable to copy swap message to user space\n");
+	if (copy_to_user(msg.mig_list, mig_list,
+			 msg.cnt * sizeof(struct mig_list)))
+		pr_err("unable to copy swap list to user space\n");
+
+	free_migrate_list_addr(msg.cnt, mig_list);
+	free_migrate_list(&mig_list);
+	return ret;
+}
+
 static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -497,6 +674,18 @@ static long smu_mig_ioctl(struct file *file, unsigned int cmd,
 		rc = __ioctl_migrate_pid_remote_numa(argp);
 		break;
 	}
+	case SMAP_MIG_SWAP_OUT: {
+		rc = __ioctl_swap_out(argp);
+		break;
+	}
+	case SMAP_MIG_PREFAULT: {
+		rc = mext_ioctl_prefault(argp);
+		break;
+	}
+	case SMAP_MIG_MEXT_CTRL: {
+		rc = mext_ioctl_ctrl(argp);
+		break;
+	}
 	default:
 		rc = -ENOTTY;
 	}
@@ -514,6 +703,7 @@ static struct file_operations smu_mig_fops = {
 	.owner = THIS_MODULE,
 	.open = smu_mig_open,
 	.unlocked_ioctl = smu_mig_ioctl,
+	.mmap = mext_fault_ring_mmap,
 	.release = smu_mig_ioctl_release,
 };
 
@@ -576,8 +766,15 @@ void exit_mig_dev(void)
 int init_migrate(void)
 {
 	int ret;
+
+	ret = mext_fault_ring_init();
+	if (ret)
+		pr_warn("MEXT fault ring init failed (%d), continuing without MEXT ring\n",
+			ret);
+
 	ret = init_mig_dev();
 	if (ret) {
+		mext_fault_ring_exit();
 		pr_err("failed to init migrate device, ret: %d\n", ret);
 		return ret;
 	}
@@ -588,5 +785,6 @@ int init_migrate(void)
 void exit_migrate(void)
 {
 	exit_mig_dev();
+	mext_fault_ring_exit();
 	pr_info("exit SMAP migrate\n");
 }

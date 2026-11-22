@@ -29,6 +29,10 @@
 #include "securec.h"
 #include "smap_env.h"
 #include "migration.h"
+#include "cold_tracker.h"
+#include "swap_out.h"
+#include "manage/swap_device.h"
+#include "manage/swap_account.h"
 
 #define MAX_MIG_ADDR_PRINT_LEN 2
 
@@ -679,6 +683,37 @@ int ScanMigrateWork(ThreadCtx *ctx)
     }
     ret = PerformMigration(manager);
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
+
+    /* Phase 2: Cold page offload to NVMe swap (paired with MEXT predictive engine) */
+    if (manager->swapPolicy.swap_enabled &&
+        IsSwapDeviceActive(manager->swapDevice.device_path)) {
+        EnvMutexLock(&manager->lock);
+        for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+            UpdateColdWindowCounters(proc);
+
+            if (!proc->enableSwap) {
+                continue;
+            }
+            if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+                continue;
+            }
+            if (proc->swapAccounting.max_swap_kb > 0 &&
+                proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
+                continue;
+            }
+
+            uint8_t threshold = (uint8_t)manager->swapPolicy.cold_window_threshold;
+            uint64_t nr_candidates = CountColdSwapCandidates(proc, threshold);
+            if (nr_candidates > 0) {
+                int swapped = DoSwapOut(proc, manager->swapPolicy.max_swap_per_cycle, threshold);
+                SMAP_LOGGER_INFO("pid %d swapped %d/%lu cold pages to NVMe.",
+                                 proc->pid, swapped, nr_candidates);
+            }
+            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+        }
+        EnvMutexUnlock(&manager->lock);
+    }
+
 out:
     // 启动扫描
     EnableTracking(manager);

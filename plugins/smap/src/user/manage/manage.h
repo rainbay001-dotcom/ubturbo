@@ -15,6 +15,7 @@
 #include "virt.h"
 #include "smap_env.h"
 #include "numa_nodes.h"
+#include "swap_types.h"
 #include "advanced-strategy/scene_info.h"
 
 #define LOCAL_NUMA_NUM 4
@@ -227,6 +228,8 @@ struct ProcessAttribute {
     StrategyAttribute strategyAttr;
     ScanAttribute scanAttr;
     VMPidAttribute vmPidAttr;
+    ProcessColdState coldState;
+    SwapAccounting swapAccounting;
     struct ProcessAttribute *next;
 };
 typedef struct ProcessAttribute ProcessAttr;
@@ -326,6 +329,9 @@ struct ProcessManager {
     TrackingAttr tracking; // 反向扫描参数
     void *threadCtx[MAX_THREADS]; // 管理的线程上下文
     struct RemoteNumaInfo remoteNumaInfo; // 借用远端内存数量
+    SwapPolicy swapPolicy;
+    SwapDeviceConfig swapDevice;
+    MextConfig mextConfig;
     EnvMutex lock;
     EnvMutex threadLock;
 };

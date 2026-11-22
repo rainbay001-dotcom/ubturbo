@@ -26,5 +26,7 @@ extern void unlock_page(struct page *page);
 
 void find_page_task(struct page *page, int is_locked,
 		    struct page_task_arg *pta);
+bool smap_folio_find_vaddr(struct folio *folio, pid_t pid,
+			   unsigned long *vaddr_out);
 
 #endif /* _SRC_TIERING_RMAP_H */

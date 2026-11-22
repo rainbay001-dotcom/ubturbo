@@ -266,3 +266,60 @@ void find_page_task(struct page *page, int is_locked, struct page_task_arg *pta)
 		unlock_page(page);
 	}
 }
+
+struct folio_vaddr_arg {
+	pid_t pid;
+	unsigned long vaddr;
+	bool found;
+};
+
+static bool folio_vaddr_one(struct folio *folio, struct vm_area_struct *vma,
+			    unsigned long address, void *arg)
+{
+	struct folio_vaddr_arg *fva = arg;
+	struct task_struct *task;
+
+	if (!vma || !vma->vm_mm || address == (unsigned long)-EFAULT)
+		return true;
+
+	if (fva->pid > 0) {
+		rcu_read_lock();
+		task = rcu_dereference(vma->vm_mm->owner);
+		if (!task || (task->pid != fva->pid && task->tgid != fva->pid)) {
+			rcu_read_unlock();
+			return true;
+		}
+		rcu_read_unlock();
+	}
+
+	fva->vaddr = address;
+	fva->found = true;
+	return false;
+}
+
+bool smap_folio_find_vaddr(struct folio *folio, pid_t pid,
+			   unsigned long *vaddr_out)
+{
+	struct folio_vaddr_arg fva = {
+		.pid = pid,
+		.vaddr = 0,
+		.found = false,
+	};
+	struct rmap_walk_control rwc = {
+		.rmap_one = folio_vaddr_one,
+		.arg = &fva,
+		.try_lock = true,
+	};
+
+	if (!folio || !vaddr_out)
+		return false;
+	if (!folio_test_anon(folio) || unlikely(folio_test_ksm(folio)))
+		return false;
+
+	smap_rmap_walk_anon(folio, &rwc, false);
+	if (fva.found) {
+		*vaddr_out = fva.vaddr;
+		return true;
+	}
+	return false;
+}

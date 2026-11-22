@@ -31,6 +31,9 @@
 #include "strategy/period_config.h"
 #include "strategy/strategy.h"
 #include "strategy/migration.h"
+#include "strategy/cold_tracker.h"
+#include "swap_account.h"
+#include "predictor/mext_predictor_c_api.h"
 #include "manage.h"
 
 static struct ProcessManager g_processManager;
@@ -133,6 +136,18 @@ int ProcessManagerInit(uint32_t pageType)
     EnvMutexInit(&g_processManager.threadLock);
     InitSceneInfo(&g_processManager.sceneInfo);
     g_runMode = WATERLINE_MODE;
+
+    g_processManager.swapPolicy.cold_window_threshold = SWAP_DEFAULT_COLD_WINDOW_THRESHOLD;
+    g_processManager.swapPolicy.max_swap_per_cycle = SWAP_DEFAULT_MAX_PER_CYCLE;
+    g_processManager.swapPolicy.max_swap_per_process = 0;
+    g_processManager.swapPolicy.l2_watermark_ratio = SWAP_DEFAULT_L2_WATERMARK;
+    g_processManager.swapPolicy.batch_size = SWAP_DEFAULT_BATCH_SIZE;
+    g_processManager.swapPolicy.swap_enabled = false;
+    g_processManager.swapPolicy.allow_vm_swap = false;
+    memset_s(&g_processManager.swapDevice, sizeof(SwapDeviceConfig), 0, sizeof(SwapDeviceConfig));
+    MextDefaultConfig(&g_processManager.mextConfig);
+    g_processManager.mextConfig.enabled = false;
+
     return 0;
 }
 
@@ -221,6 +236,10 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     if (attr == NULL) {
         return;
     }
+    if (MextEngineIsRunning()) {
+        MextEngineUntrackPid(attr->pid);
+    }
+    DestroyColdTracker(&attr->coldState);
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
     }
@@ -653,7 +672,12 @@ int AddProcess(ProcessParam *param, PidType type, uint32_t *nodeBitmap)
     }
 
     attr->type = type;
+    InitProcessColdState(&attr->coldState);
+    InitSwapAccounting(&attr->swapAccounting);
     SetProcessConfig(attr, param);
+    if (MextEngineIsRunning()) {
+        (void)MextEngineTrackPid(attr->pid);
+    }
     LinkedListAdd(&g_processManager.processes, &attr);
     SMAP_LOGGER_INFO("Set pid %d scan cycle to %ums.", attr->pid, attr->scanTime);
     g_processManager.nr[type]++;

@@ -864,6 +864,110 @@ void TestCgroupEvictionPrefetchAndJsonStats()
                 static_cast<unsigned long long>(dispatched_pages));
 }
 
+/* --------------------------------------------------------------------------
+ * 8. Zero-Config Auto Per-PID Cgroup v2 Discovery & Targeted Fleet Reclaim
+ * -------------------------------------------------------------------------- */
+void TestAutoPerPidCgroupDiscoveryAndTargetedReclaim()
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::current_path() / ("smap_auto_cg_" + std::to_string(getpid()));
+    fs::path mock_proc = root / "proc";
+    fs::path mock_cg = root / "cgroup";
+    fs::create_directories(mock_proc);
+    fs::create_directories(mock_cg / "aenv.slice");
+
+    struct CleanupGuard {
+        fs::path dir;
+        ~CleanupGuard()
+        {
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{ root };
+
+    /* Parent slice is unconstrained ("max"), each sandbox fc-XX has 64 MB limit,
+     * and leaf vcpu subdir has "max" — testing upward ancestor resolution! */
+    std::ofstream(mock_cg / "aenv.slice" / "memory.max") << "max\n";
+
+    constexpr uint64_t kLimit64Mb = 64ULL * 1024ULL * 1024ULL; /* 16,384 pages */
+    for (int i = 1; i <= 40; ++i) {
+        int32_t pid = 30000 + i;
+        std::string fc_name = "fc-" + std::to_string(i);
+        fs::path fc_dir = mock_cg / "aenv.slice" / fc_name;
+        fs::path leaf_dir = fc_dir / "vcpu";
+        fs::create_directories(leaf_dir);
+        fs::create_directories(mock_proc / std::to_string(pid));
+
+        std::ofstream(mock_proc / std::to_string(pid) / "cgroup")
+            << "0::/aenv.slice/" << fc_name << "/vcpu\n";
+        std::ofstream(leaf_dir / "memory.max") << "max\n";
+        std::ofstream(fc_dir / "memory.max") << kLimit64Mb << "\n";
+
+        uint64_t used_bytes = 16ULL * 1024ULL * 1024ULL; /* 25% calm */
+        uint64_t max_ev = 0;
+        if (i == 38) {
+            used_bytes = 48ULL * 1024ULL * 1024ULL; /* 75% pre-warm (>70%, <88%) */
+        } else if (i >= 39) {
+            used_bytes = 63ULL * 1024ULL * 1024ULL; /* 98.4% bursting! */
+            max_ev = 12ULL;
+        }
+        std::ofstream(fc_dir / "memory.current") << used_bytes << "\n";
+        std::ofstream(fc_dir / "memory.events") << "low 0\nhigh 0\nmax " << max_ev << "\n";
+        std::ofstream(fc_dir / "memory.pressure") << "some avg10=2.0\nfull avg10=0.5\n";
+    }
+
+    MextEngine mext_eng;
+    ProactiveReclaimController ctrl;
+    ctrl.BindMextEngine(&mext_eng);
+    ctrl.SetDiscoveryRoots(mock_proc.string(), mock_cg.string());
+
+    /* Host has 270.9 GB MemFree out of 768 GB — zero host-global pressure! */
+    ctrl.SetTelemetryProvider([](HostMemSnapshot *out) -> bool {
+        out->timestamp_ns = 5'000'000'000ULL;
+        out->total_pages = 201326592ULL;
+        out->free_pages = 71014810ULL;
+        out->wmark_min_pages = 262144ULL;
+        out->wmark_low_pages = 327680ULL;
+        out->wmark_high_pages = 393216ULL;
+        return true;
+    });
+
+    ProactiveReclaimConfig rcfg{};
+    ProactiveReclaimDefaultConfig(&rcfg);
+    REQUIRE(ctrl.Start(rcfg, [](uint64_t target, uint8_t) { return target; }, false) == 0);
+
+    for (int32_t pid = 30001; pid <= 30040; ++pid) {
+        REQUIRE(ctrl.TrackPid(pid) == 0);
+    }
+
+    ReclaimDecision dec = ctrl.StepOnce();
+    REQUIRE(ctrl.ShouldTrackCold());
+    REQUIRE(dec.urgency == RECLAIM_BURST || dec.urgency == RECLAIM_EMERGENCY);
+    /* Must cover combined fleet deficit across BOTH bursting sandboxes (~3,400+ pages) */
+    REQUIRE(dec.target_reclaim_pages >= 3000ULL);
+
+    /* Calm sandboxes (30001..30037): neither ColdTracker aging nor swap pressure */
+    for (int32_t pid = 30001; pid <= 30037; ++pid) {
+        REQUIRE(!ctrl.ShouldAgePidCold(pid));
+        REQUIRE(ctrl.GetPidPressureScore(pid) == 0U);
+    }
+    /* Pre-warm sandbox (30038 @ 75%): ages ColdTracker, 0 eviction pressure */
+    REQUIRE(ctrl.ShouldAgePidCold(30038));
+    REQUIRE(ctrl.GetPidPressureScore(30038) == 0U);
+
+    /* Bursting sandboxes (30039, 30040 @ 98.4%): targeted high pressure score! */
+    REQUIRE(ctrl.ShouldAgePidCold(30039));
+    REQUIRE(ctrl.ShouldAgePidCold(30040));
+    REQUIRE(ctrl.GetPidPressureScore(30039) >= 80U);
+    REQUIRE(ctrl.GetPidPressureScore(30040) >= 80U);
+
+    for (int32_t pid = 30001; pid <= 30040; ++pid) {
+        ctrl.UntrackPid(pid);
+    }
+    ctrl.Stop();
+    std::printf("[PASS] Zero-config auto per-PID cgroup v2 ancestor discovery & targeted fleet reclaim\n");
+}
+
 } // namespace
 
 int main()
@@ -875,6 +979,7 @@ int main()
     TestLiveKernelPressureRingWakeup();
     TestThousandSandboxScaleAndCalmBypass();
     TestCgroupEvictionPrefetchAndJsonStats();
+    TestAutoPerPidCgroupDiscoveryAndTargetedReclaim();
     RunAllBurstBenchmarks();
     std::printf("\nALL PROACTIVE RECLAIM TESTS & BURST BENCHMARKS PASSED SUCCESSFULLY!\n");
     return 0;

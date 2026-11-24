@@ -242,6 +242,9 @@ static void FreeProceccesAttr(ProcessAttr *attr)
     if (MextEngineIsRunning()) {
         MextEngineUntrackPid(attr->pid);
     }
+    if (ProactiveReclaimIsRunning()) {
+        ProactiveReclaimUntrackPid(attr->pid);
+    }
     DestroyColdTracker(&attr->coldState);
     if (attr->scanAttr.actcData) {
         ResetActcData(attr->scanAttr.actcData, MAX_NODES);
@@ -680,6 +683,9 @@ int AddProcess(ProcessParam *param, PidType type, uint32_t *nodeBitmap)
     SetProcessConfig(attr, param);
     if (MextEngineIsRunning()) {
         (void)MextEngineTrackPid(attr->pid);
+    }
+    if (ProactiveReclaimIsRunning()) {
+        (void)ProactiveReclaimTrackPid(attr->pid);
     }
     LinkedListAdd(&g_processManager.processes, &attr);
     SMAP_LOGGER_INFO("Set pid %d scan cycle to %ums.", attr->pid, attr->scanTime);

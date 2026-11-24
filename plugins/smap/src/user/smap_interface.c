@@ -2225,6 +2225,15 @@ int ubturbo_smap_remote_numa_freq_query(uint16_t *numa, uint64_t *freq, uint16_t
     return 0;
 }
 
+static void SyncManagedPidsToReclaim(struct ProcessManager *manager)
+{
+    EnvMutexLock(&manager->lock);
+    for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+        (void)ProactiveReclaimTrackPid(proc->pid);
+    }
+    EnvMutexUnlock(&manager->lock);
+}
+
 static void SyncManagedPidsToMext(struct ProcessManager *manager)
 {
     EnvMutexLock(&manager->lock);
@@ -2281,6 +2290,7 @@ int ubturbo_smap_swap_config(const char *device_path, int priority, bool enable)
             SMAP_LOGGER_INFO("MEXT predictive memory engine started.");
         }
         if (ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch) == 0) {
+            SyncManagedPidsToReclaim(manager);
             SMAP_LOGGER_INFO("Dynamic Proactive Reclaim controller started.");
         }
         SMAP_LOGGER_INFO("Swap tier enabled on %s with priority %d", device_path, priority);
@@ -2352,7 +2362,11 @@ int ubturbo_smap_proactive_reclaim_enable(bool enable)
     struct ProcessManager *manager = GetProcessManager();
     manager->reclaimConfig.enabled = enable;
     if (enable) {
-        return ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+        int ret = ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+        if (ret == 0) {
+            SyncManagedPidsToReclaim(manager);
+        }
+        return ret;
     }
     ProactiveReclaimStop();
     return 0;
@@ -2369,7 +2383,11 @@ int ubturbo_smap_reclaim_config(const ProactiveReclaimConfig *cfg)
     struct ProcessManager *manager = GetProcessManager();
     manager->reclaimConfig = *cfg;
     if (cfg->enabled) {
-        return ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+        int ret = ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
+        if (ret == 0) {
+            SyncManagedPidsToReclaim(manager);
+        }
+        return ret;
     }
     ProactiveReclaimStop();
     return 0;

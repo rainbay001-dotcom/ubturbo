@@ -334,6 +334,97 @@ bool ProactiveReclaimController::ApplyCgroupV2Overlay(const char *cgroup_dir,
     return true;
 }
 
+std::string ProactiveReclaimController::ResolveEffectiveCgroupDir(
+    int32_t pid,
+    const std::string &proc_root,
+    const std::string &cgroup_mount_root)
+{
+    if (pid <= 0 || proc_root.empty() || cgroup_mount_root.empty()) {
+        return {};
+    }
+
+    char cg_proc_path[512];
+    std::snprintf(cg_proc_path, sizeof(cg_proc_path), "%s/%d/cgroup", proc_root.c_str(), pid);
+    FILE *fp = std::fopen(cg_proc_path, "r");
+    if (!fp) {
+        return {};
+    }
+
+    std::string rel_path;
+    char line[512];
+    while (std::fgets(line, sizeof(line), fp) != nullptr) {
+        /* Unified cgroup v2 hierarchy line starts with "0::" */
+        if (std::strncmp(line, "0::", 3) == 0) {
+            rel_path = line + 3;
+            while (!rel_path.empty() &&
+                   (rel_path.back() == '\n' || rel_path.back() == '\r' || rel_path.back() == ' ')) {
+                rel_path.pop_back();
+            }
+            break;
+        }
+    }
+    std::fclose(fp);
+
+    if (rel_path.empty() || rel_path == "/") {
+        return {};
+    }
+
+    /*
+     * Walk upward from leaf cgroup (`<mount>/<rel_path>`) toward `<mount>` (excluding
+     * root) and select the ancestor with the tightest finite `memory.max` headroom.
+     * Handles both per-sandbox child limits (`.../fc-0042/memory.max`) and parent
+     * slice limits (`.../aenv.slice/memory.max` when leaf `vcpu/memory.max` == "max").
+     */
+    std::string best_dir;
+    uint64_t best_avail_bytes = UINT64_MAX;
+    uint64_t best_limit_bytes = UINT64_MAX;
+
+    std::string cur_rel = rel_path;
+    while (!cur_rel.empty() && cur_rel != "/") {
+        std::string full_dir = cgroup_mount_root + cur_rel;
+        std::string max_path = full_dir + "/memory.max";
+        FILE *fmax = std::fopen(max_path.c_str(), "r");
+        if (fmax) {
+            char buf[128] = { 0 };
+            bool got = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
+            std::fclose(fmax);
+            if (got && std::strncmp(buf, "max", 3) != 0) {
+                char *endptr = nullptr;
+                unsigned long long lim = std::strtoull(buf, &endptr, 10);
+                if (lim > 0) {
+                    unsigned long long cur_used = 0;
+                    std::string cur_path = full_dir + "/memory.current";
+                    FILE *fcur = std::fopen(cur_path.c_str(), "r");
+                    if (fcur) {
+                        char cbuf[128] = { 0 };
+                        if (std::fgets(cbuf, sizeof(cbuf), fcur) != nullptr) {
+                            cur_used = std::strtoull(cbuf, &endptr, 10);
+                        }
+                        std::fclose(fcur);
+                    }
+                    uint64_t avail = (lim > cur_used)
+                                         ? static_cast<uint64_t>(lim - cur_used)
+                                         : 0ULL;
+                    if (avail < best_avail_bytes ||
+                        (avail == best_avail_bytes && static_cast<uint64_t>(lim) < best_limit_bytes)) {
+                        best_avail_bytes = avail;
+                        best_limit_bytes = static_cast<uint64_t>(lim);
+                        best_dir = full_dir;
+                    }
+                }
+            }
+        }
+
+        size_t slash = cur_rel.find_last_of('/');
+        if (slash == std::string::npos || slash == 0) {
+            break;
+        }
+        cur_rel.resize(slash);
+    }
+
+    return best_dir;
+}
+
 int ProactiveReclaimController::Start(const ProactiveReclaimConfig &cfg,
                                       EvictExecutor evict_fn,
                                       bool spawn_worker)
@@ -396,6 +487,11 @@ void ProactiveReclaimController::Stop()
 
     mext::MextEngine *eng = bound_engine_ ? bound_engine_ : &mext::GlobalMextEngine();
     eng->SetPressureCallback(nullptr);
+
+    std::lock_guard<std::mutex> lk(mu_);
+    pid_to_cgroup_.clear();
+    tracked_cgroups_.clear();
+    any_cgroup_pressured_.store(false, std::memory_order_release);
 }
 
 int ProactiveReclaimController::UpdateConfig(const ProactiveReclaimConfig &cfg)
@@ -436,6 +532,331 @@ void ProactiveReclaimController::SetCgroupV2Root(const std::string &cgroup_dir)
 {
     std::lock_guard<std::mutex> lk(mu_);
     cgroup_v2_root_ = cgroup_dir;
+}
+
+void ProactiveReclaimController::SetDiscoveryRoots(const std::string &proc_root,
+                                                   const std::string &cgroup_mount_root)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    proc_root_ = proc_root;
+    cgroup_mount_root_ = cgroup_mount_root;
+}
+
+int ProactiveReclaimController::TrackPid(int32_t pid)
+{
+    if (pid <= 0) {
+        return -1;
+    }
+    std::string proc_root;
+    std::string cg_mount;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (pid_to_cgroup_.find(pid) != pid_to_cgroup_.end()) {
+            return 0;
+        }
+        proc_root = proc_root_;
+        cg_mount = cgroup_mount_root_;
+    }
+
+    /* Resolve /proc/[pid]/cgroup & walk ancestors outside mu_ */
+    std::string cg_dir = ResolveEffectiveCgroupDir(pid, proc_root, cg_mount);
+    if (cg_dir.empty()) {
+        return 0;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        auto [it, inserted] = pid_to_cgroup_.emplace(pid, cg_dir);
+        if (inserted) {
+            CgroupTrackEntry &ce = tracked_cgroups_[cg_dir];
+            ++ce.ref_count;
+            ce.hot = true;
+        }
+    }
+    return 0;
+}
+
+void ProactiveReclaimController::UntrackPid(int32_t pid)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = pid_to_cgroup_.find(pid);
+    if (it == pid_to_cgroup_.end()) {
+        return;
+    }
+    auto cg_it = tracked_cgroups_.find(it->second);
+    if (cg_it != tracked_cgroups_.end()) {
+        if (cg_it->second.ref_count <= 1U) {
+            tracked_cgroups_.erase(cg_it);
+        } else {
+            --cg_it->second.ref_count;
+        }
+    }
+    pid_to_cgroup_.erase(it);
+    if (tracked_cgroups_.empty()) {
+        any_cgroup_pressured_.store(false, std::memory_order_release);
+    }
+}
+
+uint32_t ProactiveReclaimController::GetPidPressureScore(int32_t pid) const
+{
+    if (!any_cgroup_pressured_.load(std::memory_order_acquire)) {
+        /* Host-level pressure: all eligible PIDs share evenly (weight 10) */
+        return (current_urgency_.load(std::memory_order_acquire) !=
+                static_cast<uint32_t>(RECLAIM_CALM))
+                   ? 10U
+                   : 0U;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = pid_to_cgroup_.find(pid);
+    if (it == pid_to_cgroup_.end()) {
+        return host_track_cold_.load(std::memory_order_relaxed) ? 10U : 0U;
+    }
+    auto cg_it = tracked_cgroups_.find(it->second);
+    if (cg_it == tracked_cgroups_.end()) {
+        return 0U;
+    }
+    return cg_it->second.pressure_score;
+}
+
+bool ProactiveReclaimController::ShouldAgePidCold(int32_t pid) const
+{
+    if (host_track_cold_.load(std::memory_order_acquire)) {
+        return true;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    if (tracked_cgroups_.empty()) {
+        return should_track_cold_.load(std::memory_order_relaxed);
+    }
+    auto it = pid_to_cgroup_.find(pid);
+    if (it == pid_to_cgroup_.end()) {
+        return false;
+    }
+    auto cg_it = tracked_cgroups_.find(it->second);
+    if (cg_it == tracked_cgroups_.end()) {
+        return false;
+    }
+    return cg_it->second.age_cold;
+}
+
+bool ProactiveReclaimController::SampleTrackedCgroups(uint32_t page_shift,
+                                                      HostMemSnapshot *inout,
+                                                      uint64_t *fleet_deficit_out)
+{
+    if (fleet_deficit_out) {
+        *fleet_deficit_out = 0ULL;
+    }
+    std::vector<std::string> to_sample;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (tracked_cgroups_.empty()) {
+            any_cgroup_pressured_.store(false, std::memory_order_release);
+            return false;
+        }
+        to_sample.reserve(std::min<size_t>(tracked_cgroups_.size(), 320U));
+        std::vector<std::string> cool_dirs;
+        for (const auto &kv : tracked_cgroups_) {
+            if (kv.second.hot) {
+                to_sample.push_back(kv.first);
+            } else {
+                cool_dirs.push_back(kv.first);
+            }
+        }
+        /* Two-tier sweep: sample all hot (>=70% used) cgroups + 256 rotating cool ones */
+        const size_t cool_budget = std::min<size_t>(256U, cool_dirs.size());
+        for (size_t i = 0; i < cool_budget; ++i) {
+            size_t idx = (cool_scan_cursor_ + i) % cool_dirs.size();
+            to_sample.push_back(cool_dirs[idx]);
+        }
+        cool_scan_cursor_ += cool_budget;
+    }
+
+    struct SampledCg {
+        std::string dir;
+        uint64_t limit_pages = 0;
+        uint64_t used_pages = 0;
+        uint64_t free_pages = 0;
+        uint64_t max_events = 0;
+        double psi_some = 0.0;
+        double psi_full = 0.0;
+        bool valid = false;
+    };
+    std::vector<SampledCg> results;
+    results.reserve(to_sample.size());
+
+    /* Read kernfs cgroup files outside mu_ */
+    for (const auto &dir : to_sample) {
+        SampledCg sc{};
+        sc.dir = dir;
+        char path[512];
+        std::snprintf(path, sizeof(path), "%s/memory.max", dir.c_str());
+        FILE *fmax = std::fopen(path, "r");
+        if (!fmax) {
+            continue;
+        }
+        char buf[128] = { 0 };
+        bool got_max = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
+        std::fclose(fmax);
+        if (!got_max || std::strncmp(buf, "max", 3) == 0) {
+            continue;
+        }
+        char *endptr = nullptr;
+        unsigned long long lim_b = std::strtoull(buf, &endptr, 10);
+        if (lim_b == 0) {
+            continue;
+        }
+
+        std::snprintf(path, sizeof(path), "%s/memory.current", dir.c_str());
+        FILE *fcur = std::fopen(path, "r");
+        if (!fcur) {
+            continue;
+        }
+        buf[0] = '\0';
+        bool got_cur = (std::fgets(buf, sizeof(buf), fcur) != nullptr);
+        std::fclose(fcur);
+        if (!got_cur) {
+            continue;
+        }
+        unsigned long long cur_b = std::strtoull(buf, &endptr, 10);
+
+        sc.limit_pages = static_cast<uint64_t>(lim_b) >> page_shift;
+        sc.used_pages = static_cast<uint64_t>(cur_b) >> page_shift;
+        sc.free_pages = (lim_b > cur_b) ? (static_cast<uint64_t>(lim_b - cur_b) >> page_shift) : 0ULL;
+        if (sc.limit_pages == 0) {
+            continue;
+        }
+
+        /* Only parse memory.events & memory.pressure when cgroup usage >= 70% */
+        if (sc.used_pages * 10ULL >= sc.limit_pages * 7ULL) {
+            std::snprintf(path, sizeof(path), "%s/memory.events", dir.c_str());
+            FILE *fev = std::fopen(path, "r");
+            if (fev) {
+                char line[128];
+                while (std::fgets(line, sizeof(line), fev) != nullptr) {
+                    unsigned long long v = 0;
+                    if (std::strncmp(line, "max ", 4) == 0 && std::sscanf(line + 4, "%llu", &v) == 1) {
+                        sc.max_events = static_cast<uint64_t>(v);
+                        break;
+                    }
+                }
+                std::fclose(fev);
+            }
+            std::snprintf(path, sizeof(path), "%s/memory.pressure", dir.c_str());
+            HostMemSnapshot cg_psi{};
+            ParseMemoryPsi(path, &cg_psi);
+            sc.psi_some = cg_psi.psi_some_avg10;
+            sc.psi_full = cg_psi.psi_full_avg10;
+        }
+        sc.valid = true;
+        results.push_back(std::move(sc));
+    }
+
+    bool overlaid = false;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        uint64_t total_event_stalls = 0;
+        for (const auto &sc : results) {
+            auto it = tracked_cgroups_.find(sc.dir);
+            if (it == tracked_cgroups_.end() || !sc.valid) {
+                continue;
+            }
+            CgroupTrackEntry &ce = it->second;
+            ce.limit_pages = sc.limit_pages;
+            ce.used_pages = sc.used_pages;
+            ce.free_pages = sc.free_pages;
+            ce.psi_some_avg10 = sc.psi_some;
+            ce.psi_full_avg10 = sc.psi_full;
+
+            uint64_t d_events = 0;
+            if (ce.has_prev_events && sc.max_events >= ce.prev_max_events) {
+                d_events = sc.max_events - ce.prev_max_events;
+            }
+            ce.prev_max_events = sc.max_events;
+            ce.max_events = sc.max_events;
+            ce.has_prev_events = true;
+            total_event_stalls += d_events;
+
+            uint64_t cg_min = std::min<uint64_t>(
+                262144ULL, std::max<uint64_t>(128ULL, sc.limit_pages / 128ULL));
+            uint64_t cg_low = (cg_min * 5ULL) / 4ULL;
+            ce.comfort_headroom_pages = std::min<uint64_t>(
+                (sc.limit_pages * 12ULL) / 100ULL,
+                std::max<uint64_t>(cg_low * 4ULL, 16384ULL));
+
+            bool over_70pct = (sc.used_pages * 10ULL >= sc.limit_pages * 7ULL);
+            ce.age_cold = over_70pct;
+            ce.hot = over_70pct;
+
+            if (sc.free_pages < ce.comfort_headroom_pages || d_events > 0) {
+                uint64_t def = (ce.comfort_headroom_pages > sc.free_pages)
+                                   ? (ce.comfort_headroom_pages - sc.free_pages)
+                                   : std::max<uint64_t>(1ULL, cg_low / 2ULL);
+                uint32_t score = 10U + static_cast<uint32_t>(
+                    (90ULL * def) / std::max<uint64_t>(1ULL, ce.comfort_headroom_pages));
+                if (sc.free_pages <= cg_low || d_events > 0 || score > 100U) {
+                    score = 100U;
+                }
+                ce.pressure_score = score;
+            } else {
+                ce.pressure_score = 0U;
+            }
+        }
+
+        /* Aggregate fleet pressure across ALL tracked cgroups */
+        const CgroupTrackEntry *tightest = nullptr;
+        double tightest_free_ratio = 2.0;
+        uint64_t fleet_deficit = 0;
+        bool any_pressured = false;
+        double max_psi_some = 0.0;
+        double max_psi_full = 0.0;
+
+        for (const auto &kv : tracked_cgroups_) {
+            const CgroupTrackEntry &ce = kv.second;
+            if (ce.limit_pages == 0) {
+                continue;
+            }
+            double free_ratio = static_cast<double>(ce.free_pages) /
+                                static_cast<double>(ce.limit_pages);
+            if (free_ratio < tightest_free_ratio) {
+                tightest_free_ratio = free_ratio;
+                tightest = &ce;
+            }
+            if (ce.pressure_score > 0) {
+                any_pressured = true;
+                if (ce.comfort_headroom_pages > ce.free_pages) {
+                    fleet_deficit += (ce.comfort_headroom_pages - ce.free_pages);
+                }
+            }
+            max_psi_some = std::max(max_psi_some, ce.psi_some_avg10);
+            max_psi_full = std::max(max_psi_full, ce.psi_full_avg10);
+        }
+
+        any_cgroup_pressured_.store(any_pressured, std::memory_order_release);
+        if (fleet_deficit_out) {
+            *fleet_deficit_out = fleet_deficit;
+        }
+
+        if (tightest && inout &&
+            (inout->total_pages == 0 || tightest->free_pages < inout->free_pages)) {
+            uint64_t cg_min = std::min<uint64_t>(
+                262144ULL, std::max<uint64_t>(128ULL, tightest->limit_pages / 128ULL));
+            uint64_t cg_low = std::max<uint64_t>(
+                (cg_min * 5ULL) / 4ULL,
+                tightest->comfort_headroom_pages);
+            inout->total_pages = (inout->total_pages > 0)
+                                     ? std::min<uint64_t>(inout->total_pages, tightest->limit_pages)
+                                     : tightest->limit_pages;
+            inout->free_pages = tightest->free_pages;
+            inout->wmark_min_pages = cg_min;
+            inout->wmark_low_pages = cg_low;
+            inout->wmark_high_pages = (cg_low * 6ULL) / 5ULL;
+            inout->allocstall_total += total_event_stalls;
+            inout->psi_some_avg10 = std::max(inout->psi_some_avg10, max_psi_some);
+            inout->psi_full_avg10 = std::max(inout->psi_full_avg10, max_psi_full);
+            overlaid = true;
+        }
+    }
+
+    return overlaid;
 }
 
 void ProactiveReclaimController::NotifyKernelPressure(uint32_t nid,
@@ -670,7 +1091,14 @@ ReclaimDecision ProactiveReclaimController::EvaluateLocked(const HostMemSnapshot
      * ahead of pressure once free RAM drops into the top 90% utilization band.
      */
     uint64_t cold_track_gate = std::max<uint64_t>(w_dyn * 4ULL, snap.total_pages / 10ULL);
-    bool track_cold = (urgency != RECLAIM_CALM) || (snap.free_pages <= cold_track_gate);
+    bool any_cg_age = false;
+    for (const auto &kv : tracked_cgroups_) {
+        if (kv.second.age_cold) {
+            any_cg_age = true;
+            break;
+        }
+    }
+    bool track_cold = (urgency != RECLAIM_CALM) || (snap.free_pages <= cold_track_gate) || any_cg_age;
 
     recommended_cold_window_.store(clamped_cw, std::memory_order_release);
     current_urgency_.store(static_cast<uint32_t>(urgency), std::memory_order_release);
@@ -700,6 +1128,18 @@ ReclaimDecision ProactiveReclaimController::StepOnce()
 
     HostMemSnapshot snap{};
     bool ok = telemetry_fn ? telemetry_fn(&snap) : ReadLinuxHostSnapshot(page_shift, &snap);
+    if (ok && snap.total_pages > 0) {
+        host_track_cold_.store(snap.free_pages <= (snap.total_pages / 10ULL),
+                               std::memory_order_release);
+    }
+
+    uint64_t fleet_cg_deficit = 0;
+    if (SampleTrackedCgroups(page_shift, &snap, &fleet_cg_deficit)) {
+        if (snap.timestamp_ns == 0) {
+            snap.timestamp_ns = SteadyNowNs();
+        }
+        ok = true;
+    }
     if (!cg_root.empty()) {
         if (ApplyCgroupV2Overlay(cg_root.c_str(), page_shift, &snap)) {
             if (snap.timestamp_ns == 0) {
@@ -728,7 +1168,7 @@ ReclaimDecision ProactiveReclaimController::StepOnce()
         if (!cfg_.enabled) {
             return dec;
         }
-        uint64_t urgent_pages = urgent_pages_pending_;
+        uint64_t urgent_pages = urgent_pages_pending_ + fleet_cg_deficit;
         bool kp = kernel_pressure_pending_;
         if (kp && hint_zone_free_pages_ > 0 && hint_zone_free_pages_ < snap.free_pages) {
             snap.free_pages = hint_zone_free_pages_;
@@ -897,6 +1337,26 @@ int ProactiveReclaimUpdateConfig(const ProactiveReclaimConfig *cfg)
 void ProactiveReclaimTriggerUrgent(uint64_t size_bytes)
 {
     smap::reclaim::GlobalProactiveReclaim().TriggerUrgentBytes(size_bytes);
+}
+
+int ProactiveReclaimTrackPid(pid_t pid)
+{
+    return smap::reclaim::GlobalProactiveReclaim().TrackPid(static_cast<int32_t>(pid));
+}
+
+void ProactiveReclaimUntrackPid(pid_t pid)
+{
+    smap::reclaim::GlobalProactiveReclaim().UntrackPid(static_cast<int32_t>(pid));
+}
+
+uint32_t ProactiveReclaimGetPidPressureScore(pid_t pid)
+{
+    return smap::reclaim::GlobalProactiveReclaim().GetPidPressureScore(static_cast<int32_t>(pid));
+}
+
+bool ProactiveReclaimShouldAgePidCold(pid_t pid)
+{
+    return smap::reclaim::GlobalProactiveReclaim().ShouldAgePidCold(static_cast<int32_t>(pid));
 }
 
 uint8_t ProactiveReclaimRecommendedColdWindow(void)

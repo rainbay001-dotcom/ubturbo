@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #include "manage/swap_types.h"
 
@@ -28,6 +29,11 @@ bool ProactiveReclaimIsRunning(void);
 
 int ProactiveReclaimUpdateConfig(const ProactiveReclaimConfig *cfg);
 void ProactiveReclaimTriggerUrgent(uint64_t size_bytes);
+
+int ProactiveReclaimTrackPid(pid_t pid);
+void ProactiveReclaimUntrackPid(pid_t pid);
+uint32_t ProactiveReclaimGetPidPressureScore(pid_t pid);
+bool ProactiveReclaimShouldAgePidCold(pid_t pid);
 
 uint8_t ProactiveReclaimRecommendedColdWindow(void);
 uint32_t ProactiveReclaimCurrentUrgency(void);

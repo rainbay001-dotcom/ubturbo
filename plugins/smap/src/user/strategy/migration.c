@@ -699,6 +699,9 @@ int ScanMigrateWork(ThreadCtx *ctx)
         if (!dynamic_reclaim || ProactiveReclaimShouldTrackCold()) {
             EnvMutexLock(&manager->lock);
             for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+                if (dynamic_reclaim && !ProactiveReclaimShouldAgePidCold(proc->pid)) {
+                    continue;
+                }
                 UpdateColdWindowCounters(proc);
 
                 /*

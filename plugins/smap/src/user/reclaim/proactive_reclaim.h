@@ -17,6 +17,8 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 #include "../manage/swap_types.h"
 #include "../predictor/mext_engine.h"
@@ -78,6 +80,13 @@ public:
     void SetEvictExecutor(EvictExecutor evict_fn);
     void BindMextEngine(mext::MextEngine *engine);
     void SetCgroupV2Root(const std::string &cgroup_dir);
+    void SetDiscoveryRoots(const std::string &proc_root, const std::string &cgroup_mount_root);
+
+    /* Zero-config per-PID cgroup v2 auto-discovery & targeted pressure scoring */
+    int TrackPid(int32_t pid);
+    void UntrackPid(int32_t pid);
+    uint32_t GetPidPressureScore(int32_t pid) const;
+    bool ShouldAgePidCold(int32_t pid) const;
 
     /* Instant out-of-cycle wakeups from kernel wakeup_kswapd kprobe or urgent SDK call */
     void NotifyKernelPressure(uint32_t nid, uint64_t free_pages, uint64_t wmark_low_pages,
@@ -100,9 +109,31 @@ public:
     static bool ApplyCgroupV2Overlay(const char *cgroup_dir,
                                      uint32_t page_shift,
                                      HostMemSnapshot *inout);
+    static std::string ResolveEffectiveCgroupDir(int32_t pid,
+                                                 const std::string &proc_root,
+                                                 const std::string &cgroup_mount_root);
 
 private:
+    struct CgroupTrackEntry {
+        uint32_t ref_count = 0;
+        uint64_t limit_pages = 0;
+        uint64_t used_pages = 0;
+        uint64_t free_pages = 0;
+        uint64_t comfort_headroom_pages = 0;
+        uint64_t max_events = 0;
+        uint64_t prev_max_events = 0;
+        bool has_prev_events = false;
+        double psi_some_avg10 = 0.0;
+        double psi_full_avg10 = 0.0;
+        uint32_t pressure_score = 0; /* 0 = calm, 10..100 = reclaim priority */
+        bool age_cold = false;       /* true when cgroup >= 70% utilized */
+        bool hot = true;             /* sampled every tick when >= 70% utilized */
+    };
+
     void WorkerLoop();
+    bool SampleTrackedCgroups(uint32_t page_shift,
+                              HostMemSnapshot *inout,
+                              uint64_t *fleet_deficit_out);
     ReclaimDecision EvaluateLocked(const HostMemSnapshot &snap,
                                    const MextFeedbackSnapshot &mext_snap,
                                    uint64_t urgent_pages,
@@ -118,6 +149,14 @@ private:
     EvictExecutor evict_fn_;
     mext::MextEngine *bound_engine_ = nullptr;
     std::string cgroup_v2_root_;
+    std::string proc_root_{ "/proc" };
+    std::string cgroup_mount_root_{ "/sys/fs/cgroup" };
+
+    std::unordered_map<int32_t, std::string> pid_to_cgroup_;
+    std::unordered_map<std::string, CgroupTrackEntry> tracked_cgroups_;
+    size_t cool_scan_cursor_ = 0;
+    std::atomic<bool> any_cgroup_pressured_{ false };
+    std::atomic<bool> host_track_cold_{ false };
 
     std::atomic<bool> running_{ false };
     std::thread worker_;

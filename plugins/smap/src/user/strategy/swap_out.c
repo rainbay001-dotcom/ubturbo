@@ -18,6 +18,7 @@
 #include "manage/smap_ioctl.h"
 #include "manage/swap_account.h"
 #include "manage/swap_device.h"
+#include "reclaim/proactive_reclaim_c_api.h"
 #include "cold_tracker.h"
 #include "swap_out.h"
 
@@ -177,28 +178,37 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
     uint64_t total_reclaimed = 0;
     uint8_t eff_threshold = (threshold == 0) ? 1U : threshold;
 
+    bool dynamic_reclaim = ProactiveReclaimIsRunning();
+
     EnvMutexLock(&manager->lock);
-    uint64_t total_candidates = 0;
+    uint64_t total_weighted_candidates = 0;
     for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
         if (!IsPidEligibleForProactiveSwap(manager, proc)) {
             continue;
         }
-        total_candidates += CountColdSwapCandidates(proc, eff_threshold);
+        uint32_t score = dynamic_reclaim ? ProactiveReclaimGetPidPressureScore(proc->pid) : 10U;
+        if (score == 0U) {
+            continue;
+        }
+        total_weighted_candidates += CountColdSwapCandidates(proc, eff_threshold) * (uint64_t)score;
     }
 
     /* Step down to threshold = 1 if burst demand exceeds stricter cold pool */
-    if (total_candidates < target_pages && eff_threshold > 1U) {
+    if (total_weighted_candidates == 0 && eff_threshold > 1U) {
         eff_threshold = 1U;
-        total_candidates = 0;
         for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
             if (!IsPidEligibleForProactiveSwap(manager, proc)) {
                 continue;
             }
-            total_candidates += CountColdSwapCandidates(proc, eff_threshold);
+            uint32_t score = dynamic_reclaim ? ProactiveReclaimGetPidPressureScore(proc->pid) : 10U;
+            if (score == 0U) {
+                continue;
+            }
+            total_weighted_candidates += CountColdSwapCandidates(proc, eff_threshold) * (uint64_t)score;
         }
     }
 
-    if (total_candidates == 0) {
+    if (total_weighted_candidates == 0) {
         EnvMutexUnlock(&manager->lock);
         return 0;
     }
@@ -208,12 +218,18 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
         if (!IsPidEligibleForProactiveSwap(manager, proc)) {
             continue;
         }
+        uint32_t score = dynamic_reclaim ? ProactiveReclaimGetPidPressureScore(proc->pid) : 10U;
+        if (score == 0U) {
+            continue;
+        }
         uint64_t pid_cand = CountColdSwapCandidates(proc, eff_threshold);
         if (pid_cand == 0) {
             continue;
         }
+        uint64_t weighted = pid_cand * (uint64_t)score;
 
-        uint64_t share = (target_pages * pid_cand + total_candidates - 1ULL) / total_candidates;
+        uint64_t share = (target_pages * weighted + total_weighted_candidates - 1ULL) /
+                         total_weighted_candidates;
         if (share == 0) {
             share = 1ULL;
         }

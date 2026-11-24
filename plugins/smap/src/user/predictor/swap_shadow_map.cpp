@@ -122,24 +122,49 @@ bool FlatVpnHashTable::Erase(uint64_t vpn, uint64_t *seq_out)
     return false;
 }
 
+void SwapShadowMap::EnsureLogCapacity(PidShadow *ps)
+{
+    if (ps->log.empty()) {
+        ps->log.resize(MEXT_SHADOW_LOG_INIT_CAP);
+        ps->log_mask = MEXT_SHADOW_LOG_INIT_CAP - 1U;
+        return;
+    }
+    if (ps->log.size() < MEXT_SHADOW_LOG_CAP && ps->next_seq >= ps->log.size()) {
+        uint32_t new_cap = static_cast<uint32_t>(ps->log.size() * 2U);
+        if (new_cap > MEXT_SHADOW_LOG_CAP) {
+            new_cap = MEXT_SHADOW_LOG_CAP;
+        }
+        uint32_t new_mask = new_cap - 1U;
+        std::vector<EvictLogEntry> grown(new_cap);
+        for (const auto &e : ps->log) {
+            if (e.active && e.vpn != 0) {
+                grown[e.seq & new_mask] = e;
+            }
+        }
+        ps->log = std::move(grown);
+        ps->log_mask = new_mask;
+    }
+}
+
 uint64_t SwapShadowMap::RecordEviction(int32_t pid, uint64_t vpn, uint64_t epoch)
 {
     if (pid <= 0 || vpn == 0) {
         return 0;
     }
     PidShadow &ps = pids_[pid];
+    EnsureLogCapacity(&ps);
 
     /* If this VPN already had an older swap entry, retire it */
     uint64_t prev_seq = 0;
     if (ps.vpn_to_seq.Lookup(vpn, &prev_seq)) {
-        EvictLogEntry &old_e = ps.log[prev_seq & MEXT_SHADOW_LOG_MASK];
+        EvictLogEntry &old_e = ps.log[prev_seq & ps.log_mask];
         if (old_e.seq == prev_seq) {
             old_e.active = false;
         }
     }
 
     uint64_t seq = ps.next_seq++;
-    EvictLogEntry &slot = ps.log[seq & MEXT_SHADOW_LOG_MASK];
+    EvictLogEntry &slot = ps.log[seq & ps.log_mask];
     if (slot.active && slot.vpn != vpn) {
         ps.vpn_to_seq.Erase(slot.vpn);
     }
@@ -166,11 +191,14 @@ bool SwapShadowMap::OnPageFault(int32_t pid, uint64_t vpn, uint64_t *evict_seq_o
         return false;
     }
     PidShadow &ps = it->second;
+    if (ps.log.empty()) {
+        return false;
+    }
     uint64_t seq = 0;
     if (!ps.vpn_to_seq.Erase(vpn, &seq)) {
         return false;
     }
-    EvictLogEntry &e = ps.log[seq & MEXT_SHADOW_LOG_MASK];
+    EvictLogEntry &e = ps.log[seq & ps.log_mask];
     uint64_t epoch = 0;
     if (e.seq == seq) {
         epoch = e.epoch;
@@ -196,12 +224,12 @@ bool SwapShadowMap::ResolveEvictNeighbor(int32_t pid, uint64_t base_seq, int32_t
         return false;
     }
     auto it = pids_.find(pid);
-    if (it == pids_.end()) {
+    if (it == pids_.end() || it->second.log.empty()) {
         return false;
     }
     const PidShadow &ps = it->second;
     uint64_t tseq = static_cast<uint64_t>(target);
-    const EvictLogEntry &e = ps.log[tseq & MEXT_SHADOW_LOG_MASK];
+    const EvictLogEntry &e = ps.log[tseq & ps.log_mask];
     if (!e.active || e.seq != tseq || e.vpn == 0) {
         return false;
     }

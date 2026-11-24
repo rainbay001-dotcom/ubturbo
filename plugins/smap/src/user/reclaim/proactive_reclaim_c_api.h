@@ -31,6 +31,7 @@ void ProactiveReclaimTriggerUrgent(uint64_t size_bytes);
 
 uint8_t ProactiveReclaimRecommendedColdWindow(void);
 uint32_t ProactiveReclaimCurrentUrgency(void);
+bool ProactiveReclaimShouldTrackCold(void);
 int ProactiveReclaimQueryStats(ProactiveReclaimStats *stats_out);
 
 #ifdef __cplusplus

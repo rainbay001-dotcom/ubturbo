@@ -16,6 +16,7 @@
 namespace smap {
 namespace mext {
 
+constexpr uint32_t MEXT_SHADOW_LOG_INIT_CAP = 1024U; /* lazy 32KB start, grows to 64K */
 constexpr uint32_t MEXT_SHADOW_LOG_BITS = 16U;
 constexpr uint32_t MEXT_SHADOW_LOG_CAP = (1U << MEXT_SHADOW_LOG_BITS); /* 65536 */
 constexpr uint32_t MEXT_SHADOW_LOG_MASK = MEXT_SHADOW_LOG_CAP - 1U;
@@ -100,12 +101,15 @@ public:
 private:
     struct PidShadow {
         std::vector<EvictLogEntry> log;
+        uint32_t log_mask = 0;
         FlatVpnHashTable vpn_to_seq;
         uint64_t next_seq = 1;
         uint64_t recent_prefetch[MEXT_PREFETCH_FILTER_CAP] = { 0 };
 
-        PidShadow() : log(MEXT_SHADOW_LOG_CAP), vpn_to_seq(4096) {}
+        PidShadow() : vpn_to_seq(256) {}
     };
+
+    static void EnsureLogCapacity(PidShadow *ps);
 
     std::unordered_map<int32_t, PidShadow> pids_;
 };

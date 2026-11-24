@@ -44,6 +44,11 @@ Linux memory reclaim (`mm/vmscan.c` & `mm/page_alloc.c`) relies on static per-zo
 - When MEXT hides swap-ins (`hit_rate > 85%`), proactive reclaim runs at full gain (`brake_scale = 1.0`).
 - Under true random thrashing (`hit_rate ~ 0%` or `PSI full > 15%`) while `Free > W_low`, `brake_scale` smoothly damps eviction (`[0.25 .. 1.0]`) and raises `cold_window >= 3` to protect active working sets.
 
+### D. High-Concurrency Sandbox Fleet Optimizations (`1,200+` Concurrent VMs)
+- **8,192-Slot Double-Buffered Kernel PID Filter (`mext_fault_ring.c`):** Supports up to `6,144` concurrent tracked sandboxes (`<75%` load factor) with lockless wait-free `O(1)` kprobe lookups and automatic tombstone (`-1`) compaction across rapid sandbox churn.
+- **Abundant-RAM `O(1)` Fast Bypass (`ProactiveReclaimShouldTrackCold`):** When host free memory exceeds `max(4 * W_dyn, 10% * TotalRAM)`, periodic scan cycles bypass `manager->lock`, `ColdTracker` allocations, `/proc/<pid>/status` syscalls, and swap-out I/O completely; even inside the `<=10%` pre-warm band, `RECLAIM_CALM` enforces `0` swap-outs until `Free < W_dyn`.
+- **Demand-Grown Per-PID Eviction Log (`SwapShadowMap`):** Allocates `0 B` for non-swapping PIDs and starts active swap logs at `1,024` entries (`32 KB`), doubling on demand up to `65,536`.
+
 ---
 
 ## 3. Public C / SDK APIs (`smap_interface.h`)

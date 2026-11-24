@@ -693,6 +693,83 @@ void RunAllBurstBenchmarks()
     }
 }
 
+/* --------------------------------------------------------------------------
+ * 6. 1,200-Sandbox Scale & Abundant-RAM Zero-Overhead Regression Test (N100)
+ * -------------------------------------------------------------------------- */
+void TestThousandSandboxScaleAndCalmBypass()
+{
+    MextEngine mext_eng;
+    MextConfig mcfg{};
+    MextDefaultConfig(&mcfg);
+    REQUIRE(mext_eng.Start(-1, mcfg, false) == 0);
+
+    /* Register 1,200 concurrent sandboxes (matches N100 Firecracker fleet) */
+    for (int32_t pid = 10001; pid <= 11200; ++pid) {
+        REQUIRE(mext_eng.TrackPid(pid) == 0);
+    }
+    REQUIRE(mext_eng.ShadowMap().TotalActivePages() == 0ULL);
+
+    /* Verify dynamic SwapShadowMap log growth (1024 -> 2048 -> 4096) preserves neighbors */
+    for (uint64_t k = 0; k < 3000; ++k) {
+        mext_eng.HandleEvictionEvent(10001, 0x500000ULL + k * 7ULL, 42ULL);
+    }
+    uint64_t seq = 0;
+    uint64_t ep = 0;
+    SwapShadowMap local_shadow;
+    for (uint64_t k = 0; k < 3000; ++k) {
+        REQUIRE(local_shadow.RecordEviction(777, 0x600000ULL + k * 3ULL, 9ULL) == k + 1ULL);
+    }
+    REQUIRE(local_shadow.OnPageFault(777, 0x600000ULL + 1500ULL * 3ULL, &seq, &ep));
+    uint64_t neighbor_vpn = 0;
+    REQUIRE(local_shadow.ResolveEvictNeighbor(777, seq, 1, &neighbor_vpn));
+    REQUIRE(neighbor_vpn == 0x600000ULL + 1501ULL * 3ULL);
+
+    /* Simulate 768 GB host with 258 GB MemFree (exact N100 unconstrained condition) */
+    ProactiveReclaimController ctrl;
+    ctrl.BindMextEngine(&mext_eng);
+    ProactiveReclaimConfig rcfg{};
+    ProactiveReclaimDefaultConfig(&rcfg);
+
+    constexpr uint64_t kHost768GbPages = 201326592ULL; /* 768 GB in 4KB pages */
+    uint64_t free_pages = 67633152ULL;                 /* 258 GB free (33.6%) */
+    uint64_t ts_ns = 1'000'000'000ULL;
+
+    ctrl.SetTelemetryProvider([&](HostMemSnapshot *out) -> bool {
+        out->timestamp_ns = ts_ns;
+        out->total_pages = kHost768GbPages;
+        out->free_pages = free_pages;
+        out->wmark_min_pages = 262144ULL;  /* 1.0 GB */
+        out->wmark_low_pages = 327680ULL;  /* 1.25 GB */
+        out->wmark_high_pages = 393216ULL; /* 1.5 GB */
+        return true;
+    });
+    REQUIRE(ctrl.Start(rcfg, [](uint64_t target, uint8_t) { return target; }, false) == 0);
+
+    ReclaimDecision d_abundant = ctrl.StepOnce();
+    REQUIRE(d_abundant.urgency == RECLAIM_CALM);
+    REQUIRE(d_abundant.target_reclaim_pages == 0ULL);
+    REQUIRE(!ctrl.ShouldTrackCold()); /* O(1) lockless bypass active at 258 GB free! */
+
+    /* Steady state at 60 GB free (7.8% of 768 GB, still >> W_dyn): pre-warms ColdTracker, 0 swaps */
+    free_pages = 15728640ULL; /* 60 GB free */
+    ReclaimDecision d_prewarm{};
+    for (int i = 0; i < 40; ++i) {
+        ts_ns += 100'000'000ULL;
+        d_prewarm = ctrl.StepOnce();
+    }
+    REQUIRE(d_prewarm.urgency == RECLAIM_CALM);
+    REQUIRE(d_prewarm.target_reclaim_pages == 0ULL);
+    REQUIRE(ctrl.ShouldTrackCold());
+
+    for (int32_t pid = 10001; pid <= 11200; ++pid) {
+        mext_eng.UntrackPid(pid);
+    }
+    REQUIRE(mext_eng.ShadowMap().TotalActivePages() == 0ULL);
+    ctrl.Stop();
+    mext_eng.Stop();
+    std::printf("[PASS] 1,200-sandbox N100 scale & 768GB abundant-RAM O(1) bypass verification\n");
+}
+
 } // namespace
 
 int main()
@@ -702,6 +779,7 @@ int main()
     TestDisturbanceObserverStability();
     TestClosedLoopMextThrashBrake();
     TestLiveKernelPressureRingWakeup();
+    TestThousandSandboxScaleAndCalmBypass();
     RunAllBurstBenchmarks();
     std::printf("\nALL PROACTIVE RECLAIM TESTS & BURST BENCHMARKS PASSED SUCCESSFULLY!\n");
     return 0;

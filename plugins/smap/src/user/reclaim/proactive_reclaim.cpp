@@ -276,6 +276,7 @@ int ProactiveReclaimController::Start(const ProactiveReclaimConfig &cfg,
         stats_.effective_cold_window = init_cw;
         recommended_cold_window_.store(init_cw, std::memory_order_release);
         current_urgency_.store(static_cast<uint32_t>(RECLAIM_CALM), std::memory_order_release);
+        should_track_cold_.store(false, std::memory_order_release);
     }
 
     mext::MextEngine *eng = bound_engine_;
@@ -568,8 +569,18 @@ ReclaimDecision ProactiveReclaimController::EvaluateLocked(const HostMemSnapshot
     stats_.estimated_tte_ms = tte_ms;
     stats_.thrash_brake_scale = brake_scale;
 
+    /*
+     * Abundant-RAM fast bypass: when host free RAM exceeds BOTH 10% of total RAM
+     * and 4x W_dyn (e.g. 258 GB free on a 768 GB server), skip ColdTracker bitmap
+     * rebuilds and ProcessManager lock sweeps completely; enable cold aging well
+     * ahead of pressure once free RAM drops into the top 90% utilization band.
+     */
+    uint64_t cold_track_gate = std::max<uint64_t>(w_dyn * 4ULL, snap.total_pages / 10ULL);
+    bool track_cold = (urgency != RECLAIM_CALM) || (snap.free_pages <= cold_track_gate);
+
     recommended_cold_window_.store(clamped_cw, std::memory_order_release);
     current_urgency_.store(static_cast<uint32_t>(urgency), std::memory_order_release);
+    should_track_cold_.store(track_cold, std::memory_order_release);
 
     return dec;
 }
@@ -656,6 +667,10 @@ void ProactiveReclaimController::WorkerLoop()
         if (stats_.current_urgency == static_cast<uint32_t>(RECLAIM_BURST) ||
             stats_.current_urgency == static_cast<uint32_t>(RECLAIM_EMERGENCY)) {
             wait_ms = std::max<uint32_t>(2U, wait_ms / 3U);
+        } else if (!should_track_cold_.load(std::memory_order_relaxed) &&
+                   alloc_vel_pps_ < 64.0) {
+            /* Relax /proc seq_file polling when >10% host RAM is idle */
+            wait_ms = std::max<uint32_t>(wait_ms, 100U);
         }
         cv_.wait_for(lk, std::chrono::milliseconds(wait_ms), [this]() {
             return !running_.load(std::memory_order_acquire) || wakeup_pending_;
@@ -678,6 +693,11 @@ ProactiveReclaimUrgency ProactiveReclaimController::CurrentUrgency() const
 {
     return static_cast<ProactiveReclaimUrgency>(
         current_urgency_.load(std::memory_order_acquire));
+}
+
+bool ProactiveReclaimController::ShouldTrackCold() const
+{
+    return should_track_cold_.load(std::memory_order_acquire);
 }
 
 ProactiveReclaimController &GlobalProactiveReclaim()
@@ -783,6 +803,11 @@ uint8_t ProactiveReclaimRecommendedColdWindow(void)
 uint32_t ProactiveReclaimCurrentUrgency(void)
 {
     return static_cast<uint32_t>(smap::reclaim::GlobalProactiveReclaim().CurrentUrgency());
+}
+
+bool ProactiveReclaimShouldTrackCold(void)
+{
+    return smap::reclaim::GlobalProactiveReclaim().ShouldTrackCold();
 }
 
 int ProactiveReclaimQueryStats(ProactiveReclaimStats *stats_out)

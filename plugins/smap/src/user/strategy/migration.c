@@ -691,47 +691,52 @@ int ScanMigrateWork(ThreadCtx *ctx)
         bool dynamic_reclaim = ProactiveReclaimIsRunning();
         uint32_t urgency = dynamic_reclaim ? ProactiveReclaimCurrentUrgency() : RECLAIM_PROACTIVE;
 
-        EnvMutexLock(&manager->lock);
-        for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
-            UpdateColdWindowCounters(proc);
+        /*
+         * Fast O(1) lockless bypass on unconstrained hosts (>10% total RAM free
+         * and >4x W_dyn): avoids holding manager->lock across 1,000+ sandboxes,
+         * allocating ColdTracker arrays, or issuing /proc/[pid]/status syscalls.
+         */
+        if (!dynamic_reclaim || ProactiveReclaimShouldTrackCold()) {
+            EnvMutexLock(&manager->lock);
+            for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
+                UpdateColdWindowCounters(proc);
 
-            if (!proc->enableSwap) {
-                continue;
-            }
-            if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
-                continue;
-            }
-            if (proc->swapAccounting.max_swap_kb > 0 &&
-                proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
-                continue;
-            }
-
-            /*
-             * When Dynamic Proactive Reclaim is active and host memory is in
-             * RECLAIM_CALM, skip aggressive periodic draining so warm working sets
-             * remain in DRAM; out-of-cycle proactive pulses handle all bursts.
-             */
-            uint8_t threshold = dynamic_reclaim
-                                    ? ProactiveReclaimRecommendedColdWindow()
-                                    : (uint8_t)manager->swapPolicy.cold_window_threshold;
-            uint64_t cycle_budget = manager->swapPolicy.max_swap_per_cycle;
-            if (dynamic_reclaim && urgency == RECLAIM_CALM) {
-                cycle_budget = cycle_budget / 4ULL;
-                if (cycle_budget == 0) {
-                    UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+                /*
+                 * In RECLAIM_CALM (Free >= W_dyn), age coldness counters for future
+                 * readiness but NEVER swap out pages while DRAM headroom is ample.
+                 */
+                if (dynamic_reclaim && urgency == RECLAIM_CALM) {
                     continue;
                 }
-            }
+                if (!proc->enableSwap) {
+                    continue;
+                }
+                if (proc->type == VM_TYPE && !manager->swapPolicy.allow_vm_swap) {
+                    continue;
+                }
+                if (proc->swapAccounting.max_swap_kb > 0 &&
+                    proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
+                    continue;
+                }
 
-            uint64_t nr_candidates = CountColdSwapCandidates(proc, threshold);
-            if (nr_candidates > 0) {
-                int swapped = DoSwapOut(proc, cycle_budget, threshold);
-                SMAP_LOGGER_INFO("pid %d swapped %d/%lu cold pages to swap (cw=%u).",
-                                 proc->pid, swapped, nr_candidates, (unsigned)threshold);
+                uint8_t threshold = dynamic_reclaim
+                                        ? ProactiveReclaimRecommendedColdWindow()
+                                        : (uint8_t)manager->swapPolicy.cold_window_threshold;
+                uint64_t cycle_budget = manager->swapPolicy.max_swap_per_cycle;
+                int swapped = 0;
+                uint64_t nr_candidates = CountColdSwapCandidates(proc, threshold);
+                if (nr_candidates > 0) {
+                    swapped = DoSwapOut(proc, cycle_budget, threshold);
+                    SMAP_LOGGER_INFO("pid %d swapped %d/%lu cold pages to swap (cw=%u).",
+                                     proc->pid, swapped, nr_candidates, (unsigned)threshold);
+                }
+                if (swapped > 0 || proc->swapAccounting.current_swap_kb > 0 ||
+                    proc->swapAccounting.last_vm_swap > 0 || proc->swapAccounting.max_swap_kb > 0) {
+                    UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+                }
             }
-            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+            EnvMutexUnlock(&manager->lock);
         }
-        EnvMutexUnlock(&manager->lock);
     }
 
 out:

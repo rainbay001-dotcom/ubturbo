@@ -30,9 +30,10 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "SMAP_mext: " fmt
 
-#define MEXT_PID_HASH_BITS 9U
-#define MEXT_PID_HASH_SIZE (1U << MEXT_PID_HASH_BITS)
+#define MEXT_PID_HASH_BITS 13U
+#define MEXT_PID_HASH_SIZE (1U << MEXT_PID_HASH_BITS) /* 8192 slots */
 #define MEXT_PID_HASH_MASK (MEXT_PID_HASH_SIZE - 1U)
+#define MEXT_PID_MAX_LOAD  ((MEXT_PID_HASH_SIZE * 3U) / 4U) /* 75% = 6144 */
 #define MEXT_CAS_MAX_RETRY 8
 #define MEXT_PRESSURE_NODE_SLOTS 64U
 #define MEXT_PRESSURE_MIN_INTERVAL_NS 1000000ULL /* max 1 pressure wakeup / ms / node */
@@ -42,7 +43,15 @@ static size_t g_mext_ring_alloc_bytes;
 
 static DEFINE_SPINLOCK(g_ctrl_lock);
 static DEFINE_MUTEX(g_kprobe_mutex);
-static s32 g_tracked_pids[MEXT_PID_HASH_SIZE];
+/*
+ * Double-buffered lockless PID hash table: atomic kprobe readers access
+ * g_tracked_pids[g_active_pid_tbl] wait-free in O(1), while writers compact
+ * tombstones (-1) into the shadow table whenever load + tombstones reach 75%.
+ */
+static s32 g_tracked_pids[2][MEXT_PID_HASH_SIZE];
+static int g_active_pid_tbl;
+static u32 g_pid_live_cnt;
+static u32 g_pid_tomb_cnt;
 static bool g_track_all_pids;
 static bool g_kprobe_registered;
 static bool g_pressure_kp_registered;
@@ -63,6 +72,7 @@ static inline u32 mext_hash_pid(u32 pid)
 
 static inline bool mext_is_pid_tracked(pid_t pid)
 {
+	const s32 *tbl;
 	u32 slot, i;
 	s32 entry;
 
@@ -71,9 +81,10 @@ static inline bool mext_is_pid_tracked(pid_t pid)
 	if (pid <= 0)
 		return false;
 
+	tbl = g_tracked_pids[smp_load_acquire(&g_active_pid_tbl) & 1];
 	slot = mext_hash_pid((u32)pid);
 	for (i = 0; i < MEXT_PID_HASH_SIZE; i++) {
-		entry = READ_ONCE(g_tracked_pids[(slot + i) & MEXT_PID_HASH_MASK]);
+		entry = READ_ONCE(tbl[(slot + i) & MEXT_PID_HASH_MASK]);
 		if (entry == (s32)pid)
 			return true;
 		if (entry == 0)
@@ -82,8 +93,38 @@ static inline bool mext_is_pid_tracked(pid_t pid)
 	return false;
 }
 
+static void mext_pid_filter_compact_locked(void)
+{
+	int cur = g_active_pid_tbl & 1;
+	int nxt = cur ^ 1;
+	s32 *src = g_tracked_pids[cur];
+	s32 *dst = g_tracked_pids[nxt];
+	u32 i, slot, j, idx, live = 0;
+
+	memset(dst, 0, sizeof(g_tracked_pids[0]));
+	for (i = 0; i < MEXT_PID_HASH_SIZE; i++) {
+		s32 p = src[i];
+
+		if (p <= 0)
+			continue;
+		slot = mext_hash_pid((u32)p);
+		for (j = 0; j < MEXT_PID_HASH_SIZE; j++) {
+			idx = (slot + j) & MEXT_PID_HASH_MASK;
+			if (dst[idx] == 0) {
+				dst[idx] = p;
+				live++;
+				break;
+			}
+		}
+	}
+	g_pid_live_cnt = live;
+	g_pid_tomb_cnt = 0;
+	smp_store_release(&g_active_pid_tbl, nxt);
+}
+
 static int mext_pid_filter_add(pid_t pid)
 {
+	s32 *tbl;
 	u32 slot, i, idx;
 	s32 first_tombstone = -1;
 
@@ -94,29 +135,36 @@ static int mext_pid_filter_add(pid_t pid)
 	if (pid < 0)
 		return -EINVAL;
 
+	if (g_pid_live_cnt >= MEXT_PID_MAX_LOAD)
+		return -ENOSPC;
+	if (g_pid_live_cnt + g_pid_tomb_cnt >= MEXT_PID_MAX_LOAD)
+		mext_pid_filter_compact_locked();
+
+	tbl = g_tracked_pids[g_active_pid_tbl & 1];
 	slot = mext_hash_pid((u32)pid);
 	for (i = 0; i < MEXT_PID_HASH_SIZE; i++) {
 		idx = (slot + i) & MEXT_PID_HASH_MASK;
-		if (g_tracked_pids[idx] == (s32)pid)
+		if (tbl[idx] == (s32)pid)
 			return 0;
-		if (g_tracked_pids[idx] == -1 && first_tombstone < 0)
+		if (tbl[idx] == -1 && first_tombstone < 0)
 			first_tombstone = (s32)idx;
-		if (g_tracked_pids[idx] == 0) {
-			if (first_tombstone >= 0)
+		if (tbl[idx] == 0) {
+			if (first_tombstone >= 0) {
 				idx = (u32)first_tombstone;
-			WRITE_ONCE(g_tracked_pids[idx], (s32)pid);
+				if (g_pid_tomb_cnt > 0)
+					g_pid_tomb_cnt--;
+			}
+			WRITE_ONCE(tbl[idx], (s32)pid);
+			g_pid_live_cnt++;
 			return 0;
 		}
-	}
-	if (first_tombstone >= 0) {
-		WRITE_ONCE(g_tracked_pids[first_tombstone], (s32)pid);
-		return 0;
 	}
 	return -ENOSPC;
 }
 
 static void mext_pid_filter_remove(pid_t pid)
 {
+	s32 *tbl;
 	u32 slot, i, idx;
 
 	if (pid == 0) {
@@ -126,25 +174,31 @@ static void mext_pid_filter_remove(pid_t pid)
 	if (pid < 0)
 		return;
 
+	tbl = g_tracked_pids[g_active_pid_tbl & 1];
 	slot = mext_hash_pid((u32)pid);
 	for (i = 0; i < MEXT_PID_HASH_SIZE; i++) {
 		idx = (slot + i) & MEXT_PID_HASH_MASK;
-		if (g_tracked_pids[idx] == (s32)pid) {
-			WRITE_ONCE(g_tracked_pids[idx], -1);
+		if (tbl[idx] == (s32)pid) {
+			WRITE_ONCE(tbl[idx], -1);
+			if (g_pid_live_cnt > 0)
+				g_pid_live_cnt--;
+			g_pid_tomb_cnt++;
+			if (g_pid_live_cnt == 0 && g_pid_tomb_cnt > 0)
+				mext_pid_filter_compact_locked();
 			return;
 		}
-		if (g_tracked_pids[idx] == 0)
+		if (tbl[idx] == 0)
 			return;
 	}
 }
 
 static void mext_pid_filter_clear(void)
 {
-	int i;
-
 	WRITE_ONCE(g_track_all_pids, false);
-	for (i = 0; i < MEXT_PID_HASH_SIZE; i++)
-		WRITE_ONCE(g_tracked_pids[i], 0);
+	memset(g_tracked_pids, 0, sizeof(g_tracked_pids));
+	g_pid_live_cnt = 0;
+	g_pid_tomb_cnt = 0;
+	smp_store_release(&g_active_pid_tbl, 0);
 }
 
 /*

@@ -88,6 +88,7 @@ public:
     ProactiveReclaimStats GetStatsSnapshot() const;
     uint8_t RecommendedColdWindow() const;
     ProactiveReclaimUrgency CurrentUrgency() const;
+    bool ShouldTrackCold() const;
 
     /* Native Linux /proc telemetry reader (/proc/meminfo, zoneinfo, vmstat, pressure) */
     static bool ReadLinuxHostSnapshot(uint32_t page_shift, HostMemSnapshot *out);
@@ -134,6 +135,7 @@ private:
     ProactiveReclaimStats stats_{};
     std::atomic<uint8_t> recommended_cold_window_{ 8 };
     std::atomic<uint32_t> current_urgency_{ static_cast<uint32_t>(RECLAIM_CALM) };
+    std::atomic<bool> should_track_cold_{ false };
 };
 
 ProactiveReclaimController &GlobalProactiveReclaim();

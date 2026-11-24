@@ -278,36 +278,48 @@ int MextEngine::TrackPid(int32_t pid)
     if (pid <= 0) {
         return -1;
     }
-    std::lock_guard<std::mutex> lk(mu_);
-    (void)pid_states_[pid];
-    if (mig_fd_ >= 0) {
+    int fd = -1;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        fd = mig_fd_;
+    }
+    /*
+     * Register PID with kernel fault filter outside mu_ and defer allocating
+     * PidRuntimeState until the PID actually experiences a swap event (0 B
+     * overhead for non-swapping sandboxes).
+     */
+    if (fd >= 0) {
         mext_ctrl_msg ctrl{};
         ctrl.op = MEXT_CTRL_ADD_PID;
         ctrl.pid = pid;
-        return ioctl(mig_fd_, MEXT_IOCTL_CTRL, &ctrl);
+        return ioctl(fd, MEXT_IOCTL_CTRL, &ctrl);
     }
     return 0;
 }
 
 void MextEngine::UntrackPid(int32_t pid)
 {
-    std::lock_guard<std::mutex> lk(mu_);
-    auto it = pid_states_.find(pid);
-    if (it != pid_states_.end()) {
-        if (it->second.pidfd >= 0) {
-            close(it->second.pidfd);
+    int fd = -1;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        fd = mig_fd_;
+        auto it = pid_states_.find(pid);
+        if (it != pid_states_.end()) {
+            if (it->second.pidfd >= 0) {
+                close(it->second.pidfd);
+            }
+            pid_states_.erase(it);
         }
-        pid_states_.erase(it);
+        shadow_map_.RemovePid(pid);
+        tier1_.RemovePid(pid);
+        transformer_.ResetPid(pid);
     }
-    shadow_map_.RemovePid(pid);
-    tier1_.RemovePid(pid);
-    transformer_.ResetPid(pid);
 
-    if (mig_fd_ >= 0) {
+    if (fd >= 0) {
         mext_ctrl_msg ctrl{};
         ctrl.op = MEXT_CTRL_REMOVE_PID;
         ctrl.pid = pid;
-        (void)ioctl(mig_fd_, MEXT_IOCTL_CTRL, &ctrl);
+        (void)ioctl(fd, MEXT_IOCTL_CTRL, &ctrl);
     }
 }
 
@@ -412,15 +424,20 @@ void MextEngine::WorkerLoop()
             continue;
         }
         /*
-         * Adaptive hybrid poll: spin-yield briefly during active fault bursts
-         * (essential for ~2-5 us synchronous zram faults), then back off to
-         * low-power sleep when idle so quiet periods consume ~0% CPU.
+         * Three-stage adaptive hybrid poll:
+         *   1. <256 empty checks: spin-yield for ~2-5 us zram burst tracking;
+         *   2. <1024 empty checks: 100 us short nap between multi-batch NVMe faults;
+         *   3. >=1024 empty checks: 2 ms deep-idle sleep so unconstrained hosts
+         *      with zero swap activity incur ~0% background CPU & timer interrupts.
          */
-        if (idle_spins < 512U) {
+        if (idle_spins < 256U) {
             ++idle_spins;
             std::this_thread::yield();
-        } else {
+        } else if (idle_spins < 1024U) {
+            ++idle_spins;
             std::this_thread::sleep_for(std::chrono::microseconds(100));
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
     }
 }

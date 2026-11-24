@@ -418,6 +418,8 @@ int mext_ioctl_prefault(void __user *argp)
 
 	if (msg.flags & MEXT_PREFAULT_FLAG_WRITE)
 		gup_flags |= FOLL_WRITE;
+	if (msg.flags & MEXT_PREFAULT_FLAG_NOWAIT)
+		gup_flags |= FOLL_NOWAIT;
 
 	for (i = 0; i < msg.nr_pages; i++) {
 		unsigned long vaddr = (unsigned long)(vpns[i] << PAGE_SHIFT);
@@ -428,7 +430,13 @@ int mext_ioctl_prefault(void __user *argp)
 		if (vaddr >= TASK_SIZE)
 			continue;
 
-		mmap_read_lock(mm);
+		/*
+		 * Use non-blocking mmap_read_trylock so speculative prefaulting
+		 * never contends with mmap()/munmap() writers during VM/sandbox
+		 * creation or dynamic heap growth.
+		 */
+		if (!mmap_read_trylock(mm))
+			break;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
 		pinned = get_user_pages_remote(mm, vaddr, 1, gup_flags,
 					       &page, &locked);

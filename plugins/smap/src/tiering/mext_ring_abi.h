@@ -30,8 +30,9 @@ extern "C" {
 #define MEXT_RING_CAPACITY       (1U << MEXT_RING_CAPACITY_SHIFT) /* 16384 slots */
 #define MEXT_RING_MASK           (MEXT_RING_CAPACITY - 1U)
 
-#define MEXT_MAX_PREFAULT_PAGES  512U
-#define MEXT_PREFAULT_FLAG_WRITE (1U << 0)
+#define MEXT_MAX_PREFAULT_PAGES   512U
+#define MEXT_PREFAULT_FLAG_WRITE  (1U << 0)
+#define MEXT_PREFAULT_FLAG_NOWAIT (1U << 1) /* non-blocking SwapCache->PTE only */
 
 enum mext_event_type {
 	MEXT_EVT_NONE         = 0,

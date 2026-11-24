@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <unistd.h>
 
@@ -201,6 +202,10 @@ ProactiveReclaimController::ProactiveReclaimController()
     ProactiveReclaimDefaultConfig(&cfg_);
     long ps = sysconf(_SC_PAGESIZE);
     page_shift_ = (ps == 65536) ? 16U : 12U;
+    const char *env_cg = std::getenv("SMAP_RECLAIM_CGROUP");
+    if (env_cg && env_cg[0] != '\0') {
+        cgroup_v2_root_ = env_cg;
+    }
 }
 
 ProactiveReclaimController::~ProactiveReclaimController()
@@ -244,6 +249,89 @@ bool ProactiveReclaimController::ReadLinuxHostSnapshotFromRoot(const char *proc_
 bool ProactiveReclaimController::ReadLinuxHostSnapshot(uint32_t page_shift, HostMemSnapshot *out)
 {
     return ReadLinuxHostSnapshotFromRoot("/proc", page_shift, out);
+}
+
+bool ProactiveReclaimController::ApplyCgroupV2Overlay(const char *cgroup_dir,
+                                                      uint32_t page_shift,
+                                                      HostMemSnapshot *inout)
+{
+    if (!cgroup_dir || cgroup_dir[0] == '\0' || !inout) {
+        return false;
+    }
+
+    char path[512];
+    std::snprintf(path, sizeof(path), "%s/memory.max", cgroup_dir);
+    FILE *fmax = std::fopen(path, "r");
+    if (!fmax) {
+        return false;
+    }
+    char buf[128] = { 0 };
+    bool got_max = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
+    std::fclose(fmax);
+    if (!got_max || std::strncmp(buf, "max", 3) == 0) {
+        return false;
+    }
+    char *endptr = nullptr;
+    unsigned long long cg_max_bytes = std::strtoull(buf, &endptr, 10);
+    if (cg_max_bytes == 0) {
+        return false;
+    }
+
+    std::snprintf(path, sizeof(path), "%s/memory.current", cgroup_dir);
+    FILE *fcur = std::fopen(path, "r");
+    if (!fcur) {
+        return false;
+    }
+    buf[0] = '\0';
+    bool got_cur = (std::fgets(buf, sizeof(buf), fcur) != nullptr);
+    std::fclose(fcur);
+    if (!got_cur) {
+        return false;
+    }
+    unsigned long long cg_cur_bytes = std::strtoull(buf, &endptr, 10);
+
+    uint64_t cg_total_pages = static_cast<uint64_t>(cg_max_bytes) >> page_shift;
+    uint64_t cg_free_pages = (cg_max_bytes > cg_cur_bytes)
+                                 ? (static_cast<uint64_t>(cg_max_bytes - cg_cur_bytes) >> page_shift)
+                                 : 0ULL;
+
+    /*
+     * When sandboxes run inside a capped cgroup v2 (`memory.max` < host RAM),
+     * host MemFree can remain 200+ GiB while cgroup `memory.events: max` hits
+     * millions of direct-reclaim stalls. Overlay the tighter cgroup headroom!
+     */
+    if (inout->total_pages == 0 || cg_free_pages < inout->free_pages) {
+        inout->total_pages = (inout->total_pages > 0)
+                                 ? std::min<uint64_t>(inout->total_pages, cg_total_pages)
+                                 : cg_total_pages;
+        inout->free_pages = cg_free_pages;
+        uint64_t cg_min = std::max<uint64_t>(256ULL, cg_total_pages / 128ULL);
+        inout->wmark_min_pages = cg_min;
+        inout->wmark_low_pages = (cg_min * 5ULL) / 4ULL;
+        inout->wmark_high_pages = (cg_min * 3ULL) / 2ULL;
+    }
+
+    std::snprintf(path, sizeof(path), "%s/memory.events", cgroup_dir);
+    FILE *fev = std::fopen(path, "r");
+    if (fev) {
+        char line[128];
+        uint64_t cg_max_hits = 0;
+        while (std::fgets(line, sizeof(line), fev) != nullptr) {
+            unsigned long long v = 0;
+            if (std::strncmp(line, "max ", 4) == 0 && std::sscanf(line + 4, "%llu", &v) == 1) {
+                cg_max_hits += static_cast<uint64_t>(v);
+            }
+        }
+        std::fclose(fev);
+        inout->allocstall_total += cg_max_hits;
+    }
+
+    std::snprintf(path, sizeof(path), "%s/memory.pressure", cgroup_dir);
+    HostMemSnapshot cg_psi{};
+    ParseMemoryPsi(path, &cg_psi);
+    inout->psi_some_avg10 = std::max(inout->psi_some_avg10, cg_psi.psi_some_avg10);
+    inout->psi_full_avg10 = std::max(inout->psi_full_avg10, cg_psi.psi_full_avg10);
+    return true;
 }
 
 int ProactiveReclaimController::Start(const ProactiveReclaimConfig &cfg,
@@ -342,6 +430,12 @@ void ProactiveReclaimController::BindMextEngine(mext::MextEngine *engine)
 {
     std::lock_guard<std::mutex> lk(mu_);
     bound_engine_ = engine;
+}
+
+void ProactiveReclaimController::SetCgroupV2Root(const std::string &cgroup_dir)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    cgroup_v2_root_ = cgroup_dir;
 }
 
 void ProactiveReclaimController::NotifyKernelPressure(uint32_t nid,
@@ -592,6 +686,7 @@ ReclaimDecision ProactiveReclaimController::StepOnce()
     EvictExecutor evict_fn;
     mext::MextEngine *eng = nullptr;
     uint32_t page_shift = 12;
+    std::string cg_root;
 
     {
         std::lock_guard<std::mutex> lk(mu_);
@@ -600,10 +695,19 @@ ReclaimDecision ProactiveReclaimController::StepOnce()
         evict_fn = evict_fn_;
         eng = bound_engine_ ? bound_engine_ : &mext::GlobalMextEngine();
         page_shift = page_shift_;
+        cg_root = cgroup_v2_root_;
     }
 
     HostMemSnapshot snap{};
     bool ok = telemetry_fn ? telemetry_fn(&snap) : ReadLinuxHostSnapshot(page_shift, &snap);
+    if (!cg_root.empty()) {
+        if (ApplyCgroupV2Overlay(cg_root.c_str(), page_shift, &snap)) {
+            if (snap.timestamp_ns == 0) {
+                snap.timestamp_ns = SteadyNowNs();
+            }
+            ok = true;
+        }
+    }
     if (!ok) {
         return ReclaimDecision{};
     }

@@ -18,6 +18,7 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -53,10 +54,12 @@ public:
     int TrackPid(int32_t pid);
     void UntrackPid(int32_t pid);
 
-    /* Attach an in-memory ring buffer or dispatch/pressure callbacks */
+    /* Attach an in-memory ring buffer, telemetry file, or callbacks */
     void AttachExternalRing(mext_ring_buffer *ring);
     void SetDispatchCallback(DispatchCallback cb);
     void SetPressureCallback(PressureCallback cb);
+    void SetStatsJsonPath(const std::string &path);
+    void FlushStatsJson();
 
     /* Drain up to `max_events` from the shared ring buffer; returns events processed */
     size_t ProcessRingOnce(size_t max_events = 512);
@@ -89,6 +92,7 @@ private:
         uint64_t last_evict_seq = 0;
         uint64_t last_ts_ns = 0;
         uint64_t fault_count = 0;
+        uint64_t untracked_faults = 0;
         bool has_last_vpn = false;
         bool has_last_evict = false;
         int pidfd = -1;
@@ -105,6 +109,7 @@ private:
                             PidRuntimeState *pst,
                             const std::vector<CandidatePage> &merged);
     void RefreshPsiIfNeeded(uint64_t now_ns);
+    void FlushStatsJsonLocked(uint64_t now_ns, bool force);
     int EnsurePidfd(int32_t pid, PidRuntimeState *pst);
 
     mutable std::mutex mu_;
@@ -139,6 +144,8 @@ private:
     double avg_infer_us_ = 0.0;
     double psi_some_avg10_ = 0.0;
     uint64_t last_psi_check_ns_ = 0;
+    uint64_t last_stats_flush_ns_ = 0;
+    std::string stats_json_path_;
 };
 
 MextEngine &GlobalMextEngine();

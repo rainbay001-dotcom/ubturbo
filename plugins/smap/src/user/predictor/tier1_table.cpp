@@ -70,9 +70,19 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
     PidTier1State &st = pids_[pid];
     uint8_t vma_idx = vma_slot & (MEXT_VMA_VOCAB - 1U);
 
-    /* 1. Per-VMA Stream Stride Detector */
+    /* 1. Per-VMA Stream Stride Detector (with fast ramp on sequential clusters) */
     VmaStreamState &vs = st.vma_streams[vma_idx];
-    if (vs.initialized && vpn != vs.last_vpn) {
+    if (!vs.initialized) {
+        /*
+         * Cold-VMA initial fault (e.g. ELF code / shared library swap-in):
+         * issue a compact 2-page spatial lookahead (+1, +2) so short commands
+         * don't pay 3 serial major faults waiting for stride confirmation.
+         */
+        if (out_candidates) {
+            out_candidates->push_back(CandidatePage{ vpn + 1ULL, 0.36f });
+            out_candidates->push_back(CandidatePage{ vpn + 2ULL, 0.30f });
+        }
+    } else if (vpn != vs.last_vpn) {
         int64_t stride = static_cast<int64_t>(vpn) - static_cast<int64_t>(vs.last_vpn);
         if (stride == vs.last_stride && std::llabs(stride) <= 256) {
             if (vs.streak < 64) {
@@ -83,13 +93,17 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
             vs.streak = 1;
         }
 
-        if (out_candidates && vs.streak >= 2) {
-            uint32_t depth = std::min<uint32_t>(4U, vs.streak);
-            float base_conf = std::min(0.88f, 0.45f + 0.10f * static_cast<float>(vs.streak));
+        if (out_candidates && (vs.streak >= 2 || (vs.streak == 1 && std::llabs(stride) <= 8))) {
+            uint32_t depth = (vs.streak == 1)
+                                 ? 2U
+                                 : std::min<uint32_t>(8U, 2U + vs.streak);
+            float base_conf = (vs.streak == 1)
+                                  ? 0.46f
+                                  : std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
             for (uint32_t step = 1; step <= depth; ++step) {
                 int64_t target = static_cast<int64_t>(vpn) + vs.last_stride * static_cast<int64_t>(step);
                 if (target > 0) {
-                    float conf = base_conf * (1.0f - 0.12f * static_cast<float>(step - 1));
+                    float conf = base_conf * (1.0f - 0.08f * static_cast<float>(step - 1));
                     out_candidates->push_back(CandidatePage{ static_cast<uint64_t>(target), conf });
                 }
             }

@@ -770,6 +770,100 @@ void TestThousandSandboxScaleAndCalmBypass()
     std::printf("[PASS] 1,200-sandbox N100 scale & 768GB abundant-RAM O(1) bypass verification\n");
 }
 
+/* --------------------------------------------------------------------------
+ * 7. Cgroup-Evicted Fault Prefetch + Cgroup v2 Limit Overlay + JSON Telemetry
+ * -------------------------------------------------------------------------- */
+void TestCgroupEvictionPrefetchAndJsonStats()
+{
+    namespace fs = std::filesystem;
+    fs::path tmp_dir = fs::current_path() / ("smap_mock_cg_" + std::to_string(getpid()));
+    fs::create_directories(tmp_dir);
+
+    struct CleanupGuard {
+        fs::path dir;
+        ~CleanupGuard()
+        {
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{ tmp_dir };
+
+    /* Part A: Verify MEXT prefetches cgroup-evicted pages even when another PID used SMAP swap */
+    MextEngine mext_eng;
+    MextConfig mcfg{};
+    MextDefaultConfig(&mcfg);
+    fs::path json_path = tmp_dir / "smap_mext_stats.json";
+    mext_eng.SetStatsJsonPath(json_path.string());
+    REQUIRE(mext_eng.Start(-1, mcfg, false) == 0);
+
+    /* PID 100 has SMAP-tracked evictions (making global evicts_tracked_ > 0) */
+    for (uint64_t k = 0; k < 16; ++k) {
+        mext_eng.HandleEvictionEvent(100, 0x100000ULL + k, 1ULL);
+    }
+
+    /* PID 200 experiences cgroup `memory.max` swap faults (untracked in shadow_map_) */
+    uint64_t dispatched_pages = 0;
+    mext_eng.SetDispatchCallback([&](int32_t pid,
+                                     const std::vector<uint64_t> &pf,
+                                     const std::vector<uint64_t> &pflt) {
+        if (pid == 200) {
+            dispatched_pages += pf.size() + pflt.size();
+        }
+    });
+    for (uint64_t i = 0; i < 32; ++i) {
+        mext_eng.HandleFaultEvent(200, 0x800000ULL + i, 5U, 1000000ULL + i * 5000ULL, true);
+    }
+    REQUIRE(dispatched_pages >= 20ULL);
+    MextStats mst = mext_eng.GetStatsSnapshot();
+    REQUIRE(mst.hit_rate > 0.25);
+
+    mext_eng.FlushStatsJson();
+    {
+        std::ifstream jf(json_path);
+        REQUIRE(jf.good());
+        std::string content((std::istreambuf_iterator<char>(jf)), std::istreambuf_iterator<char>());
+        REQUIRE(content.find("\"total_prefetched_pages\":") != std::string::npos);
+        REQUIRE(content.find("\"hit_rate\":") != std::string::npos);
+        REQUIRE(content.find("\"coverage_rate\":") != std::string::npos);
+    }
+
+    /* Part B: Verify Cgroup v2 `memory.max` + `memory.events: max` wakes ProactiveReclaim
+     * even when the 768 GB host still has 270.9 GB MemFree! */
+    {
+        std::ofstream(tmp_dir / "memory.max") << (32ULL * 1024ULL * 1024ULL * 1024ULL) << "\n";
+        std::ofstream(tmp_dir / "memory.current") << (32ULL * 1024ULL * 1024ULL * 1024ULL - 64ULL * 1024ULL * 1024ULL) << "\n";
+        std::ofstream(tmp_dir / "memory.events") << "low 0\nhigh 500\nmax 142\noom 0\n";
+        std::ofstream(tmp_dir / "memory.pressure") << "some avg10=8.50 avg60=3.00\nfull avg10=3.25 avg60=1.00\n";
+    }
+
+    ProactiveReclaimController ctrl;
+    ctrl.BindMextEngine(&mext_eng);
+    ctrl.SetCgroupV2Root(tmp_dir.string());
+    ctrl.SetTelemetryProvider([](HostMemSnapshot *out) -> bool {
+        out->timestamp_ns = 2'000'000'000ULL;
+        out->total_pages = 201326592ULL; /* 768 GB host */
+        out->free_pages = 71014810ULL;   /* 270.9 GB host MemFree */
+        out->wmark_min_pages = 262144ULL;
+        out->wmark_low_pages = 327680ULL;
+        out->wmark_high_pages = 393216ULL;
+        return true;
+    });
+
+    ProactiveReclaimConfig rcfg{};
+    ProactiveReclaimDefaultConfig(&rcfg);
+    REQUIRE(ctrl.Start(rcfg, [](uint64_t target, uint8_t) { return target; }, false) == 0);
+    ReclaimDecision cg_dec = ctrl.StepOnce();
+    /* 64 MB free inside a 32 GB cgroup (< cgroup wmark_low = 320 MB) -> EMERGENCY! */
+    REQUIRE(cg_dec.urgency == RECLAIM_EMERGENCY);
+    REQUIRE(cg_dec.target_reclaim_pages > 0ULL);
+    REQUIRE(ctrl.ShouldTrackCold());
+
+    ctrl.Stop();
+    mext_eng.Stop();
+    std::printf("[PASS] Cgroup-evicted fault prefetch (%llu pages), cgroup v2 memory.max overlay & JSON stats\n",
+                static_cast<unsigned long long>(dispatched_pages));
+}
+
 } // namespace
 
 int main()
@@ -780,6 +874,7 @@ int main()
     TestClosedLoopMextThrashBrake();
     TestLiveKernelPressureRingWakeup();
     TestThousandSandboxScaleAndCalmBypass();
+    TestCgroupEvictionPrefetchAndJsonStats();
     RunAllBurstBenchmarks();
     std::printf("\nALL PROACTIVE RECLAIM TESTS & BURST BENCHMARKS PASSED SUCCESSFULLY!\n");
     return 0;

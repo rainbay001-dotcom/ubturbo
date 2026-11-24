@@ -290,5 +290,14 @@ uint64_t SwapShadowMap::TotalActivePages() const
     return total;
 }
 
+uint64_t SwapShadowMap::TotalEvictionsForPid(int32_t pid) const
+{
+    auto it = pids_.find(pid);
+    if (it == pids_.end() || it->second.next_seq <= 1ULL) {
+        return 0;
+    }
+    return it->second.next_seq - 1ULL;
+}
+
 } // namespace mext
 } // namespace smap

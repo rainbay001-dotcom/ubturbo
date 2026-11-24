@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -195,6 +196,17 @@ int MextEngine::Start(int mig_fd, const MextConfig &cfg, bool spawn_worker)
             BootstrapPretrain(&transformer_, 6);
         }
 
+        if (stats_json_path_.empty()) {
+            const char *env_path = std::getenv("SMAP_MEXT_STATS_PATH");
+            if (env_path && env_path[0] != '\0') {
+                stats_json_path_ = env_path;
+            } else if (mig_fd_ >= 0) {
+                stats_json_path_ = (access("/var/run", W_OK) == 0)
+                                       ? "/var/run/smap_mext_stats.json"
+                                       : "/tmp/smap_mext_stats.json";
+            }
+        }
+
         if (mig_fd_ >= 0 && !mmap_ring_) {
             size_t page_sz = 1ULL << page_shift_;
             mmap_bytes_ = (sizeof(mext_ring_buffer) + page_sz - 1ULL) & ~(page_sz - 1ULL);
@@ -236,6 +248,7 @@ void MextEngine::Stop()
     }
 
     std::lock_guard<std::mutex> lk(mu_);
+    FlushStatsJsonLocked(SteadyNowNs(), true);
     if (mig_fd_ >= 0) {
         mext_ctrl_msg ctrl{};
         ctrl.op = MEXT_CTRL_DISABLE;
@@ -345,6 +358,18 @@ void MextEngine::SetPressureCallback(PressureCallback cb)
     pressure_cb_ = std::move(cb);
 }
 
+void MextEngine::SetStatsJsonPath(const std::string &path)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    stats_json_path_ = path;
+}
+
+void MextEngine::FlushStatsJson()
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    FlushStatsJsonLocked(SteadyNowNs(), true);
+}
+
 bool MextEngine::PopRingEvent(mext_ring_event *out)
 {
     if (!mmap_ring_ || !out) {
@@ -450,8 +475,64 @@ void MextEngine::HandleEvictionEvent(int32_t pid, uint64_t vpn, uint64_t epoch)
     }
 }
 
+void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
+{
+    if (stats_json_path_.empty()) {
+        return;
+    }
+    if (!force && (now_ns - last_stats_flush_ns_ < 1000000000ULL)) {
+        return;
+    }
+    last_stats_flush_ns_ = now_ns;
+
+    double hit_rate = (predictions_evaluated_ > 0)
+                          ? (static_cast<double>(prediction_hits_) /
+                             static_cast<double>(predictions_evaluated_))
+                          : 0.0;
+    double coverage_rate = (faults_processed_ + prediction_hits_ > 0)
+                               ? (static_cast<double>(prediction_hits_) /
+                                  static_cast<double>(faults_processed_ + prediction_hits_))
+                               : 0.0;
+    uint64_t total_prefetched = prefetch_issued_ + prefault_issued_;
+
+    std::string tmp_path = stats_json_path_ + ".tmp";
+    FILE *fp = std::fopen(tmp_path.c_str(), "w");
+    if (!fp) {
+        return;
+    }
+    std::fprintf(fp,
+                 "{\n"
+                 "  \"faults_processed\": %llu,\n"
+                 "  \"evicts_tracked\": %llu,\n"
+                 "  \"tier1_predictions\": %llu,\n"
+                 "  \"transformer_predictions\": %llu,\n"
+                 "  \"prefetch_issued\": %llu,\n"
+                 "  \"prefault_issued\": %llu,\n"
+                 "  \"total_prefetched_pages\": %llu,\n"
+                 "  \"prediction_hits\": %llu,\n"
+                 "  \"predictions_evaluated\": %llu,\n"
+                 "  \"hit_rate\": %.6f,\n"
+                 "  \"coverage_rate\": %.6f,\n"
+                 "  \"avg_infer_us\": %.3f,\n"
+                 "  \"psi_some_avg10\": %.3f\n"
+                 "}\n",
+                 static_cast<unsigned long long>(faults_processed_),
+                 static_cast<unsigned long long>(evicts_tracked_),
+                 static_cast<unsigned long long>(tier1_preds_),
+                 static_cast<unsigned long long>(tf_preds_),
+                 static_cast<unsigned long long>(prefetch_issued_),
+                 static_cast<unsigned long long>(prefault_issued_),
+                 static_cast<unsigned long long>(total_prefetched),
+                 static_cast<unsigned long long>(prediction_hits_),
+                 static_cast<unsigned long long>(predictions_evaluated_),
+                 hit_rate, coverage_rate, avg_infer_us_, psi_some_avg10_);
+    std::fclose(fp);
+    (void)std::rename(tmp_path.c_str(), stats_json_path_.c_str());
+}
+
 void MextEngine::RefreshPsiIfNeeded(uint64_t now_ns)
 {
+    FlushStatsJsonLocked(now_ns, false);
 #ifdef __linux__
     if (now_ns - last_psi_check_ns_ < 100000000ULL) { /* 100 ms */
         return;
@@ -528,8 +609,18 @@ void MextEngine::DispatchCandidates(int32_t pid,
         if (shadow_map_.WasRecentlyPrefetched(pid, cand.vpn)) {
             continue;
         }
-        /* If shadow map has tracked pages for this PID, skip pages known to be resident */
-        if (evicts_tracked_ > 0 && !shadow_map_.IsSwappedOut(pid, cand.vpn)) {
+        /*
+         * Only filter by shadow_map_.IsSwappedOut() when SMAP itself accounted
+         * for virtually all evictions of THIS specific PID. When kernel cgroup
+         * `memory.max` or `kswapd` evicts pages outside SMAP_MIG_SWAP_OUT,
+         * `untracked_faults` grows immediately—do NOT drop predictions on
+         * kernel/cgroup-evicted pages (Linux MADV_WILLNEED skips present PTEs
+         * in ~15 ns at zero I/O cost).
+         */
+        uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
+        bool shadow_is_complete = (pid_evicts > 0) &&
+                                  (pst->untracked_faults * 8ULL < pst->fault_count);
+        if (shadow_is_complete && !shadow_map_.IsSwappedOut(pid, cand.vpn)) {
             continue;
         }
 
@@ -554,15 +645,37 @@ void MextEngine::DispatchCandidates(int32_t pid,
         dispatch_cb_(pid, prefetch_vpns, prefault_vpns);
     }
 
+    const bool sync_zram_mode = (cfg_.fault_trigger_stride == 1U && cfg_.prefault_threshold <= 0.55f);
+
 #ifdef __linux__
-    if (!prefetch_vpns.empty()) {
+    /*
+     * On asynchronous block swap (NVMe), submit BOTH prefetch_vpns and
+     * prefault_vpns via non-blocking process_madvise(MADV_WILLNEED) so the
+     * predictor worker thread never blocks on NVMe disk reads across 1,000+
+     * concurrent sandboxes, then upgrade cached pages via NOWAIT prefault.
+     */
+    const size_t async_cnt = sync_zram_mode
+                                 ? prefetch_vpns.size()
+                                 : (prefetch_vpns.size() + prefault_vpns.size());
+    if (async_cnt > 0) {
         int pfd = EnsurePidfd(pid, pst);
         if (pfd >= 0) {
-            std::vector<struct iovec> iov(prefetch_vpns.size());
+            std::vector<struct iovec> iov;
+            iov.reserve(async_cnt);
             size_t page_bytes = 1ULL << page_shift_;
-            for (size_t i = 0; i < prefetch_vpns.size(); ++i) {
-                iov[i].iov_base = reinterpret_cast<void *>(static_cast<uintptr_t>(prefetch_vpns[i] << page_shift_));
-                iov[i].iov_len = page_bytes;
+            for (uint64_t v : prefetch_vpns) {
+                struct iovec vec{};
+                vec.iov_base = reinterpret_cast<void *>(static_cast<uintptr_t>(v << page_shift_));
+                vec.iov_len = page_bytes;
+                iov.push_back(vec);
+            }
+            if (!sync_zram_mode) {
+                for (uint64_t v : prefault_vpns) {
+                    struct iovec vec{};
+                    vec.iov_base = reinterpret_cast<void *>(static_cast<uintptr_t>(v << page_shift_));
+                    vec.iov_len = page_bytes;
+                    iov.push_back(vec);
+                }
             }
             (void)syscall(__NR_process_madvise, pfd, iov.data(), iov.size(), MADV_WILLNEED, 0U);
         }
@@ -573,7 +686,7 @@ void MextEngine::DispatchCandidates(int32_t pid,
         mext_prefault_msg pf{};
         pf.pid = pid;
         pf.nr_pages = static_cast<uint32_t>(std::min<size_t>(prefault_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
-        pf.flags = 0;
+        pf.flags = sync_zram_mode ? 0U : MEXT_PREFAULT_FLAG_NOWAIT;
         pf.vpns_ptr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(prefault_vpns.data()));
         (void)ioctl(mig_fd_, MEXT_IOCTL_PREFAULT, &pf);
     }
@@ -614,6 +727,9 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
     uint64_t evict_seq = 0;
     uint64_t evict_epoch = 0;
     bool has_evict = shadow_map_.OnPageFault(pid, vpn, &evict_seq, &evict_epoch);
+    if (!has_evict) {
+        ++pst.untracked_faults;
+    }
 
     /* Update delayed self-supervised labels for online output-head adaptation */
     for (auto &pend : pst.pending) {

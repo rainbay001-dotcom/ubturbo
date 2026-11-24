@@ -97,6 +97,7 @@ public:
     void RemovePid(int32_t pid);
     void Clear();
     uint64_t TotalActivePages() const;
+    uint64_t TotalEvictionsForPid(int32_t pid) const;
 
 private:
     struct PidShadow {

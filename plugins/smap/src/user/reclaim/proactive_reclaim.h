@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include "../manage/swap_types.h"
@@ -76,6 +77,7 @@ public:
     void SetMextFeedbackProvider(MextFeedbackProvider provider);
     void SetEvictExecutor(EvictExecutor evict_fn);
     void BindMextEngine(mext::MextEngine *engine);
+    void SetCgroupV2Root(const std::string &cgroup_dir);
 
     /* Instant out-of-cycle wakeups from kernel wakeup_kswapd kprobe or urgent SDK call */
     void NotifyKernelPressure(uint32_t nid, uint64_t free_pages, uint64_t wmark_low_pages,
@@ -90,11 +92,14 @@ public:
     ProactiveReclaimUrgency CurrentUrgency() const;
     bool ShouldTrackCold() const;
 
-    /* Native Linux /proc telemetry reader (/proc/meminfo, zoneinfo, vmstat, pressure) */
+    /* Native Linux /proc & cgroup v2 telemetry readers */
     static bool ReadLinuxHostSnapshot(uint32_t page_shift, HostMemSnapshot *out);
     static bool ReadLinuxHostSnapshotFromRoot(const char *proc_root,
                                               uint32_t page_shift,
                                               HostMemSnapshot *out);
+    static bool ApplyCgroupV2Overlay(const char *cgroup_dir,
+                                     uint32_t page_shift,
+                                     HostMemSnapshot *inout);
 
 private:
     void WorkerLoop();
@@ -112,6 +117,7 @@ private:
     MextFeedbackProvider mext_feedback_fn_;
     EvictExecutor evict_fn_;
     mext::MextEngine *bound_engine_ = nullptr;
+    std::string cgroup_v2_root_;
 
     std::atomic<bool> running_{ false };
     std::thread worker_;

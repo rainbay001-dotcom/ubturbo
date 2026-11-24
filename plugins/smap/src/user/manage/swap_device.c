@@ -141,6 +141,34 @@ bool IsSwapDeviceActive(const char *path)
     return found;
 }
 
+bool DetectActiveSwapDevice(char *path_out, size_t path_len)
+{
+    FILE *f = fopen(PROC_SWAPS_PATH, "r");
+    if (!f) {
+        return false;
+    }
+
+    char line[SWAP_LINE_LEN];
+    if (fgets(line, sizeof(line), f) == NULL) {
+        fclose(f);
+        return false;
+    }
+
+    bool found = false;
+    while (fgets(line, sizeof(line), f)) {
+        char dev[SWAP_DEVICE_PATH_LEN] = { 0 };
+        if (sscanf(line, "%255s", dev) == 1 && IsSafeDevicePath(dev)) {
+            if (path_out && path_len > 0) {
+                (void)snprintf_s(path_out, path_len, path_len - 1, "%s", dev);
+            }
+            found = true;
+            break;
+        }
+    }
+    fclose(f);
+    return found;
+}
+
 int ReadSwapDeviceStatus(const char *path, uint64_t *total_kb, uint64_t *used_kb)
 {
     if (!IsSafeDevicePath(path) || !total_kb || !used_kb) {
@@ -191,8 +219,10 @@ int SwapDeviceInit(SwapDeviceConfig *cfg)
         return -ENODEV;
     }
 
+    cfg->activated_by_smap = false;
     if (IsSwapDeviceActive(cfg->device_path)) {
-        SMAP_LOGGER_INFO("Swap device %s already active", cfg->device_path);
+        SMAP_LOGGER_INFO("Swap device %s already active (external ownership preserved)",
+                         cfg->device_path);
         return 0;
     }
 
@@ -207,6 +237,7 @@ int SwapDeviceInit(SwapDeviceConfig *cfg)
     }
 #endif
     if (swapon(cfg->device_path, flags) == 0) {
+        cfg->activated_by_smap = true;
         SMAP_LOGGER_INFO("Swap device %s activated via swapon(2) with priority %d",
                          cfg->device_path, cfg->priority);
         return 0;
@@ -218,6 +249,7 @@ int SwapDeviceInit(SwapDeviceConfig *cfg)
             mkswap_argv[0] = "/sbin/mkswap";
         }
         if (RunExecve(mkswap_argv[0], mkswap_argv) == 0 && swapon(cfg->device_path, flags) == 0) {
+            cfg->activated_by_smap = true;
             SMAP_LOGGER_INFO("Formatted and activated swap device %s", cfg->device_path);
             return 0;
         }
@@ -234,13 +266,23 @@ void SwapDeviceShutdown(SwapDeviceConfig *cfg)
     if (!cfg || !IsSafeDevicePath(cfg->device_path)) {
         return;
     }
+    /*
+     * Never call swapoff(2) on a host swap device that was already active
+     * before SMAP started — tearing down pre-existing swap starves subsequent
+     * oversubscribed workloads.
+     */
+    if (!cfg->activated_by_smap) {
+        return;
+    }
     if (!IsSwapDeviceActive(cfg->device_path)) {
+        cfg->activated_by_smap = false;
         return;
     }
 #ifdef __linux__
     if (swapoff(cfg->device_path) != 0) {
         SMAP_LOGGER_ERROR("swapoff(%s) failed: %s", cfg->device_path, strerror(errno));
     } else {
+        cfg->activated_by_smap = false;
         SMAP_LOGGER_INFO("Swap device %s deactivated", cfg->device_path);
     }
 #endif
@@ -248,10 +290,11 @@ void SwapDeviceShutdown(SwapDeviceConfig *cfg)
 
 void TuneKernelSwapParams(void)
 {
-    if (WriteSysctl("vm/swappiness", "10") == 0) {
-        SMAP_LOGGER_INFO("Set vm.swappiness=10");
-    }
-    /* Disable blind swap cluster readahead so MEXT predictive engine controls swap-in */
+    /*
+     * Leave vm.swappiness untouched so kernel/cgroup fallback reclaim can
+     * always swap anonymous pages during bursts; only disable blind swap
+     * cluster readahead so MEXT's predictor controls swap-in lookahead.
+     */
     if (WriteSysctl("vm/page-cluster", "0") == 0) {
         SMAP_LOGGER_INFO("Set vm.page-cluster=0");
     }

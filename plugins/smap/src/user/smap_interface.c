@@ -2360,14 +2360,24 @@ int ubturbo_smap_proactive_reclaim_enable(bool enable)
         return -EPERM;
     }
     struct ProcessManager *manager = GetProcessManager();
-    manager->reclaimConfig.enabled = enable;
     if (enable) {
+        if (manager->swapDevice.device_path[0] == '\0' &&
+            DetectActiveSwapDevice(manager->swapDevice.device_path,
+                                   sizeof(manager->swapDevice.device_path))) {
+            manager->swapDevice.activated_by_smap = false;
+            manager->swapPolicy.swap_enabled = true;
+            if (IsZramDevicePath(manager->swapDevice.device_path)) {
+                ProactiveReclaimApplyZramPreset(&manager->reclaimConfig);
+            }
+        }
+        manager->reclaimConfig.enabled = true;
         int ret = ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
         if (ret == 0) {
             SyncManagedPidsToReclaim(manager);
         }
         return ret;
     }
+    manager->reclaimConfig.enabled = false;
     ProactiveReclaimStop();
     return 0;
 }
@@ -2383,6 +2393,12 @@ int ubturbo_smap_reclaim_config(const ProactiveReclaimConfig *cfg)
     struct ProcessManager *manager = GetProcessManager();
     manager->reclaimConfig = *cfg;
     if (cfg->enabled) {
+        if (manager->swapDevice.device_path[0] == '\0' &&
+            DetectActiveSwapDevice(manager->swapDevice.device_path,
+                                   sizeof(manager->swapDevice.device_path))) {
+            manager->swapDevice.activated_by_smap = false;
+            manager->swapPolicy.swap_enabled = true;
+        }
         int ret = ProactiveReclaimStart(&manager->reclaimConfig, ExecuteProactiveSwapBatch);
         if (ret == 0) {
             SyncManagedPidsToReclaim(manager);

@@ -28,6 +28,7 @@ bool MextEngineIsRunning(void);
 int MextEngineUpdateConfig(const MextConfig *cfg);
 int MextEngineTrackPid(pid_t pid);
 void MextEngineUntrackPid(pid_t pid);
+int MextEnginePageoutPidCold(int mig_fd, pid_t pid, uint32_t nr_pages, bool emergency);
 int MextEngineQueryStats(MextStats *stats_out);
 
 #ifdef __cplusplus

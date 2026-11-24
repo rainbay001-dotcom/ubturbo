@@ -9,9 +9,11 @@
 #include <linux/kprobes.h>
 #include <linux/ktime.h>
 #include <linux/mm.h>
+#include <linux/mm_inline.h>
 #include <linux/mmap_lock.h>
 #include <linux/mmzone.h>
 #include <linux/mutex.h>
+#include <linux/pagewalk.h>
 #include <linux/pid.h>
 #include <linux/ptrace.h>
 #include <linux/rcupdate.h>
@@ -20,11 +22,13 @@
 #include <linux/sched/task.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/swap.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <linux/vmstat.h>
 
+#include "smap_migrate_wrapper.h"
 #include "mext_fault_ring.h"
 
 #undef pr_fmt
@@ -37,6 +41,17 @@
 #define MEXT_CAS_MAX_RETRY 8
 #define MEXT_PRESSURE_NODE_SLOTS 64U
 #define MEXT_PRESSURE_MIN_INTERVAL_NS 1000000ULL /* max 1 pressure wakeup / ms / node */
+#define MEXT_PAGEOUT_BATCH 64U
+#define MEXT_PAGEOUT_SCAN_LIMIT 32768U
+#define MEXT_PAGEOUT_CURSOR_SLOTS 64U
+
+struct mext_pageout_cursor {
+	pid_t pid;
+	unsigned long next_vaddr;
+};
+
+static DEFINE_SPINLOCK(g_pageout_cursor_lock);
+static struct mext_pageout_cursor g_pageout_cursors[MEXT_PAGEOUT_CURSOR_SLOTS];
 
 static struct mext_ring_buffer *g_mext_ring;
 static size_t g_mext_ring_alloc_bytes;
@@ -378,6 +393,245 @@ int mext_fault_ring_mmap(struct file *filp, struct vm_area_struct *vma)
 	return remap_vmalloc_range(vma, g_mext_ring, 0);
 }
 
+struct mext_pageout_walk_ctx {
+	struct folio *folios[MEXT_PAGEOUT_BATCH];
+	u64 vpns[MEXT_PAGEOUT_BATCH];
+	u32 batch_count;
+	u32 max_batch;
+	u32 scanned_present;
+	unsigned long next_vaddr;
+	bool strict_cold;
+};
+
+static int mext_pageout_test_walk(unsigned long addr, unsigned long next,
+				  struct mm_walk *walk)
+{
+	struct vm_area_struct *vma = walk->vma;
+
+	if (!vma || !vma_is_anonymous(vma) || is_vm_hugetlb_page(vma))
+		return 1;
+	if (vma->vm_flags & (VM_LOCKED | VM_SPECIAL | VM_PFNMAP | VM_SHARED))
+		return 1;
+	return 0;
+}
+
+static int mext_pageout_pte_entry(pte_t *ptep, unsigned long addr,
+				  unsigned long next, struct mm_walk *walk)
+{
+	struct mext_pageout_walk_ctx *ctx = walk->private;
+	pte_t pte = ptep_get(ptep);
+	unsigned long pfn;
+	struct page *page;
+	struct folio *folio;
+
+	ctx->next_vaddr = addr + PAGE_SIZE;
+	if (!pte_present(pte))
+		return 0;
+
+	ctx->scanned_present++;
+	if (ctx->strict_cold && pte_young(pte)) {
+		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
+			return 1;
+		return 0;
+	}
+
+	pfn = pte_pfn(pte);
+	if (!pfn_valid(pfn))
+		return 0;
+
+	page = pfn_to_online_page(pfn);
+	if (!page || PageTail(page) || PageTransHuge(page) || PageHuge(page))
+		return 0;
+
+	folio = page_folio(page);
+	if (!folio_test_lru(folio) || !folio_test_anon(folio) ||
+	    folio_test_unevictable(folio) || folio_likely_mapped_shared(folio))
+		return 0;
+
+	if (ctx->strict_cold &&
+	    (folio_test_referenced(folio) || folio_test_young(folio))) {
+		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
+			return 1;
+		return 0;
+	}
+
+	if (!folio_try_get(folio))
+		return 0;
+
+	if (unlikely(page_folio(page) != folio || !folio_test_lru(folio))) {
+		folio_put(folio);
+		return 0;
+	}
+
+	ctx->folios[ctx->batch_count] = folio;
+	ctx->vpns[ctx->batch_count] = (u64)(addr >> PAGE_SHIFT);
+	ctx->batch_count++;
+
+	if (ctx->batch_count >= ctx->max_batch ||
+	    ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
+		return 1;
+	return 0;
+}
+
+static const struct mm_walk_ops mext_pageout_walk_ops = {
+	.test_walk = mext_pageout_test_walk,
+	.pte_entry = mext_pageout_pte_entry,
+};
+
+static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
+				 u32 target_pages, bool strict_cold,
+				 u64 epoch, unsigned long *cursor_inout)
+{
+	unsigned long initial_addr = *cursor_inout;
+	unsigned long cur_addr = initial_addr;
+	u32 reclaimed = 0;
+	u32 total_scanned = 0;
+	bool wrapped = (initial_addr == 0);
+
+	while (reclaimed < target_pages &&
+	       total_scanned < MEXT_PAGEOUT_SCAN_LIMIT) {
+		struct mext_pageout_walk_ctx wctx = { 0 };
+		u64 isolated_vpns[MEXT_PAGEOUT_BATCH];
+		u32 isolated_cnt = 0;
+		u32 k;
+		int walk_ret;
+		LIST_HEAD(folio_list);
+
+		wctx.max_batch = min_t(u32, MEXT_PAGEOUT_BATCH,
+				       target_pages - reclaimed);
+		wctx.next_vaddr = cur_addr;
+		wctx.strict_cold = strict_cold;
+
+		if (!mmap_read_trylock(mm))
+			break;
+		walk_ret = walk_page_range(mm, cur_addr, TASK_SIZE,
+					   &mext_pageout_walk_ops, &wctx);
+		mmap_read_unlock(mm);
+
+		total_scanned += wctx.scanned_present;
+		if (wctx.batch_count == 0) {
+			if (!wrapped) {
+				cur_addr = 0;
+				wrapped = true;
+				continue;
+			}
+			cur_addr = 0;
+			break;
+		}
+
+		cur_addr = (wctx.next_vaddr < TASK_SIZE) ? wctx.next_vaddr : 0;
+
+		for (k = 0; k < wctx.batch_count; k++) {
+			struct folio *folio = wctx.folios[k];
+
+			if (!folio_test_lru(folio) ||
+			    folio_test_unevictable(folio)) {
+				folio_put(folio);
+				continue;
+			}
+			folio_clear_referenced(folio);
+			folio_test_clear_young(folio);
+			if (!fp_folio_isolate_lru(folio)) {
+				folio_put(folio);
+				continue;
+			}
+			if (folio_test_unevictable(folio)) {
+				fp_folio_putback_lru(folio);
+				folio_put(folio);
+				continue;
+			}
+			list_add(&folio->lru, &folio_list);
+			isolated_vpns[isolated_cnt++] = wctx.vpns[k];
+			folio_put(folio);
+		}
+
+		if (!list_empty(&folio_list)) {
+			unsigned long rec = fp_reclaim_pages(&folio_list, true);
+
+			reclaimed += (u32)rec;
+			if (rec > 0) {
+				for (k = 0; k < isolated_cnt; k++)
+					mext_record_eviction(
+						pid, isolated_vpns[k], epoch);
+			}
+		}
+
+		cond_resched();
+		if (walk_ret == 0) {
+			if (!wrapped) {
+				cur_addr = 0;
+				wrapped = true;
+			} else {
+				cur_addr = 0;
+				break;
+			}
+		}
+	}
+
+	*cursor_inout = cur_addr;
+	return reclaimed;
+}
+
+static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
+				   void __user *argp)
+{
+	struct task_struct *task;
+	struct mm_struct *mm;
+	unsigned long cursor = 0;
+	u32 slot, target, reclaimed;
+	u64 epoch;
+
+	if (msg->pid <= 0 || msg->nr_pages == 0)
+		return -EINVAL;
+	if (!fp_reclaim_pages || !fp_folio_isolate_lru ||
+	    !fp_folio_putback_lru)
+		return -ENOSYS;
+
+	target = min_t(u32, msg->nr_pages, MEXT_MAX_PAGEOUT_PAGES);
+
+	rcu_read_lock();
+	task = pid_task(find_vpid(msg->pid), PIDTYPE_PID);
+	if (task)
+		get_task_struct(task);
+	rcu_read_unlock();
+	if (!task)
+		return -ESRCH;
+
+	mm = get_task_mm(task);
+	put_task_struct(task);
+	if (!mm)
+		return -EINVAL;
+
+	slot = mext_hash_pid((u32)msg->pid) & (MEXT_PAGEOUT_CURSOR_SLOTS - 1U);
+	spin_lock(&g_pageout_cursor_lock);
+	if (g_pageout_cursors[slot].pid == msg->pid &&
+	    g_pageout_cursors[slot].next_vaddr < TASK_SIZE)
+		cursor = g_pageout_cursors[slot].next_vaddr;
+	spin_unlock(&g_pageout_cursor_lock);
+
+	epoch = mext_next_swapout_epoch();
+	reclaimed = mext_pageout_sweep_mm(mm, msg->pid, target, true, epoch,
+					  &cursor);
+	if (reclaimed == 0 && (msg->flags & MEXT_PREFAULT_FLAG_FORCE_AGE)) {
+		u32 fb_target = min_t(u32, target, 256U);
+
+		reclaimed = mext_pageout_sweep_mm(mm, msg->pid, fb_target,
+						  false, epoch, &cursor);
+	}
+
+	spin_lock(&g_pageout_cursor_lock);
+	g_pageout_cursors[slot].pid = msg->pid;
+	g_pageout_cursors[slot].next_vaddr = cursor;
+	spin_unlock(&g_pageout_cursor_lock);
+
+	mmput(mm);
+
+	msg->nr_succeeded = reclaimed;
+	if (copy_to_user(argp, msg, sizeof(*msg)))
+		return -EFAULT;
+	return 0;
+}
+
 int mext_ioctl_prefault(void __user *argp)
 {
 	struct mext_prefault_msg msg;
@@ -389,6 +643,9 @@ int mext_ioctl_prefault(void __user *argp)
 
 	if (copy_from_user(&msg, argp, sizeof(msg)))
 		return -EFAULT;
+
+	if (msg.flags & MEXT_PREFAULT_FLAG_PAGEOUT_COLD)
+		return mext_ioctl_pageout_cold(&msg, argp);
 
 	if (msg.pid <= 0 || msg.nr_pages == 0 ||
 	    msg.nr_pages > MEXT_MAX_PREFAULT_PAGES || !msg.vpns_ptr)
@@ -522,11 +779,24 @@ int mext_ioctl_ctrl(void __user *argp)
 		spin_lock(&g_ctrl_lock);
 		mext_pid_filter_remove(msg.pid);
 		spin_unlock(&g_ctrl_lock);
+		if (msg.pid > 0) {
+			u32 cslot = mext_hash_pid((u32)msg.pid) &
+				    (MEXT_PAGEOUT_CURSOR_SLOTS - 1U);
+			spin_lock(&g_pageout_cursor_lock);
+			if (g_pageout_cursors[cslot].pid == msg.pid) {
+				g_pageout_cursors[cslot].pid = 0;
+				g_pageout_cursors[cslot].next_vaddr = 0;
+			}
+			spin_unlock(&g_pageout_cursor_lock);
+		}
 		break;
 	case MEXT_CTRL_CLEAR_PIDS:
 		spin_lock(&g_ctrl_lock);
 		mext_pid_filter_clear();
 		spin_unlock(&g_ctrl_lock);
+		spin_lock(&g_pageout_cursor_lock);
+		memset(g_pageout_cursors, 0, sizeof(g_pageout_cursors));
+		spin_unlock(&g_pageout_cursor_lock);
 		break;
 	case MEXT_CTRL_GET_STATS:
 		break;

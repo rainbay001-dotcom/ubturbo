@@ -82,7 +82,7 @@ public:
     void SetCgroupV2Root(const std::string &cgroup_dir);
     void SetDiscoveryRoots(const std::string &proc_root, const std::string &cgroup_mount_root);
 
-    /* Zero-config per-PID cgroup v2 auto-discovery & targeted pressure scoring */
+    /* Zero-config per-PID cgroup v1/v2 auto-discovery & targeted pressure scoring */
     int TrackPid(int32_t pid);
     void UntrackPid(int32_t pid);
     uint32_t GetPidPressureScore(int32_t pid) const;

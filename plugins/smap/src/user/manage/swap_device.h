@@ -8,6 +8,7 @@
 #define __SWAP_DEVICE_H__
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include "swap_types.h"
 
@@ -17,6 +18,7 @@ extern "C" {
 
 bool IsZramDevicePath(const char *path);
 bool IsSwapDeviceActive(const char *path);
+bool DetectActiveSwapDevice(char *path_out, size_t path_len);
 int ReadSwapDeviceStatus(const char *path, uint64_t *total_kb, uint64_t *used_kb);
 int SwapDeviceInit(SwapDeviceConfig *cfg);
 void SwapDeviceShutdown(SwapDeviceConfig *cfg);

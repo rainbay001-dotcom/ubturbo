@@ -686,9 +686,11 @@ int ScanMigrateWork(ThreadCtx *ctx)
     SMAP_LOGGER_INFO("Migration result: %d.", ret);
 
     /* Phase 2: Cold page offload to NVMe/zram swap (paired with MEXT + Proactive Reclaim) */
-    if (manager->swapPolicy.swap_enabled &&
-        IsSwapDeviceActive(manager->swapDevice.device_path)) {
-        bool dynamic_reclaim = ProactiveReclaimIsRunning();
+    bool dynamic_reclaim = ProactiveReclaimIsRunning();
+    bool swap_active = (manager->swapPolicy.swap_enabled &&
+                        IsSwapDeviceActive(manager->swapDevice.device_path)) ||
+                       (dynamic_reclaim && DetectActiveSwapDevice(NULL, 0));
+    if (swap_active) {
         uint32_t urgency = dynamic_reclaim ? ProactiveReclaimCurrentUrgency() : RECLAIM_PROACTIVE;
 
         /*
@@ -711,6 +713,12 @@ int ScanMigrateWork(ThreadCtx *ctx)
                 if (dynamic_reclaim && urgency == RECLAIM_CALM) {
                     continue;
                 }
+                uint32_t pscore = dynamic_reclaim
+                                      ? ProactiveReclaimGetPidPressureScore(proc->pid)
+                                      : 50U;
+                if (pscore == 0U) {
+                    continue;
+                }
                 if (!proc->enableSwap) {
                     continue;
                 }
@@ -726,6 +734,9 @@ int ScanMigrateWork(ThreadCtx *ctx)
                                         ? ProactiveReclaimRecommendedColdWindow()
                                         : (uint8_t)manager->swapPolicy.cold_window_threshold;
                 uint64_t cycle_budget = manager->swapPolicy.max_swap_per_cycle;
+                if (dynamic_reclaim && pscore > 50U) {
+                    cycle_budget = (cycle_budget * (uint64_t)pscore) / 50ULL;
+                }
                 int swapped = 0;
                 uint64_t nr_candidates = CountColdSwapCandidates(proc, threshold);
                 if (nr_candidates > 0) {

@@ -18,6 +18,8 @@
 #include "manage/smap_ioctl.h"
 #include "manage/swap_account.h"
 #include "manage/swap_device.h"
+#include "../../tiering/mext_ring_abi.h"
+#include "predictor/mext_predictor_c_api.h"
 #include "reclaim/proactive_reclaim_c_api.h"
 #include "cold_tracker.h"
 #include "swap_out.h"
@@ -158,10 +160,23 @@ static bool IsPidEligibleForProactiveSwap(struct ProcessManager *manager, Proces
     return true;
 }
 
+#define PROACTIVE_MAX_PID_BATCH 256
+
+typedef struct {
+    pid_t pid;
+    uint32_t score;
+    uint64_t weight;
+    uint64_t quota_pages;
+    bool has_quota;
+} ProactivePidTarget;
+
 /*
  * Out-of-cycle multi-PID proactive swap executor driven by ProactiveReclaimController.
- * Distributes `target_pages` proportionally across processes holding cold candidates
- * so memory-heavy idle processes absorb bursts before lean latency-critical ones.
+ *
+ * Snapshots pressured PIDs under `manager->lock` in microseconds, releases the lock,
+ * and reclaims cold anonymous pages via `MextEnginePageoutPidCold` (`walk_page_range`
+ * + `fp_reclaim_pages` inside `smap_tiering.ko`) without touching `smap_tracking.ko`'s
+ * `AP_STATE_MIG` state machine (`SMAP_MIG_SWAP_OUT` is reserved for `ScanMigrateWork`).
  */
 uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
 {
@@ -170,18 +185,32 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
     }
 
     struct ProcessManager *manager = GetProcessManager();
-    if (!manager || !manager->swapPolicy.swap_enabled ||
-        !IsSwapDeviceActive(manager->swapDevice.device_path)) {
+    if (!manager) {
+        return 0;
+    }
+    bool swap_ready = (manager->swapPolicy.swap_enabled &&
+                       IsSwapDeviceActive(manager->swapDevice.device_path)) ||
+                      DetectActiveSwapDevice(NULL, 0);
+    if (!swap_ready) {
         return 0;
     }
 
-    uint64_t total_reclaimed = 0;
     uint8_t eff_threshold = (threshold == 0) ? 1U : threshold;
-
     bool dynamic_reclaim = ProactiveReclaimIsRunning();
+    uint32_t urgency = dynamic_reclaim ? ProactiveReclaimCurrentUrgency() : RECLAIM_PROACTIVE;
+    bool is_emergency = (urgency == RECLAIM_EMERGENCY);
+
+    ProactivePidTarget targets[PROACTIVE_MAX_PID_BATCH];
+    size_t target_cnt = 0;
+    uint64_t total_weight = 0;
+    int mig_fd = -1;
 
     EnvMutexLock(&manager->lock);
-    uint64_t total_weighted_candidates = 0;
+    mig_fd = manager->fds.migrate;
+    uint64_t page_kb = (manager->tracking.pageSize >= 1024U)
+                           ? (manager->tracking.pageSize / 1024U)
+                           : 4ULL;
+
     for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
         if (!IsPidEligibleForProactiveSwap(manager, proc)) {
             continue;
@@ -190,67 +219,80 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
         if (score == 0U) {
             continue;
         }
-        total_weighted_candidates += CountColdSwapCandidates(proc, eff_threshold) * (uint64_t)score;
-    }
 
-    /* Step down to threshold = 1 if burst demand exceeds stricter cold pool */
-    if (total_weighted_candidates == 0 && eff_threshold > 1U) {
-        eff_threshold = 1U;
-        for (ProcessAttr *proc = manager->processes; proc; proc = proc->next) {
-            if (!IsPidEligibleForProactiveSwap(manager, proc)) {
+        uint64_t quota_pages = 0;
+        bool has_quota = (proc->swapAccounting.max_swap_kb > 0);
+        if (has_quota) {
+            if (proc->swapAccounting.current_swap_kb >= proc->swapAccounting.max_swap_kb) {
                 continue;
             }
-            uint32_t score = dynamic_reclaim ? ProactiveReclaimGetPidPressureScore(proc->pid) : 10U;
-            if (score == 0U) {
+            quota_pages =
+                (proc->swapAccounting.max_swap_kb - proc->swapAccounting.current_swap_kb) / page_kb;
+            if (quota_pages == 0) {
                 continue;
             }
-            total_weighted_candidates += CountColdSwapCandidates(proc, eff_threshold) * (uint64_t)score;
+        }
+
+        uint64_t cold_hint = CountColdSwapCandidates(proc, eff_threshold);
+        if (cold_hint > 4096ULL) {
+            cold_hint = 4096ULL;
+        }
+        /*
+         * Base floor of 16 ensures newly bursting or 4K-cgroup sandboxes with
+         * empty ColdTracker still receive proportional out-of-cycle pageout.
+         */
+        uint64_t weight = (uint64_t)score * (16ULL + cold_hint);
+
+        if (target_cnt < PROACTIVE_MAX_PID_BATCH) {
+            targets[target_cnt].pid = proc->pid;
+            targets[target_cnt].score = score;
+            targets[target_cnt].weight = weight;
+            targets[target_cnt].quota_pages = quota_pages;
+            targets[target_cnt].has_quota = has_quota;
+            total_weight += weight;
+            target_cnt++;
+        } else {
+            size_t min_idx = 0;
+            for (size_t k = 1; k < PROACTIVE_MAX_PID_BATCH; k++) {
+                if (targets[k].weight < targets[min_idx].weight) {
+                    min_idx = k;
+                }
+            }
+            if (weight > targets[min_idx].weight) {
+                total_weight = total_weight - targets[min_idx].weight + weight;
+                targets[min_idx].pid = proc->pid;
+                targets[min_idx].score = score;
+                targets[min_idx].weight = weight;
+                targets[min_idx].quota_pages = quota_pages;
+                targets[min_idx].has_quota = has_quota;
+            }
         }
     }
+    EnvMutexUnlock(&manager->lock);
 
-    if (total_weighted_candidates == 0) {
-        EnvMutexUnlock(&manager->lock);
+    if (target_cnt == 0 || total_weight == 0) {
         return 0;
     }
 
+    uint64_t total_reclaimed = 0;
     uint64_t remaining = target_pages;
-    for (ProcessAttr *proc = manager->processes; proc && remaining > 0; proc = proc->next) {
-        if (!IsPidEligibleForProactiveSwap(manager, proc)) {
-            continue;
-        }
-        uint32_t score = dynamic_reclaim ? ProactiveReclaimGetPidPressureScore(proc->pid) : 10U;
-        if (score == 0U) {
-            continue;
-        }
-        uint64_t pid_cand = CountColdSwapCandidates(proc, eff_threshold);
-        if (pid_cand == 0) {
-            continue;
-        }
-        uint64_t weighted = pid_cand * (uint64_t)score;
-
-        uint64_t share = (target_pages * weighted + total_weighted_candidates - 1ULL) /
-                         total_weighted_candidates;
+    for (size_t i = 0; i < target_cnt && remaining > 0; i++) {
+        uint64_t share = (target_pages * targets[i].weight + total_weight - 1ULL) / total_weight;
         if (share == 0) {
             share = 1ULL;
         }
         if (share > remaining) {
             share = remaining;
         }
-        if (proc->swapAccounting.max_swap_kb > proc->swapAccounting.current_swap_kb) {
-            uint64_t page_kb = (manager->tracking.pageSize >= 1024U)
-                                   ? (manager->tracking.pageSize / 1024U)
-                                   : 4ULL;
-            uint64_t quota_pages =
-                (proc->swapAccounting.max_swap_kb - proc->swapAccounting.current_swap_kb) / page_kb;
-            if (quota_pages == 0) {
-                continue;
-            }
-            if (share > quota_pages) {
-                share = quota_pages;
-            }
+        if (targets[i].has_quota && share > targets[i].quota_pages) {
+            share = targets[i].quota_pages;
+        }
+        if (share > MEXT_MAX_PAGEOUT_PAGES) {
+            share = MEXT_MAX_PAGEOUT_PAGES;
         }
 
-        int swapped = DoSwapOut(proc, share, eff_threshold);
+        int swapped = MextEnginePageoutPidCold(mig_fd, targets[i].pid,
+                                               (uint32_t)share, is_emergency);
         if (swapped > 0) {
             total_reclaimed += (uint64_t)swapped;
             if ((uint64_t)swapped >= remaining) {
@@ -258,9 +300,19 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
             } else {
                 remaining -= (uint64_t)swapped;
             }
-            UpdateSwapAccounting(proc->pid, &proc->swapAccounting);
+
+            if (targets[i].has_quota) {
+                EnvMutexLock(&manager->lock);
+                for (ProcessAttr *p = manager->processes; p; p = p->next) {
+                    if (p->pid == targets[i].pid) {
+                        UpdateSwapAccounting(p->pid, &p->swapAccounting);
+                        break;
+                    }
+                }
+                EnvMutexUnlock(&manager->lock);
+            }
         }
     }
-    EnvMutexUnlock(&manager->lock);
+
     return total_reclaimed;
 }

@@ -53,6 +53,8 @@ public:
     int UpdateConfig(const MextConfig &cfg);
     int TrackPid(int32_t pid);
     void UntrackPid(int32_t pid);
+    int PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool emergency);
+    uint32_t OpenPidfdCount() const;
 
     /* Attach an in-memory ring buffer, telemetry file, or callbacks */
     void AttachExternalRing(mext_ring_buffer *ring);
@@ -111,11 +113,17 @@ private:
     void RefreshPsiIfNeeded(uint64_t now_ns);
     void FlushStatsJsonLocked(uint64_t now_ns, bool force);
     int EnsurePidfd(int32_t pid, PidRuntimeState *pst);
+    void ReleasePidfdLocked(int32_t pid, PidRuntimeState *pst);
+
+    static constexpr uint32_t kMaxOpenPidfds = 64U;
 
     mutable std::mutex mu_;
     MextConfig cfg_{};
     int mig_fd_ = -1;
     uint32_t page_shift_ = 12;
+    int32_t open_pidfd_ring_[kMaxOpenPidfds] = { 0 };
+    uint32_t open_pidfd_cursor_ = 0;
+    uint32_t open_pidfd_count_ = 0;
 
     mext_ring_buffer *mmap_ring_ = nullptr;
     size_t mmap_bytes_ = 0;

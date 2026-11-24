@@ -39,6 +39,7 @@ typedef struct {
     int priority;
     bool enable_discard;
     bool auto_swapon;
+    bool activated_by_smap; /* true only when SMAP itself invoked swapon(2) */
 } SwapDeviceConfig;
 
 typedef struct {

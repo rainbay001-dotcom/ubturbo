@@ -15,6 +15,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
+#ifdef __linux__
+#include <sys/resource.h>
+#endif
 
 namespace smap {
 namespace reclaim {
@@ -195,6 +198,168 @@ void ParseMemoryPsi(const char *path, HostMemSnapshot *out)
     std::fclose(fp);
 }
 
+/*
+ * Linux cgroup v1 unconstrained `memory.limit_in_bytes` equals
+ * PAGE_COUNTER_MAX * PAGE_SIZE (~8 EiB on 64-bit kernels). Treat any limit
+ * >= 64 PiB as unconstrained while accepting all real cgroup caps.
+ */
+constexpr uint64_t kCgroupUnlimitedBytes = (1ULL << 56);
+
+struct CgroupRawMemState {
+    uint64_t limit_bytes = 0;
+    uint64_t used_bytes = 0;
+    uint64_t max_events = 0; /* v2: memory.events max; v1: memory.failcnt */
+    double psi_some = 0.0;
+    double psi_full = 0.0;
+    bool is_v1 = false;
+};
+
+bool HasMemoryControllerToken(const char *begin, const char *end)
+{
+    const char *cur = begin;
+    while (cur < end) {
+        const char *comma = cur;
+        while (comma < end && *comma != ',') {
+            ++comma;
+        }
+        if ((comma - cur) == 6 && std::strncmp(cur, "memory", 6) == 0) {
+            return true;
+        }
+        cur = (comma < end) ? (comma + 1) : end;
+    }
+    return false;
+}
+
+bool ReadCgroupMemState(const char *cgroup_dir, bool full_metrics, CgroupRawMemState *out)
+{
+    if (!cgroup_dir || cgroup_dir[0] == '\0' || !out) {
+        return false;
+    }
+    *out = CgroupRawMemState{};
+
+    char path[512];
+    char buf[128] = { 0 };
+    char *endptr = nullptr;
+
+    /* 1. Try unified Cgroup v2 (`memory.max` + `memory.current`) */
+    std::snprintf(path, sizeof(path), "%s/memory.max", cgroup_dir);
+    FILE *fmax = std::fopen(path, "r");
+    if (fmax) {
+        bool got_max = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
+        std::fclose(fmax);
+        if (!got_max || std::strncmp(buf, "max", 3) == 0) {
+            return false;
+        }
+        unsigned long long lim = std::strtoull(buf, &endptr, 10);
+        if (lim == 0 || static_cast<uint64_t>(lim) >= kCgroupUnlimitedBytes) {
+            return false;
+        }
+
+        std::snprintf(path, sizeof(path), "%s/memory.current", cgroup_dir);
+        FILE *fcur = std::fopen(path, "r");
+        if (!fcur) {
+            return false;
+        }
+        buf[0] = '\0';
+        bool got_cur = (std::fgets(buf, sizeof(buf), fcur) != nullptr);
+        std::fclose(fcur);
+        if (!got_cur) {
+            return false;
+        }
+        out->limit_bytes = static_cast<uint64_t>(lim);
+        out->used_bytes = static_cast<uint64_t>(std::strtoull(buf, &endptr, 10));
+        out->is_v1 = false;
+
+        if (full_metrics) {
+            std::snprintf(path, sizeof(path), "%s/memory.events", cgroup_dir);
+            FILE *fev = std::fopen(path, "r");
+            if (fev) {
+                char line[128];
+                while (std::fgets(line, sizeof(line), fev) != nullptr) {
+                    unsigned long long v = 0;
+                    if (std::strncmp(line, "max ", 4) == 0 &&
+                        std::sscanf(line + 4, "%llu", &v) == 1) {
+                        out->max_events = static_cast<uint64_t>(v);
+                        break;
+                    }
+                }
+                std::fclose(fev);
+            }
+            std::snprintf(path, sizeof(path), "%s/memory.pressure", cgroup_dir);
+            HostMemSnapshot cg_psi{};
+            ParseMemoryPsi(path, &cg_psi);
+            out->psi_some = cg_psi.psi_some_avg10;
+            out->psi_full = cg_psi.psi_full_avg10;
+        }
+        return true;
+    }
+
+    /* 2. Try legacy/hybrid Cgroup v1 (`memory.limit_in_bytes` + `memory.usage_in_bytes`) */
+    std::snprintf(path, sizeof(path), "%s/memory.limit_in_bytes", cgroup_dir);
+    FILE *flim = std::fopen(path, "r");
+    if (!flim) {
+        return false;
+    }
+    bool got_lim = (std::fgets(buf, sizeof(buf), flim) != nullptr);
+    std::fclose(flim);
+    if (!got_lim) {
+        return false;
+    }
+    unsigned long long v1_lim = std::strtoull(buf, &endptr, 10);
+    if (v1_lim == 0 || static_cast<uint64_t>(v1_lim) >= kCgroupUnlimitedBytes) {
+        return false;
+    }
+
+    std::snprintf(path, sizeof(path), "%s/memory.usage_in_bytes", cgroup_dir);
+    FILE *fuse = std::fopen(path, "r");
+    if (!fuse) {
+        return false;
+    }
+    buf[0] = '\0';
+    bool got_use = (std::fgets(buf, sizeof(buf), fuse) != nullptr);
+    std::fclose(fuse);
+    if (!got_use) {
+        return false;
+    }
+    out->limit_bytes = static_cast<uint64_t>(v1_lim);
+    out->used_bytes = static_cast<uint64_t>(std::strtoull(buf, &endptr, 10));
+    out->is_v1 = true;
+
+    if (full_metrics) {
+        std::snprintf(path, sizeof(path), "%s/memory.failcnt", cgroup_dir);
+        FILE *ffail = std::fopen(path, "r");
+        if (ffail) {
+            char fbuf[128] = { 0 };
+            if (std::fgets(fbuf, sizeof(fbuf), ffail) != nullptr) {
+                out->max_events = static_cast<uint64_t>(std::strtoull(fbuf, &endptr, 10));
+            }
+            std::fclose(ffail);
+        }
+        std::snprintf(path, sizeof(path), "%s/memory.pressure", cgroup_dir);
+        HostMemSnapshot cg_psi{};
+        ParseMemoryPsi(path, &cg_psi);
+        out->psi_some = cg_psi.psi_some_avg10;
+        out->psi_full = cg_psi.psi_full_avg10;
+    }
+    return true;
+}
+
+void RaiseDaemonNofileLimitIfNeeded()
+{
+#ifdef __linux__
+    struct rlimit rl{};
+    if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
+        constexpr rlim_t kDesiredNofile = 65536;
+        if (rl.rlim_cur < kDesiredNofile && rl.rlim_max > rl.rlim_cur) {
+            rl.rlim_cur = (rl.rlim_max == RLIM_INFINITY || rl.rlim_max > kDesiredNofile)
+                              ? kDesiredNofile
+                              : rl.rlim_max;
+            (void)setrlimit(RLIMIT_NOFILE, &rl);
+        }
+    }
+#endif
+}
+
 } // namespace
 
 ProactiveReclaimController::ProactiveReclaimController()
@@ -259,46 +424,24 @@ bool ProactiveReclaimController::ApplyCgroupV2Overlay(const char *cgroup_dir,
         return false;
     }
 
-    char path[512];
-    std::snprintf(path, sizeof(path), "%s/memory.max", cgroup_dir);
-    FILE *fmax = std::fopen(path, "r");
-    if (!fmax) {
-        return false;
-    }
-    char buf[128] = { 0 };
-    bool got_max = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
-    std::fclose(fmax);
-    if (!got_max || std::strncmp(buf, "max", 3) == 0) {
-        return false;
-    }
-    char *endptr = nullptr;
-    unsigned long long cg_max_bytes = std::strtoull(buf, &endptr, 10);
-    if (cg_max_bytes == 0) {
+    CgroupRawMemState raw{};
+    if (!ReadCgroupMemState(cgroup_dir, true, &raw)) {
         return false;
     }
 
-    std::snprintf(path, sizeof(path), "%s/memory.current", cgroup_dir);
-    FILE *fcur = std::fopen(path, "r");
-    if (!fcur) {
-        return false;
-    }
-    buf[0] = '\0';
-    bool got_cur = (std::fgets(buf, sizeof(buf), fcur) != nullptr);
-    std::fclose(fcur);
-    if (!got_cur) {
-        return false;
-    }
-    unsigned long long cg_cur_bytes = std::strtoull(buf, &endptr, 10);
-
-    uint64_t cg_total_pages = static_cast<uint64_t>(cg_max_bytes) >> page_shift;
-    uint64_t cg_free_pages = (cg_max_bytes > cg_cur_bytes)
-                                 ? (static_cast<uint64_t>(cg_max_bytes - cg_cur_bytes) >> page_shift)
+    uint64_t cg_total_pages = raw.limit_bytes >> page_shift;
+    uint64_t cg_free_pages = (raw.limit_bytes > raw.used_bytes)
+                                 ? ((raw.limit_bytes - raw.used_bytes) >> page_shift)
                                  : 0ULL;
+    if (cg_total_pages == 0) {
+        return false;
+    }
 
     /*
-     * When sandboxes run inside a capped cgroup v2 (`memory.max` < host RAM),
-     * host MemFree can remain 200+ GiB while cgroup `memory.events: max` hits
-     * millions of direct-reclaim stalls. Overlay the tighter cgroup headroom!
+     * When sandboxes run inside a capped cgroup v1 (`memory.limit_in_bytes`) or
+     * cgroup v2 (`memory.max`), host MemFree can remain 200+ GiB while cgroup
+     * `memory.failcnt` / `memory.events: max` hits millions of direct-reclaim
+     * stalls. Overlay the tighter cgroup headroom!
      */
     if (inout->total_pages == 0 || cg_free_pages < inout->free_pages) {
         inout->total_pages = (inout->total_pages > 0)
@@ -311,26 +454,9 @@ bool ProactiveReclaimController::ApplyCgroupV2Overlay(const char *cgroup_dir,
         inout->wmark_high_pages = (cg_min * 3ULL) / 2ULL;
     }
 
-    std::snprintf(path, sizeof(path), "%s/memory.events", cgroup_dir);
-    FILE *fev = std::fopen(path, "r");
-    if (fev) {
-        char line[128];
-        uint64_t cg_max_hits = 0;
-        while (std::fgets(line, sizeof(line), fev) != nullptr) {
-            unsigned long long v = 0;
-            if (std::strncmp(line, "max ", 4) == 0 && std::sscanf(line + 4, "%llu", &v) == 1) {
-                cg_max_hits += static_cast<uint64_t>(v);
-            }
-        }
-        std::fclose(fev);
-        inout->allocstall_total += cg_max_hits;
-    }
-
-    std::snprintf(path, sizeof(path), "%s/memory.pressure", cgroup_dir);
-    HostMemSnapshot cg_psi{};
-    ParseMemoryPsi(path, &cg_psi);
-    inout->psi_some_avg10 = std::max(inout->psi_some_avg10, cg_psi.psi_some_avg10);
-    inout->psi_full_avg10 = std::max(inout->psi_full_avg10, cg_psi.psi_full_avg10);
+    inout->allocstall_total += raw.max_events;
+    inout->psi_some_avg10 = std::max(inout->psi_some_avg10, raw.psi_some);
+    inout->psi_full_avg10 = std::max(inout->psi_full_avg10, raw.psi_full);
     return true;
 }
 
@@ -350,76 +476,72 @@ std::string ProactiveReclaimController::ResolveEffectiveCgroupDir(
         return {};
     }
 
-    std::string rel_path;
+    std::string v2_rel;
+    std::string v1_mem_rel;
     char line[512];
     while (std::fgets(line, sizeof(line), fp) != nullptr) {
-        /* Unified cgroup v2 hierarchy line starts with "0::" */
+        size_t len = std::strlen(line);
+        while (len > 0 &&
+               (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' ')) {
+            line[--len] = '\0';
+        }
         if (std::strncmp(line, "0::", 3) == 0) {
-            rel_path = line + 3;
-            while (!rel_path.empty() &&
-                   (rel_path.back() == '\n' || rel_path.back() == '\r' || rel_path.back() == ' ')) {
-                rel_path.pop_back();
-            }
-            break;
+            v2_rel = line + 3;
+            continue;
+        }
+        const char *c1 = std::strchr(line, ':');
+        if (!c1) {
+            continue;
+        }
+        const char *c2 = std::strchr(c1 + 1, ':');
+        if (!c2) {
+            continue;
+        }
+        if (HasMemoryControllerToken(c1 + 1, c2)) {
+            v1_mem_rel = c2 + 1;
         }
     }
     std::fclose(fp);
 
-    if (rel_path.empty() || rel_path == "/") {
-        return {};
-    }
-
     /*
-     * Walk upward from leaf cgroup (`<mount>/<rel_path>`) toward `<mount>` (excluding
-     * root) and select the ancestor with the tightest finite `memory.max` headroom.
-     * Handles both per-sandbox child limits (`.../fc-0042/memory.max`) and parent
-     * slice limits (`.../aenv.slice/memory.max` when leaf `vcpu/memory.max` == "max").
+     * Walk upward from leaf cgroup toward mount root across BOTH cgroup v2 (`0::`)
+     * and cgroup v1 (`<id>:memory:<rel>` under `<mount>/memory<rel>` or `<mount><rel>`),
+     * selecting the ancestor with the tightest finite available byte headroom.
      */
     std::string best_dir;
     uint64_t best_avail_bytes = UINT64_MAX;
     uint64_t best_limit_bytes = UINT64_MAX;
 
-    std::string cur_rel = rel_path;
-    while (!cur_rel.empty() && cur_rel != "/") {
-        std::string full_dir = cgroup_mount_root + cur_rel;
-        std::string max_path = full_dir + "/memory.max";
-        FILE *fmax = std::fopen(max_path.c_str(), "r");
-        if (fmax) {
-            char buf[128] = { 0 };
-            bool got = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
-            std::fclose(fmax);
-            if (got && std::strncmp(buf, "max", 3) != 0) {
-                char *endptr = nullptr;
-                unsigned long long lim = std::strtoull(buf, &endptr, 10);
-                if (lim > 0) {
-                    unsigned long long cur_used = 0;
-                    std::string cur_path = full_dir + "/memory.current";
-                    FILE *fcur = std::fopen(cur_path.c_str(), "r");
-                    if (fcur) {
-                        char cbuf[128] = { 0 };
-                        if (std::fgets(cbuf, sizeof(cbuf), fcur) != nullptr) {
-                            cur_used = std::strtoull(cbuf, &endptr, 10);
-                        }
-                        std::fclose(fcur);
-                    }
-                    uint64_t avail = (lim > cur_used)
-                                         ? static_cast<uint64_t>(lim - cur_used)
-                                         : 0ULL;
-                    if (avail < best_avail_bytes ||
-                        (avail == best_avail_bytes && static_cast<uint64_t>(lim) < best_limit_bytes)) {
-                        best_avail_bytes = avail;
-                        best_limit_bytes = static_cast<uint64_t>(lim);
-                        best_dir = full_dir;
-                    }
+    auto scan_ancestors = [&](const std::string &mount_prefix, const std::string &leaf_rel) {
+        std::string cur_rel = leaf_rel;
+        while (!cur_rel.empty() && cur_rel != "/") {
+            std::string full_dir = mount_prefix + cur_rel;
+            CgroupRawMemState raw{};
+            if (ReadCgroupMemState(full_dir.c_str(), false, &raw)) {
+                uint64_t avail = (raw.limit_bytes > raw.used_bytes)
+                                     ? (raw.limit_bytes - raw.used_bytes)
+                                     : 0ULL;
+                if (avail < best_avail_bytes ||
+                    (avail == best_avail_bytes && raw.limit_bytes < best_limit_bytes)) {
+                    best_avail_bytes = avail;
+                    best_limit_bytes = raw.limit_bytes;
+                    best_dir = full_dir;
                 }
             }
+            size_t slash = cur_rel.find_last_of('/');
+            if (slash == std::string::npos || slash == 0) {
+                break;
+            }
+            cur_rel.resize(slash);
         }
+    };
 
-        size_t slash = cur_rel.find_last_of('/');
-        if (slash == std::string::npos || slash == 0) {
-            break;
-        }
-        cur_rel.resize(slash);
+    if (!v2_rel.empty() && v2_rel != "/") {
+        scan_ancestors(cgroup_mount_root, v2_rel);
+    }
+    if (!v1_mem_rel.empty() && v1_mem_rel != "/") {
+        scan_ancestors(cgroup_mount_root + "/memory", v1_mem_rel);
+        scan_ancestors(cgroup_mount_root, v1_mem_rel);
     }
 
     return best_dir;
@@ -433,6 +555,8 @@ int ProactiveReclaimController::Start(const ProactiveReclaimConfig &cfg,
         SetEvictExecutor(std::move(evict_fn));
         return UpdateConfig(cfg);
     }
+
+    RaiseDaemonNofileLimitIfNeeded();
 
     {
         std::lock_guard<std::mutex> lk(mu_);
@@ -683,68 +807,32 @@ bool ProactiveReclaimController::SampleTrackedCgroups(uint32_t page_shift,
     std::vector<SampledCg> results;
     results.reserve(to_sample.size());
 
-    /* Read kernfs cgroup files outside mu_ */
+    /* Read kernfs cgroup v1/v2 files outside mu_ */
     for (const auto &dir : to_sample) {
         SampledCg sc{};
         sc.dir = dir;
-        char path[512];
-        std::snprintf(path, sizeof(path), "%s/memory.max", dir.c_str());
-        FILE *fmax = std::fopen(path, "r");
-        if (!fmax) {
-            continue;
-        }
-        char buf[128] = { 0 };
-        bool got_max = (std::fgets(buf, sizeof(buf), fmax) != nullptr);
-        std::fclose(fmax);
-        if (!got_max || std::strncmp(buf, "max", 3) == 0) {
-            continue;
-        }
-        char *endptr = nullptr;
-        unsigned long long lim_b = std::strtoull(buf, &endptr, 10);
-        if (lim_b == 0) {
+        CgroupRawMemState raw{};
+        if (!ReadCgroupMemState(dir.c_str(), false, &raw)) {
             continue;
         }
 
-        std::snprintf(path, sizeof(path), "%s/memory.current", dir.c_str());
-        FILE *fcur = std::fopen(path, "r");
-        if (!fcur) {
-            continue;
-        }
-        buf[0] = '\0';
-        bool got_cur = (std::fgets(buf, sizeof(buf), fcur) != nullptr);
-        std::fclose(fcur);
-        if (!got_cur) {
-            continue;
-        }
-        unsigned long long cur_b = std::strtoull(buf, &endptr, 10);
-
-        sc.limit_pages = static_cast<uint64_t>(lim_b) >> page_shift;
-        sc.used_pages = static_cast<uint64_t>(cur_b) >> page_shift;
-        sc.free_pages = (lim_b > cur_b) ? (static_cast<uint64_t>(lim_b - cur_b) >> page_shift) : 0ULL;
+        sc.limit_pages = raw.limit_bytes >> page_shift;
+        sc.used_pages = raw.used_bytes >> page_shift;
+        sc.free_pages = (raw.limit_bytes > raw.used_bytes)
+                            ? ((raw.limit_bytes - raw.used_bytes) >> page_shift)
+                            : 0ULL;
         if (sc.limit_pages == 0) {
             continue;
         }
 
-        /* Only parse memory.events & memory.pressure when cgroup usage >= 70% */
+        /* Only parse failcnt / memory.events & PSI when cgroup usage >= 70% */
         if (sc.used_pages * 10ULL >= sc.limit_pages * 7ULL) {
-            std::snprintf(path, sizeof(path), "%s/memory.events", dir.c_str());
-            FILE *fev = std::fopen(path, "r");
-            if (fev) {
-                char line[128];
-                while (std::fgets(line, sizeof(line), fev) != nullptr) {
-                    unsigned long long v = 0;
-                    if (std::strncmp(line, "max ", 4) == 0 && std::sscanf(line + 4, "%llu", &v) == 1) {
-                        sc.max_events = static_cast<uint64_t>(v);
-                        break;
-                    }
-                }
-                std::fclose(fev);
+            CgroupRawMemState full_raw{};
+            if (ReadCgroupMemState(dir.c_str(), true, &full_raw)) {
+                sc.max_events = full_raw.max_events;
+                sc.psi_some = full_raw.psi_some;
+                sc.psi_full = full_raw.psi_full;
             }
-            std::snprintf(path, sizeof(path), "%s/memory.pressure", dir.c_str());
-            HostMemSnapshot cg_psi{};
-            ParseMemoryPsi(path, &cg_psi);
-            sc.psi_some = cg_psi.psi_some_avg10;
-            sc.psi_full = cg_psi.psi_full_avg10;
         }
         sc.valid = true;
         results.push_back(std::move(sc));
@@ -841,7 +929,7 @@ bool ProactiveReclaimController::SampleTrackedCgroups(uint32_t page_shift,
                 262144ULL, std::max<uint64_t>(128ULL, tightest->limit_pages / 128ULL));
             uint64_t cg_low = std::max<uint64_t>(
                 (cg_min * 5ULL) / 4ULL,
-                tightest->comfort_headroom_pages);
+                tightest->comfort_headroom_pages / 3ULL);
             inout->total_pages = (inout->total_pages > 0)
                                      ? std::min<uint64_t>(inout->total_pages, tightest->limit_pages)
                                      : tightest->limit_pages;

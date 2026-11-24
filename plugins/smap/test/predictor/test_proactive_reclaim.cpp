@@ -968,6 +968,125 @@ void TestAutoPerPidCgroupDiscoveryAndTargetedReclaim()
     std::printf("[PASS] Zero-config auto per-PID cgroup v2 ancestor discovery & targeted fleet reclaim\n");
 }
 
+/* --------------------------------------------------------------------------
+ * 9. Cgroup v1 & Hybrid v1+v2 Auto-Discovery (`memory.limit_in_bytes`, `failcnt`)
+ * -------------------------------------------------------------------------- */
+void TestCgroupV1AndHybridAutoDiscovery()
+{
+    namespace fs = std::filesystem;
+    fs::path root = fs::current_path() / ("smap_cg_v1_" + std::to_string(getpid()));
+    fs::path mock_proc = root / "proc";
+    fs::path mock_cg = root / "cgroup";
+    fs::create_directories(mock_proc);
+    fs::create_directories(mock_cg / "memory" / "aenv");
+    fs::create_directories(mock_cg / "system.slice" / "ubturbod.service");
+
+    struct CleanupGuard {
+        fs::path dir;
+        ~CleanupGuard()
+        {
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{ root };
+
+    /* Linux cgroup v1 unconstrained PAGE_COUNTER_MAX * PAGE_SIZE (~8 EiB) */
+    constexpr uint64_t kV1Unlimited = 9223372036854771712ULL;
+    constexpr uint64_t kLimit64Mb = 64ULL * 1024ULL * 1024ULL;
+    std::ofstream(mock_cg / "memory" / "aenv" / "memory.limit_in_bytes") << kV1Unlimited << "\n";
+    std::ofstream(mock_cg / "memory" / "aenv" / "memory.usage_in_bytes") << (256ULL << 20) << "\n";
+
+    for (int i = 1; i <= 24; ++i) {
+        int32_t pid = 40000 + i;
+        std::string sb_name = "sb-" + std::to_string(i);
+        fs::path sb_dir = mock_cg / "memory" / "aenv" / sb_name;
+        fs::path vcpu_dir = sb_dir / "vcpu";
+        fs::create_directories(vcpu_dir);
+        fs::create_directories(mock_proc / std::to_string(pid));
+
+        /* Hybrid v1 + systemd v2 `/proc/<pid>/cgroup`: `0::` exists without memory.max,
+         * while `6:cpu,memory:/aenv/sb-X/vcpu` holds the active v1 memory controller! */
+        std::ofstream(mock_proc / std::to_string(pid) / "cgroup")
+            << "10:hugetlb:/\n"
+            << "6:cpu,memory:/aenv/" << sb_name << "/vcpu\n"
+            << "1:name=systemd:/system.slice/ubturbod.service\n"
+            << "0::/system.slice/ubturbod.service\n";
+
+        /* Leaf `vcpu` is unconstrained in v1; parent `sb-X` enforces 64 MB cap */
+        std::ofstream(vcpu_dir / "memory.limit_in_bytes") << kV1Unlimited << "\n";
+        std::ofstream(vcpu_dir / "memory.usage_in_bytes") << (4ULL << 20) << "\n";
+
+        uint64_t used_bytes = 16ULL * 1024ULL * 1024ULL;
+        uint64_t failcnt = 0;
+        if (i == 22) {
+            used_bytes = 48ULL * 1024ULL * 1024ULL; /* 75% pre-warm */
+        } else if (i >= 23) {
+            used_bytes = 63ULL * 1024ULL * 1024ULL; /* 98.4% bursting! */
+            failcnt = 42ULL;
+        }
+        std::ofstream(sb_dir / "memory.limit_in_bytes") << kLimit64Mb << "\n";
+        std::ofstream(sb_dir / "memory.usage_in_bytes") << used_bytes << "\n";
+        std::ofstream(sb_dir / "memory.failcnt") << failcnt << "\n";
+    }
+
+    /* Verify direct Cgroup v1 overlay (`SMAP_RECLAIM_CGROUP`) reads failcnt */
+    HostMemSnapshot snap_v1{};
+    snap_v1.total_pages = 201326592ULL;
+    snap_v1.free_pages = 71014810ULL;
+    REQUIRE(ProactiveReclaimController::ApplyCgroupV2Overlay(
+        (mock_cg / "memory" / "aenv" / "sb-24").string().c_str(), 12U, &snap_v1));
+    REQUIRE(snap_v1.total_pages == (kLimit64Mb >> 12U));
+    REQUIRE(snap_v1.free_pages == ((1ULL << 20) >> 12U));
+    REQUIRE(snap_v1.allocstall_total == 42ULL);
+
+    MextEngine mext_eng;
+    REQUIRE(mext_eng.OpenPidfdCount() == 0U);
+    REQUIRE(mext_eng.PageoutPidCold(-1, 40024, 64U, false) == -1);
+
+    ProactiveReclaimController ctrl;
+    ctrl.BindMextEngine(&mext_eng);
+    ctrl.SetDiscoveryRoots(mock_proc.string(), mock_cg.string());
+    ctrl.SetTelemetryProvider([](HostMemSnapshot *out) -> bool {
+        out->timestamp_ns = 9'000'000'000ULL;
+        out->total_pages = 201326592ULL;
+        out->free_pages = 71014810ULL; /* 270.9 GB MemFree on host */
+        out->wmark_min_pages = 262144ULL;
+        out->wmark_low_pages = 327680ULL;
+        out->wmark_high_pages = 393216ULL;
+        return true;
+    });
+
+    ProactiveReclaimConfig rcfg{};
+    ProactiveReclaimDefaultConfig(&rcfg);
+    REQUIRE(ctrl.Start(rcfg, [](uint64_t target, uint8_t) { return target; }, false) == 0);
+
+    for (int32_t pid = 40001; pid <= 40024; ++pid) {
+        REQUIRE(ctrl.TrackPid(pid) == 0);
+    }
+
+    ReclaimDecision dec = ctrl.StepOnce();
+    REQUIRE(ctrl.ShouldTrackCold());
+    REQUIRE(dec.urgency == RECLAIM_EMERGENCY);
+    REQUIRE(dec.target_reclaim_pages >= 3000ULL);
+
+    for (int32_t pid = 40001; pid <= 40021; ++pid) {
+        REQUIRE(!ctrl.ShouldAgePidCold(pid));
+        REQUIRE(ctrl.GetPidPressureScore(pid) == 0U);
+    }
+    REQUIRE(ctrl.ShouldAgePidCold(40022));
+    REQUIRE(ctrl.GetPidPressureScore(40022) == 0U);
+    REQUIRE(ctrl.ShouldAgePidCold(40023));
+    REQUIRE(ctrl.ShouldAgePidCold(40024));
+    REQUIRE(ctrl.GetPidPressureScore(40023) >= 80U);
+    REQUIRE(ctrl.GetPidPressureScore(40024) >= 80U);
+
+    for (int32_t pid = 40001; pid <= 40024; ++pid) {
+        ctrl.UntrackPid(pid);
+    }
+    ctrl.Stop();
+    std::printf("[PASS] Cgroup v1 & hybrid v1+v2 auto-discovery (`limit_in_bytes` + `failcnt`)\n");
+}
+
 } // namespace
 
 int main()
@@ -980,6 +1099,7 @@ int main()
     TestThousandSandboxScaleAndCalmBypass();
     TestCgroupEvictionPrefetchAndJsonStats();
     TestAutoPerPidCgroupDiscoveryAndTargetedReclaim();
+    TestCgroupV1AndHybridAutoDiscovery();
     RunAllBurstBenchmarks();
     std::printf("\nALL PROACTIVE RECLAIM TESTS & BURST BENCHMARKS PASSED SUCCESSFULLY!\n");
     return 0;

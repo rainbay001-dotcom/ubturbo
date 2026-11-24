@@ -260,6 +260,9 @@ void MextEngine::Stop()
             kv.second.pidfd = -1;
         }
     }
+    std::memset(open_pidfd_ring_, 0, sizeof(open_pidfd_ring_));
+    open_pidfd_cursor_ = 0;
+    open_pidfd_count_ = 0;
     pid_states_.clear();
     shadow_map_.Clear();
     tier1_.Clear();
@@ -318,9 +321,7 @@ void MextEngine::UntrackPid(int32_t pid)
         fd = mig_fd_;
         auto it = pid_states_.find(pid);
         if (it != pid_states_.end()) {
-            if (it->second.pidfd >= 0) {
-                close(it->second.pidfd);
-            }
+            ReleasePidfdLocked(pid, &it->second);
             pid_states_.erase(it);
         }
         shadow_map_.RemovePid(pid);
@@ -556,15 +557,84 @@ void MextEngine::RefreshPsiIfNeeded(uint64_t now_ns)
 #endif
 }
 
+void MextEngine::ReleasePidfdLocked(int32_t pid, PidRuntimeState *pst)
+{
+    if (pst && pst->pidfd >= 0) {
+        close(pst->pidfd);
+        pst->pidfd = -1;
+        if (open_pidfd_count_ > 0) {
+            --open_pidfd_count_;
+        }
+    }
+    for (uint32_t i = 0; i < kMaxOpenPidfds; ++i) {
+        if (open_pidfd_ring_[i] == pid) {
+            open_pidfd_ring_[i] = 0;
+        }
+    }
+}
+
+uint32_t MextEngine::OpenPidfdCount() const
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    return open_pidfd_count_;
+}
+
+int MextEngine::PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool emergency)
+{
+    if (pid <= 0 || nr_pages == 0) {
+        return 0;
+    }
+    int fd = mig_fd;
+    if (fd < 0) {
+        std::lock_guard<std::mutex> lk(mu_);
+        fd = mig_fd_;
+    }
+    if (fd < 0) {
+        return -1;
+    }
+
+    mext_prefault_msg pf{};
+    pf.pid = pid;
+    pf.nr_pages = std::min<uint32_t>(nr_pages, MEXT_MAX_PAGEOUT_PAGES);
+    pf.flags = MEXT_PREFAULT_FLAG_PAGEOUT_COLD |
+               (emergency ? MEXT_PREFAULT_FLAG_FORCE_AGE : 0U);
+    pf.vpns_ptr = 0;
+    if (ioctl(fd, MEXT_IOCTL_PREFAULT, &pf) != 0) {
+        return -1;
+    }
+    return static_cast<int>(pf.nr_succeeded);
+}
+
 int MextEngine::EnsurePidfd(int32_t pid, PidRuntimeState *pst)
 {
 #ifdef __linux__
     if (pst->pidfd >= 0) {
         return pst->pidfd;
     }
+    /*
+     * Bound total open pidfds to kMaxOpenPidfds (64) across 1,000+ concurrent
+     * no-lifecycle sandboxes so ubturbod never exhausts RLIMIT_NOFILE (1024).
+     */
+    const uint32_t slot = open_pidfd_cursor_ & (kMaxOpenPidfds - 1U);
+    const int32_t evicted_pid = open_pidfd_ring_[slot];
+    if (evicted_pid > 0) {
+        auto it = pid_states_.find(evicted_pid);
+        if (it != pid_states_.end() && it->second.pidfd >= 0) {
+            close(it->second.pidfd);
+            it->second.pidfd = -1;
+            if (open_pidfd_count_ > 0) {
+                --open_pidfd_count_;
+            }
+        }
+        open_pidfd_ring_[slot] = 0;
+    }
+
     long fd = syscall(__NR_pidfd_open, pid, 0U);
     if (fd >= 0) {
         pst->pidfd = static_cast<int>(fd);
+        open_pidfd_ring_[slot] = pid;
+        open_pidfd_cursor_ = (slot + 1U) & (kMaxOpenPidfds - 1U);
+        ++open_pidfd_count_;
     }
     return pst->pidfd;
 #else
@@ -982,6 +1052,12 @@ int MextEngineTrackPid(pid_t pid)
 void MextEngineUntrackPid(pid_t pid)
 {
     smap::mext::GlobalEngine().UntrackPid(static_cast<int32_t>(pid));
+}
+
+int MextEnginePageoutPidCold(int mig_fd, pid_t pid, uint32_t nr_pages, bool emergency)
+{
+    return smap::mext::GlobalEngine().PageoutPidCold(
+        mig_fd, static_cast<int32_t>(pid), nr_pages, emergency);
 }
 
 int MextEngineQueryStats(MextStats *stats_out)

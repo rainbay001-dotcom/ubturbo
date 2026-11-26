@@ -283,6 +283,12 @@ void MextEngine::Stop()
     tier1_.Clear();
     transformer_.ClearState();
 
+    if (trace_fp_) {
+        std::fflush(trace_fp_);
+        std::fclose(trace_fp_);
+        trace_fp_ = nullptr;
+    }
+
     if (owns_mmap_ && mmap_ring_) {
         munmap(mmap_ring_, mmap_bytes_);
         mmap_ring_ = nullptr;
@@ -393,6 +399,28 @@ void MextEngine::SetStatsJsonPath(const std::string &path)
     stats_json_path_ = path;
 }
 
+void MextEngine::SetTraceDumpPath(const std::string &path)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    if (trace_fp_) {
+        std::fflush(trace_fp_);
+        std::fclose(trace_fp_);
+        trace_fp_ = nullptr;
+    }
+    trace_events_written_ = 0;
+    if (!path.empty()) {
+        trace_fp_ = std::fopen(path.c_str(), "wb");
+        if (!trace_fp_) {
+            std::perror(("Failed to open trace dump " + path).c_str());
+        }
+    }
+}
+
+void MextEngine::SetRecordOnly(bool on)
+{
+    record_only_.store(on, std::memory_order_release);
+}
+
 void MextEngine::FlushStatsJson()
 {
     std::lock_guard<std::mutex> lk(mu_);
@@ -429,6 +457,10 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
         mext_ring_event ev{};
         while (batch.size() < max_events && PopRingEvent(&ev)) {
             batch.push_back(ev);
+        }
+        if (trace_fp_ && !batch.empty()) {
+            std::fwrite(batch.data(), sizeof(mext_ring_event), batch.size(), trace_fp_);
+            trace_events_written_ += batch.size();
         }
     }
 
@@ -506,6 +538,9 @@ void MextEngine::HandleEvictionEvent(int32_t pid, uint64_t vpn, uint64_t epoch)
 
 void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
 {
+    if (trace_fp_) {
+        std::fflush(trace_fp_);
+    }
     if (stats_json_path_.empty()) {
         return;
     }
@@ -543,6 +578,7 @@ void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
                  "  \"hit_rate\": %.6f,\n"
                  "  \"coverage_rate\": %.6f,\n"
                  "  \"avg_infer_us\": %.3f,\n"
+                 "  \"trace_events_written\": %llu,\n"
                  "  \"psi_some_avg10\": %.3f\n"
                  "}\n",
                  static_cast<unsigned long long>(faults_processed_),
@@ -554,7 +590,9 @@ void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
                  static_cast<unsigned long long>(total_prefetched),
                  static_cast<unsigned long long>(prediction_hits_),
                  static_cast<unsigned long long>(predictions_evaluated_),
-                 hit_rate, coverage_rate, avg_infer_us_, psi_some_avg10_);
+                 hit_rate, coverage_rate, avg_infer_us_,
+                 static_cast<unsigned long long>(trace_events_written_),
+                 psi_some_avg10_);
     std::fclose(fp);
     (void)std::rename(tmp_path.c_str(), stats_json_path_.c_str());
 }
@@ -843,6 +881,9 @@ void MextEngine::DispatchCandidates(int32_t pid,
                                     const std::vector<CandidatePage> &merged)
 {
     if (merged.empty()) {
+        return;
+    }
+    if (record_only_.load(std::memory_order_acquire)) {
         return;
     }
 

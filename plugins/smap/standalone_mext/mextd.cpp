@@ -65,8 +65,10 @@ struct DaemonOptions {
     std::string ctl_fifo_path;
     std::string watch_cgroup = "auto";
     std::string weights_path;
+    std::string dump_trace_path;
     bool track_all_pids = true;
     bool enable_reclaim = false;
+    bool record_only = false;
     bool force_zram = false;
     bool force_nvme = false;
     bool tune_page_cluster = true;
@@ -593,6 +595,8 @@ void PrintUsage(const char *prog)
         "  --pid <pid>             Explicitly track PID (repeatable)\n"
         "  --ctl-fifo <path>       Optional FIFO accepting 'add <pid>' / 'del <pid>' / 'flush'\n"
         "  --stats-json <path>     JSON telemetry output path (default: /var/run/smap_mext_stats.json)\n"
+        "  --dump-trace <path>     Dump raw kernel events (32 B/record) for offline training\n"
+        "  --record-only           Capture faults/evictions only; never issue prefetch\n"
         "  --weights <path>        Optional TinyTransformer weights file\n"
         "  --zram                  Force synchronous zram preset\n"
         "  --nvme                  Force asynchronous NVMe/block swap preset\n"
@@ -620,6 +624,8 @@ bool ParseArgs(int argc, char **argv, DaemonOptions *opt)
             opt->track_all_pids = false;
         } else if (a == "--reclaim") {
             opt->enable_reclaim = true;
+        } else if (a == "--record-only") {
+            opt->record_only = true;
         } else if (a == "--zram") {
             opt->force_zram = true;
         } else if (a == "--nvme") {
@@ -634,6 +640,8 @@ bool ParseArgs(int argc, char **argv, DaemonOptions *opt)
             opt->device_path = argv[++i];
         } else if (a == "--stats-json" && i + 1 < argc) {
             opt->stats_json_path = argv[++i];
+        } else if (a == "--dump-trace" && i + 1 < argc) {
+            opt->dump_trace_path = argv[++i];
         } else if (a == "--pidfile" && i + 1 < argc) {
             opt->pidfile_path = argv[++i];
         } else if (a == "--ctl-fifo" && i + 1 < argc) {
@@ -737,6 +745,12 @@ int main(int argc, char **argv)
         }
         engine.SetStatsJsonPath(opt.stats_json_path);
     }
+    if (!opt.dump_trace_path.empty()) {
+        engine.SetTraceDumpPath(opt.dump_trace_path);
+    }
+    if (opt.record_only) {
+        engine.SetRecordOnly(true);
+    }
 
     if (engine.Start(dev_fd, mcfg, true) != 0) {
         std::fprintf(stderr, "Failed to start MextEngine on %s\n", opt.device_path.c_str());
@@ -798,6 +812,13 @@ int main(int argc, char **argv)
                 opt.track_all_pids ? "on" : "off",
                 opt.enable_reclaim ? "on" : "off",
                 opt.stats_json_path.c_str());
+    if (!opt.dump_trace_path.empty()) {
+        std::printf("mextd trace dump: %s (raw mext_ring_event, 32 B/record)\n",
+                    opt.dump_trace_path.c_str());
+    }
+    if (opt.record_only) {
+        std::printf("mextd record-only mode: prefetch dispatch disabled\n");
+    }
     std::fflush(stdout);
 
     uint64_t tick = 0;

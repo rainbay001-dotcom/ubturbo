@@ -17,6 +17,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <deque>
 #include <functional>
 #include <mutex>
@@ -64,6 +65,10 @@ public:
     void SetDispatchCallback(DispatchCallback cb);
     void SetPressureCallback(PressureCallback cb);
     void SetStatsJsonPath(const std::string &path);
+    /* Dump raw ring events (32 B each) to `path` for offline training; empty disables */
+    void SetTraceDumpPath(const std::string &path);
+    /* Capture faults/evictions only, without issuing any prefetch (baseline recording) */
+    void SetRecordOnly(bool on);
     void FlushStatsJson();
 
     /* Drain up to `max_events` from the shared ring buffer; returns events processed */
@@ -185,6 +190,9 @@ private:
     uint64_t last_psi_check_ns_ = 0;
     uint64_t last_stats_flush_ns_ = 0;
     std::string stats_json_path_;
+    std::FILE *trace_fp_ = nullptr;
+    uint64_t trace_events_written_ = 0;
+    std::atomic<bool> record_only_{ false };
 };
 
 MextEngine &GlobalMextEngine();

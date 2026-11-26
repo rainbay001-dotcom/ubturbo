@@ -47,6 +47,7 @@ private:
         uint64_t last_vpn = 0;
         int64_t last_stride = 0;
         uint32_t streak = 0;
+        uint32_t seq_window = 0;
         bool initialized = false;
     };
 

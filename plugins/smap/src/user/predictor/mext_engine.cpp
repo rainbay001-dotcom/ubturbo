@@ -232,7 +232,18 @@ int MextEngine::Start(int mig_fd, const MextConfig &cfg, bool spawn_worker)
 
     running_.store(true, std::memory_order_release);
     if (spawn_worker) {
+        {
+            std::lock_guard<std::mutex> lk(mu_);
+            async_pool_active_ = true;
+        }
+        for (uint32_t s = 0; s < kPrefetchShards; ++s) {
+            prefetch_shards_[s].worker =
+                std::thread(&MextEngine::PrefetchShardLoop, this, s);
+        }
         worker_ = std::thread(&MextEngine::WorkerLoop, this);
+    } else {
+        std::lock_guard<std::mutex> lk(mu_);
+        async_pool_active_ = false;
     }
     return 0;
 }
@@ -243,26 +254,30 @@ void MextEngine::Stop()
     if (!running_.compare_exchange_strong(expected, false, std::memory_order_acq_rel)) {
         return;
     }
+    for (uint32_t s = 0; s < kPrefetchShards; ++s) {
+        prefetch_shards_[s].cv.notify_all();
+    }
     if (worker_.joinable()) {
         worker_.join();
     }
+    for (uint32_t s = 0; s < kPrefetchShards; ++s) {
+        if (prefetch_shards_[s].worker.joinable()) {
+            prefetch_shards_[s].worker.join();
+        }
+        std::lock_guard<std::mutex> slk(prefetch_shards_[s].mu);
+        prefetch_shards_[s].queue.clear();
+        prefetch_shards_[s].pending_close_pids.clear();
+        CloseAllShardPidfds(&prefetch_shards_[s]);
+    }
 
     std::lock_guard<std::mutex> lk(mu_);
+    async_pool_active_ = false;
     FlushStatsJsonLocked(SteadyNowNs(), true);
     if (mig_fd_ >= 0) {
         mext_ctrl_msg ctrl{};
         ctrl.op = MEXT_CTRL_DISABLE;
         (void)ioctl(mig_fd_, MEXT_IOCTL_CTRL, &ctrl);
     }
-    for (auto &kv : pid_states_) {
-        if (kv.second.pidfd >= 0) {
-            close(kv.second.pidfd);
-            kv.second.pidfd = -1;
-        }
-    }
-    std::memset(open_pidfd_ring_, 0, sizeof(open_pidfd_ring_));
-    open_pidfd_cursor_ = 0;
-    open_pidfd_count_ = 0;
     pid_states_.clear();
     shadow_map_.Clear();
     tier1_.Clear();
@@ -316,17 +331,30 @@ int MextEngine::TrackPid(int32_t pid)
 void MextEngine::UntrackPid(int32_t pid)
 {
     int fd = -1;
+    bool pool_active = false;
     {
         std::lock_guard<std::mutex> lk(mu_);
         fd = mig_fd_;
-        auto it = pid_states_.find(pid);
-        if (it != pid_states_.end()) {
-            ReleasePidfdLocked(pid, &it->second);
-            pid_states_.erase(it);
-        }
+        pool_active = async_pool_active_;
+        pid_states_.erase(pid);
         shadow_map_.RemovePid(pid);
         tier1_.RemovePid(pid);
         transformer_.ResetPid(pid);
+    }
+
+    if (pid > 0) {
+        PrefetchShard &sh = prefetch_shards_[static_cast<uint32_t>(pid) & (kPrefetchShards - 1U)];
+        std::lock_guard<std::mutex> slk(sh.mu);
+        sh.queue.erase(
+            std::remove_if(sh.queue.begin(), sh.queue.end(),
+                           [pid](const PrefetchWorkItem &it) { return it.pid == pid; }),
+            sh.queue.end());
+        if (pool_active) {
+            sh.pending_close_pids.push_back(pid);
+            sh.cv.notify_one();
+        } else {
+            CloseShardPidfd(&sh, pid);
+        }
     }
 
     if (fd >= 0) {
@@ -557,26 +585,91 @@ void MextEngine::RefreshPsiIfNeeded(uint64_t now_ns)
 #endif
 }
 
-void MextEngine::ReleasePidfdLocked(int32_t pid, PidRuntimeState *pst)
+void MextEngine::CloseShardPidfd(PrefetchShard *shard, int32_t pid)
 {
-    if (pst && pst->pidfd >= 0) {
-        close(pst->pidfd);
-        pst->pidfd = -1;
-        if (open_pidfd_count_ > 0) {
-            --open_pidfd_count_;
-        }
+    if (!shard || pid <= 0) {
+        return;
     }
-    for (uint32_t i = 0; i < kMaxOpenPidfds; ++i) {
-        if (open_pidfd_ring_[i] == pid) {
-            open_pidfd_ring_[i] = 0;
+    for (uint32_t i = 0; i < kPidfdsPerShard; ++i) {
+        if (shard->pidfd_ring[i].pid == pid) {
+            if (shard->pidfd_ring[i].fd >= 0) {
+                close(shard->pidfd_ring[i].fd);
+                shard->pidfd_ring[i].fd = -1;
+                total_open_pidfds_.fetch_sub(1U, std::memory_order_relaxed);
+            }
+            shard->pidfd_ring[i].pid = 0;
         }
     }
 }
 
+void MextEngine::CloseAllShardPidfds(PrefetchShard *shard)
+{
+    if (!shard) {
+        return;
+    }
+    for (uint32_t i = 0; i < kPidfdsPerShard; ++i) {
+        if (shard->pidfd_ring[i].fd >= 0) {
+            close(shard->pidfd_ring[i].fd);
+            shard->pidfd_ring[i].fd = -1;
+            total_open_pidfds_.fetch_sub(1U, std::memory_order_relaxed);
+        }
+        shard->pidfd_ring[i].pid = 0;
+    }
+    shard->pidfd_cursor = 0;
+}
+
+int MextEngine::EnsureShardPidfd(PrefetchShard *shard, int32_t pid)
+{
+#ifdef __linux__
+    if (!shard || pid <= 0) {
+        return -1;
+    }
+    for (uint32_t i = 0; i < kPidfdsPerShard; ++i) {
+        if (shard->pidfd_ring[i].pid == pid && shard->pidfd_ring[i].fd >= 0) {
+            return shard->pidfd_ring[i].fd;
+        }
+    }
+    const uint32_t slot = shard->pidfd_cursor & (kPidfdsPerShard - 1U);
+    if (shard->pidfd_ring[slot].fd >= 0) {
+        close(shard->pidfd_ring[slot].fd);
+        shard->pidfd_ring[slot].fd = -1;
+        shard->pidfd_ring[slot].pid = 0;
+        total_open_pidfds_.fetch_sub(1U, std::memory_order_relaxed);
+    }
+    long fd = syscall(__NR_pidfd_open, pid, 0U);
+    if (fd >= 0) {
+        shard->pidfd_ring[slot].pid = pid;
+        shard->pidfd_ring[slot].fd = static_cast<int>(fd);
+        shard->pidfd_cursor = (slot + 1U) & (kPidfdsPerShard - 1U);
+        total_open_pidfds_.fetch_add(1U, std::memory_order_relaxed);
+        return static_cast<int>(fd);
+    }
+    return -1;
+#else
+    (void)shard;
+    (void)pid;
+    return -1;
+#endif
+}
+
 uint32_t MextEngine::OpenPidfdCount() const
 {
+    return total_open_pidfds_.load(std::memory_order_relaxed);
+}
+
+bool MextEngine::WasPidRecentlyFaulting(int32_t pid, uint64_t within_ns) const
+{
+    if (pid <= 0) {
+        return false;
+    }
+    const uint64_t now = SteadyNowNs();
     std::lock_guard<std::mutex> lk(mu_);
-    return open_pidfd_count_;
+    auto it = pid_states_.find(pid);
+    if (it == pid_states_.end() || it->second.last_steady_ns == 0) {
+        return false;
+    }
+    return (now >= it->second.last_steady_ns) &&
+           ((now - it->second.last_steady_ns) <= within_ns);
 }
 
 int MextEngine::PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool emergency)
@@ -605,43 +698,144 @@ int MextEngine::PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool 
     return static_cast<int>(pf.nr_succeeded);
 }
 
-int MextEngine::EnsurePidfd(int32_t pid, PidRuntimeState *pst)
+void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
+                                     int mig_fd,
+                                     uint32_t page_shift,
+                                     const PrefetchWorkItem &item)
 {
+    bool madv_succeeded = false;
+
 #ifdef __linux__
-    if (pst->pidfd >= 0) {
-        return pst->pidfd;
-    }
     /*
-     * Bound total open pidfds to kMaxOpenPidfds (64) across 1,000+ concurrent
-     * no-lifecycle sandboxes so ubturbod never exhausts RLIMIT_NOFILE (1024).
+     * Sort and coalesce contiguous VPNs into single `iovec` spans so
+     * `process_madvise(MADV_WILLNEED)` -> `force_swapin_readahead()` merges
+     * adjacent swap pages into a single NVMe bio under one `blk_plug`.
      */
-    const uint32_t slot = open_pidfd_cursor_ & (kMaxOpenPidfds - 1U);
-    const int32_t evicted_pid = open_pidfd_ring_[slot];
-    if (evicted_pid > 0) {
-        auto it = pid_states_.find(evicted_pid);
-        if (it != pid_states_.end() && it->second.pidfd >= 0) {
-            close(it->second.pidfd);
-            it->second.pidfd = -1;
-            if (open_pidfd_count_ > 0) {
-                --open_pidfd_count_;
+    std::vector<uint64_t> async_vpns = item.prefetch_vpns;
+    if (!item.sync_zram_mode && !item.prefault_vpns.empty()) {
+        async_vpns.insert(async_vpns.end(),
+                          item.prefault_vpns.begin(),
+                          item.prefault_vpns.end());
+    }
+    if (!async_vpns.empty()) {
+        int pfd = EnsureShardPidfd(shard, item.pid);
+        if (pfd >= 0) {
+            std::sort(async_vpns.begin(), async_vpns.end());
+            async_vpns.erase(std::unique(async_vpns.begin(), async_vpns.end()),
+                             async_vpns.end());
+
+            std::vector<struct iovec> iov;
+            iov.reserve(async_vpns.size());
+            const size_t page_bytes = 1ULL << page_shift;
+            size_t idx = 0;
+            while (idx < async_vpns.size()) {
+                uint64_t start_vpn = async_vpns[idx];
+                size_t run_len = 1U;
+                while (idx + run_len < async_vpns.size() &&
+                       async_vpns[idx + run_len] == start_vpn + run_len) {
+                    ++run_len;
+                }
+                struct iovec vec{};
+                vec.iov_base = reinterpret_cast<void *>(
+                    static_cast<uintptr_t>(start_vpn << page_shift));
+                vec.iov_len = run_len * page_bytes;
+                iov.push_back(vec);
+                idx += run_len;
+            }
+            long ret = syscall(__NR_process_madvise, pfd, iov.data(),
+                               iov.size(), MADV_WILLNEED, 0U);
+            if (ret >= 0) {
+                madv_succeeded = true;
+            } else if (errno == ESRCH || errno == EBADF) {
+                CloseShardPidfd(shard, item.pid);
             }
         }
-        open_pidfd_ring_[slot] = 0;
+    }
+#else
+    (void)shard;
+    (void)page_shift;
+#endif
+
+    if (mig_fd < 0) {
+        return;
     }
 
-    long fd = syscall(__NR_pidfd_open, pid, 0U);
-    if (fd >= 0) {
-        pst->pidfd = static_cast<int>(fd);
-        open_pidfd_ring_[slot] = pid;
-        open_pidfd_cursor_ = (slot + 1U) & (kMaxOpenPidfds - 1U);
-        ++open_pidfd_count_;
+    if (item.sync_zram_mode) {
+        if (!item.prefault_vpns.empty()) {
+            mext_prefault_msg pf{};
+            pf.pid = item.pid;
+            pf.nr_pages = static_cast<uint32_t>(
+                std::min<size_t>(item.prefault_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
+            pf.flags = 0U;
+            pf.vpns_ptr = static_cast<uint64_t>(
+                reinterpret_cast<uintptr_t>(item.prefault_vpns.data()));
+            (void)ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf);
+        }
+    } else if (!madv_succeeded) {
+        /*
+         * Kernel fallback (e.g. Linux 5.10 where process_madvise lacks MADV_WILLNEED):
+         * execute GUP prefault directly on this background shard worker thread so
+         * pages still populate asynchronously relative to the faulting application!
+         */
+        std::vector<uint64_t> all_vpns = item.prefault_vpns;
+        all_vpns.insert(all_vpns.end(),
+                        item.prefetch_vpns.begin(),
+                        item.prefetch_vpns.end());
+        if (!all_vpns.empty()) {
+            mext_prefault_msg pf{};
+            pf.pid = item.pid;
+            pf.nr_pages = static_cast<uint32_t>(
+                std::min<size_t>(all_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
+            pf.flags = 0U;
+            pf.vpns_ptr = static_cast<uint64_t>(
+                reinterpret_cast<uintptr_t>(all_vpns.data()));
+            (void)ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf);
+        }
     }
-    return pst->pidfd;
-#else
-    (void)pid;
-    (void)pst;
-    return -1;
-#endif
+}
+
+void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
+{
+    PrefetchShard &shard = prefetch_shards_[shard_idx];
+    while (running_.load(std::memory_order_acquire)) {
+        PrefetchWorkItem item{};
+        std::vector<int32_t> to_close;
+        bool has_item = false;
+
+        {
+            std::unique_lock<std::mutex> slk(shard.mu);
+            shard.cv.wait(slk, [&]() {
+                return !running_.load(std::memory_order_acquire) ||
+                       !shard.queue.empty() ||
+                       !shard.pending_close_pids.empty();
+            });
+            if (!shard.pending_close_pids.empty()) {
+                to_close.swap(shard.pending_close_pids);
+            }
+            if (!shard.queue.empty()) {
+                item = std::move(shard.queue.front());
+                shard.queue.pop_front();
+                has_item = true;
+            }
+        }
+
+        for (int32_t cpid : to_close) {
+            CloseShardPidfd(&shard, cpid);
+        }
+        if (!running_.load(std::memory_order_acquire)) {
+            break;
+        }
+        if (has_item) {
+            int fd = -1;
+            uint32_t ps = 12;
+            {
+                std::lock_guard<std::mutex> lk(mu_);
+                fd = mig_fd_;
+                ps = page_shift_;
+            }
+            ExecutePrefetchItem(&shard, fd, ps, item);
+        }
+    }
 }
 
 void MextEngine::DispatchCandidates(int32_t pid,
@@ -679,14 +873,6 @@ void MextEngine::DispatchCandidates(int32_t pid,
         if (shadow_map_.WasRecentlyPrefetched(pid, cand.vpn)) {
             continue;
         }
-        /*
-         * Only filter by shadow_map_.IsSwappedOut() when SMAP itself accounted
-         * for virtually all evictions of THIS specific PID. When kernel cgroup
-         * `memory.max` or `kswapd` evicts pages outside SMAP_MIG_SWAP_OUT,
-         * `untracked_faults` grows immediately—do NOT drop predictions on
-         * kernel/cgroup-evicted pages (Linux MADV_WILLNEED skips present PTEs
-         * in ~15 ns at zero I/O cost).
-         */
         uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
         bool shadow_is_complete = (pid_evicts > 0) &&
                                   (pst->untracked_faults * 8ULL < pst->fault_count);
@@ -715,54 +901,45 @@ void MextEngine::DispatchCandidates(int32_t pid,
         dispatch_cb_(pid, prefetch_vpns, prefault_vpns);
     }
 
-    const bool sync_zram_mode = (cfg_.fault_trigger_stride == 1U && cfg_.prefault_threshold <= 0.55f);
-
-#ifdef __linux__
-    /*
-     * On asynchronous block swap (NVMe), submit BOTH prefetch_vpns and
-     * prefault_vpns via non-blocking process_madvise(MADV_WILLNEED) so the
-     * predictor worker thread never blocks on NVMe disk reads across 1,000+
-     * concurrent sandboxes, then upgrade cached pages via NOWAIT prefault.
-     */
-    const size_t async_cnt = sync_zram_mode
-                                 ? prefetch_vpns.size()
-                                 : (prefetch_vpns.size() + prefault_vpns.size());
-    if (async_cnt > 0) {
-        int pfd = EnsurePidfd(pid, pst);
-        if (pfd >= 0) {
-            std::vector<struct iovec> iov;
-            iov.reserve(async_cnt);
-            size_t page_bytes = 1ULL << page_shift_;
-            for (uint64_t v : prefetch_vpns) {
-                struct iovec vec{};
-                vec.iov_base = reinterpret_cast<void *>(static_cast<uintptr_t>(v << page_shift_));
-                vec.iov_len = page_bytes;
-                iov.push_back(vec);
-            }
-            if (!sync_zram_mode) {
-                for (uint64_t v : prefault_vpns) {
-                    struct iovec vec{};
-                    vec.iov_base = reinterpret_cast<void *>(static_cast<uintptr_t>(v << page_shift_));
-                    vec.iov_len = page_bytes;
-                    iov.push_back(vec);
-                }
-            }
-            (void)syscall(__NR_process_madvise, pfd, iov.data(), iov.size(), MADV_WILLNEED, 0U);
-        }
-    }
-#endif
-
-    if (!prefault_vpns.empty() && mig_fd_ >= 0) {
-        mext_prefault_msg pf{};
-        pf.pid = pid;
-        pf.nr_pages = static_cast<uint32_t>(std::min<size_t>(prefault_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
-        pf.flags = sync_zram_mode ? 0U : MEXT_PREFAULT_FLAG_NOWAIT;
-        pf.vpns_ptr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(prefault_vpns.data()));
-        (void)ioctl(mig_fd_, MEXT_IOCTL_PREFAULT, &pf);
-    }
-
     prefetch_issued_ += prefetch_vpns.size();
     prefault_issued_ += prefault_vpns.size();
+
+    const bool sync_zram_mode =
+        (cfg_.fault_trigger_stride == 1U && cfg_.prefault_threshold <= 0.55f);
+
+    PrefetchWorkItem item{};
+    item.pid = pid;
+    item.sync_zram_mode = sync_zram_mode;
+    item.prefetch_vpns = std::move(prefetch_vpns);
+    item.prefault_vpns = std::move(prefault_vpns);
+
+    PrefetchShard &shard =
+        prefetch_shards_[static_cast<uint32_t>(pid) & (kPrefetchShards - 1U)];
+    if (async_pool_active_ && !sync_zram_mode) {
+        {
+            std::lock_guard<std::mutex> slk(shard.mu);
+            /* Replace stale queued batch for the same PID if queue is busy */
+            bool replaced = false;
+            if (shard.queue.size() >= 16U) {
+                for (auto &q : shard.queue) {
+                    if (q.pid == pid) {
+                        q = std::move(item);
+                        replaced = true;
+                        break;
+                    }
+                }
+            }
+            if (!replaced) {
+                if (shard.queue.size() >= kMaxShardQueue) {
+                    shard.queue.pop_front();
+                }
+                shard.queue.push_back(std::move(item));
+            }
+        }
+        shard.cv.notify_one();
+    } else {
+        ExecutePrefetchItem(&shard, mig_fd_, page_shift_, item);
+    }
 }
 
 void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
@@ -837,6 +1014,7 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
     pst.last_vpn = vpn;
     pst.has_last_vpn = true;
     pst.last_ts_ns = now_ns;
+    pst.last_steady_ns = SteadyNowNs();
     if (has_evict) {
         pst.last_evict_seq = evict_seq;
         pst.has_last_evict = true;
@@ -1058,6 +1236,12 @@ int MextEnginePageoutPidCold(int mig_fd, pid_t pid, uint32_t nr_pages, bool emer
 {
     return smap::mext::GlobalEngine().PageoutPidCold(
         mig_fd, static_cast<int32_t>(pid), nr_pages, emergency);
+}
+
+bool MextEngineWasPidRecentlyFaulting(pid_t pid, uint64_t within_ns)
+{
+    return smap::mext::GlobalEngine().WasPidRecentlyFaulting(
+        static_cast<int32_t>(pid), within_ns);
 }
 
 int MextEngineQueryStats(MextStats *stats_out)

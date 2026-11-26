@@ -1087,6 +1087,54 @@ void TestCgroupV1AndHybridAutoDiscovery()
     std::printf("[PASS] Cgroup v1 & hybrid v1+v2 auto-discovery (`limit_in_bytes` + `failcnt`)\n");
 }
 
+/* --------------------------------------------------------------------------
+ * 10. Sequential Prefetch-Frontier Ramp, 4-Shard Pool & Active-Fault Guard
+ * -------------------------------------------------------------------------- */
+void TestSequentialFrontierRampAndActiveFaultGuard()
+{
+    MextEngine eng;
+    MextConfig mcfg{};
+    MextDefaultConfig(&mcfg);
+
+    std::vector<uint64_t> last_batch;
+    eng.SetDispatchCallback([&](int32_t, const std::vector<uint64_t> &pf, const std::vector<uint64_t> &flt) {
+        last_batch.clear();
+        last_batch.insert(last_batch.end(), flt.begin(), flt.end());
+        last_batch.insert(last_batch.end(), pf.begin(), pf.end());
+        std::sort(last_batch.begin(), last_batch.end());
+    });
+
+    REQUIRE(eng.Start(-1, mcfg, false) == 0);
+    const int32_t kPid = 60001;
+    REQUIRE(!eng.WasPidRecentlyFaulting(kPid, 50'000'000ULL));
+
+    /* Fault 1 at VPN 1000: cold VMA prefetches 4 contiguous pages (1001..1004) */
+    eng.HandleFaultEvent(kPid, 1000ULL, 2U, 1'000'000ULL, true);
+    REQUIRE(last_batch.size() >= 4U);
+    REQUIRE(eng.WasPidRecentlyFaulting(kPid, 500'000'000ULL));
+
+    /* Fault 2 at VPN 1005 (1001..1004 hit!): frontier detector ramps to >= 8 pages! */
+    eng.HandleFaultEvent(kPid, 1005ULL, 2U, 2'000'000ULL, true);
+    REQUIRE(last_batch.size() >= 8U);
+    REQUIRE(last_batch.front() == 1006ULL);
+
+    /* Fault 3 at VPN 1014 (1006..1013 hit!): frontier detector ramps to 16 pages! */
+    eng.HandleFaultEvent(kPid, 1014ULL, 2U, 3'000'000ULL, true);
+    REQUIRE(last_batch.size() >= 14U);
+    REQUIRE(last_batch.front() == 1015ULL);
+    eng.Stop();
+
+    /* Verify 4-shard live async worker pool starts and drains cleanly */
+    MextEngine live_eng;
+    REQUIRE(live_eng.Start(-1, mcfg, true) == 0);
+    for (int i = 0; i < 8; ++i) {
+        live_eng.HandleFaultEvent(61000 + (i % 4), 2000ULL + static_cast<uint64_t>(i) * 5ULL,
+                                  1U, static_cast<uint64_t>(i + 1) * 1'000'000ULL, true);
+    }
+    live_eng.Stop();
+    std::printf("[PASS] Sequential prefetch-frontier ramp (4->8->16), 4-shard async pool & active-fault guard\n");
+}
+
 } // namespace
 
 int main()
@@ -1100,6 +1148,7 @@ int main()
     TestCgroupEvictionPrefetchAndJsonStats();
     TestAutoPerPidCgroupDiscoveryAndTargetedReclaim();
     TestCgroupV1AndHybridAutoDiscovery();
+    TestSequentialFrontierRampAndActiveFaultGuard();
     RunAllBurstBenchmarks();
     std::printf("\nALL PROACTIVE RECLAIM TESTS & BURST BENCHMARKS PASSED SUCCESSFULLY!\n");
     return 0;

@@ -70,41 +70,76 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
     PidTier1State &st = pids_[pid];
     uint8_t vma_idx = vma_slot & (MEXT_VMA_VOCAB - 1U);
 
-    /* 1. Per-VMA Stream Stride Detector (with fast ramp on sequential clusters) */
+    /* 1. Per-VMA Stream & Prefetch-Frontier Detector */
     VmaStreamState &vs = st.vma_streams[vma_idx];
     if (!vs.initialized) {
         /*
-         * Cold-VMA initial fault (e.g. ELF code / shared library swap-in):
-         * issue a compact 2-page spatial lookahead (+1, +2) so short commands
-         * don't pay 3 serial major faults waiting for stride confirmation.
+         * Cold-VMA initial fault: issue a 4-page (16 KiB single NVMe NAND page)
+         * contiguous spatial lookahead (+1..+4) so sequential code/data runs
+         * merge into one NVMe bio without waiting for multiple serial misses.
          */
+        vs.seq_window = 4U;
         if (out_candidates) {
-            out_candidates->push_back(CandidatePage{ vpn + 1ULL, 0.36f });
-            out_candidates->push_back(CandidatePage{ vpn + 2ULL, 0.30f });
+            for (uint32_t step = 1U; step <= 4U; ++step) {
+                float conf = 0.56f - 0.05f * static_cast<float>(step - 1U);
+                out_candidates->push_back(CandidatePage{ vpn + step, conf });
+            }
         }
     } else if (vpn != vs.last_vpn) {
         int64_t stride = static_cast<int64_t>(vpn) - static_cast<int64_t>(vs.last_vpn);
-        if (stride == vs.last_stride && std::llabs(stride) <= 256) {
-            if (vs.streak < 64) {
+        uint64_t fwd_gap = (stride > 0) ? static_cast<uint64_t>(stride) : 0ULL;
+        /*
+         * Prefetch-frontier continuation: when MEXT prefetched [last_vpn+1 .. last_vpn+W],
+         * those hits suppress intermediate faults so the next miss arrives at last_vpn+W+1
+         * (`stride = W+1`, NOT non-unit stride W+1!). Detect confirmed sequential runs via
+         * `shadow.WasRecentlyPrefetched(pid, vpn - 1)` and double `seq_window` up to 16.
+         */
+        bool seq_frontier_hit =
+            (fwd_gap == 1ULL) ||
+            (vs.seq_window > 0U && fwd_gap >= 2ULL &&
+             fwd_gap <= static_cast<uint64_t>(vs.seq_window + 2U) &&
+             shadow.WasRecentlyPrefetched(pid, vpn - 1ULL));
+
+        if (seq_frontier_hit) {
+            vs.last_stride = 1;
+            if (vs.streak < 64U) {
                 ++vs.streak;
             }
+            uint32_t next_win = (vs.seq_window == 0U)
+                                    ? 4U
+                                    : std::min<uint32_t>(16U, std::max<uint32_t>(6U, vs.seq_window * 2U));
+            vs.seq_window = next_win;
+            if (out_candidates) {
+                float base_conf = std::min(0.92f, 0.58f + 0.06f * static_cast<float>(vs.streak));
+                for (uint32_t step = 1U; step <= next_win; ++step) {
+                    float conf = std::max(0.32f, base_conf * (1.0f - 0.04f * static_cast<float>(step - 1U)));
+                    out_candidates->push_back(CandidatePage{ vpn + step, conf });
+                }
+            }
         } else {
-            vs.last_stride = stride;
-            vs.streak = 1;
-        }
+            vs.seq_window = 0U;
+            if (stride == vs.last_stride && std::llabs(stride) <= 256) {
+                if (vs.streak < 64U) {
+                    ++vs.streak;
+                }
+            } else {
+                vs.last_stride = stride;
+                vs.streak = 1U;
+            }
 
-        if (out_candidates && (vs.streak >= 2 || (vs.streak == 1 && std::llabs(stride) <= 8))) {
-            uint32_t depth = (vs.streak == 1)
-                                 ? 2U
-                                 : std::min<uint32_t>(8U, 2U + vs.streak);
-            float base_conf = (vs.streak == 1)
-                                  ? 0.46f
-                                  : std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
-            for (uint32_t step = 1; step <= depth; ++step) {
-                int64_t target = static_cast<int64_t>(vpn) + vs.last_stride * static_cast<int64_t>(step);
-                if (target > 0) {
-                    float conf = base_conf * (1.0f - 0.08f * static_cast<float>(step - 1));
-                    out_candidates->push_back(CandidatePage{ static_cast<uint64_t>(target), conf });
+            if (out_candidates && (vs.streak >= 2U || (vs.streak == 1U && std::llabs(stride) <= 8))) {
+                uint32_t depth = (vs.streak == 1U)
+                                     ? 2U
+                                     : std::min<uint32_t>(8U, 2U + vs.streak);
+                float base_conf = (vs.streak == 1U)
+                                      ? 0.46f
+                                      : std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
+                for (uint32_t step = 1U; step <= depth; ++step) {
+                    int64_t target = static_cast<int64_t>(vpn) + vs.last_stride * static_cast<int64_t>(step);
+                    if (target > 0) {
+                        float conf = base_conf * (1.0f - 0.08f * static_cast<float>(step - 1U));
+                        out_candidates->push_back(CandidatePage{ static_cast<uint64_t>(target), conf });
+                    }
                 }
             }
         }

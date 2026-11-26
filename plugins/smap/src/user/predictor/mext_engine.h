@@ -13,6 +13,8 @@
 #define SMAP_USER_PREDICTOR_MEXT_ENGINE_H
 
 #include <atomic>
+#include <cerrno>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -54,6 +56,7 @@ public:
     int TrackPid(int32_t pid);
     void UntrackPid(int32_t pid);
     int PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool emergency);
+    bool WasPidRecentlyFaulting(int32_t pid, uint64_t within_ns) const;
     uint32_t OpenPidfdCount() const;
 
     /* Attach an in-memory ring buffer, telemetry file, or callbacks */
@@ -93,11 +96,11 @@ private:
         uint64_t last_vpn = 0;
         uint64_t last_evict_seq = 0;
         uint64_t last_ts_ns = 0;
+        uint64_t last_steady_ns = 0;
         uint64_t fault_count = 0;
         uint64_t untracked_faults = 0;
         bool has_last_vpn = false;
         bool has_last_evict = false;
-        int pidfd = -1;
 
         std::deque<PendingSupervision> pending;
         /* Ring of recently predicted VPNs to measure online prediction precision */
@@ -105,25 +108,53 @@ private:
         uint32_t predicted_cursor = 0;
     };
 
+    static constexpr uint32_t kPrefetchShards = 4U;
+    static constexpr uint32_t kPidfdsPerShard = 16U; /* 4 * 16 = 64 max open pidfds */
+    static constexpr size_t kMaxShardQueue = 128U;
+
+    struct PrefetchWorkItem {
+        int32_t pid = 0;
+        bool sync_zram_mode = false;
+        std::vector<uint64_t> prefetch_vpns;
+        std::vector<uint64_t> prefault_vpns;
+    };
+
+    struct PidfdCacheEntry {
+        int32_t pid = 0;
+        int fd = -1;
+    };
+
+    struct PrefetchShard {
+        mutable std::mutex mu;
+        std::condition_variable cv;
+        std::deque<PrefetchWorkItem> queue;
+        std::vector<int32_t> pending_close_pids;
+        PidfdCacheEntry pidfd_ring[kPidfdsPerShard] = {};
+        uint32_t pidfd_cursor = 0;
+        std::thread worker;
+    };
+
     void WorkerLoop();
+    void PrefetchShardLoop(uint32_t shard_idx);
+    void ExecutePrefetchItem(PrefetchShard *shard, int mig_fd, uint32_t page_shift,
+                             const PrefetchWorkItem &item);
+    int EnsureShardPidfd(PrefetchShard *shard, int32_t pid);
+    void CloseShardPidfd(PrefetchShard *shard, int32_t pid);
+    void CloseAllShardPidfds(PrefetchShard *shard);
     bool PopRingEvent(mext_ring_event *out);
     void DispatchCandidates(int32_t pid,
                             PidRuntimeState *pst,
                             const std::vector<CandidatePage> &merged);
     void RefreshPsiIfNeeded(uint64_t now_ns);
     void FlushStatsJsonLocked(uint64_t now_ns, bool force);
-    int EnsurePidfd(int32_t pid, PidRuntimeState *pst);
-    void ReleasePidfdLocked(int32_t pid, PidRuntimeState *pst);
-
-    static constexpr uint32_t kMaxOpenPidfds = 64U;
 
     mutable std::mutex mu_;
     MextConfig cfg_{};
     int mig_fd_ = -1;
     uint32_t page_shift_ = 12;
-    int32_t open_pidfd_ring_[kMaxOpenPidfds] = { 0 };
-    uint32_t open_pidfd_cursor_ = 0;
-    uint32_t open_pidfd_count_ = 0;
+    bool async_pool_active_ = false;
+    std::atomic<uint32_t> total_open_pidfds_{ 0 };
+    PrefetchShard prefetch_shards_[kPrefetchShards];
 
     mext_ring_buffer *mmap_ring_ = nullptr;
     size_t mmap_bytes_ = 0;

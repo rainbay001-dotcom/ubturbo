@@ -1103,20 +1103,20 @@ ReclaimDecision ProactiveReclaimController::EvaluateLocked(const HostMemSnapshot
     double uncomp_fault_pps = fault_rate_pps * std::clamp(1.0 - mext_snap.hit_rate, 0.0, 1.0);
     double psi_limit = std::max(1.0, cfg_.psi_full_brake_limit);
 
-    if (snap.psi_full_avg10 > psi_limit ||
-        (uncomp_fault_pps > 4096.0 && snap.free_pages > w_low)) {
+    if (snap.psi_full_avg10 > psi_limit || uncomp_fault_pps > 4096.0) {
         double psi_scale = (snap.psi_full_avg10 > psi_limit)
                                ? (psi_limit / snap.psi_full_avg10)
                                : 1.0;
         double refault_scale = (uncomp_fault_pps > 4096.0)
                                    ? (4096.0 / uncomp_fault_pps)
                                    : 1.0;
-        double min_floor = (snap.free_pages <= w_low) ? 0.60 : 0.25;
+        bool cg_pressured = any_cgroup_pressured_.load(std::memory_order_relaxed);
+        double min_floor = (snap.free_pages <= w_low && !cg_pressured) ? 0.60 : 0.15;
         brake_scale = std::clamp(std::min(psi_scale, refault_scale), min_floor, 1.0);
         if (brake_scale < 0.95) {
             ++stats_.thrash_brake_events;
         }
-        if (brake_scale < 0.85 && snap.free_pages > w_low) {
+        if (brake_scale < 0.85 && (snap.free_pages > w_low || cg_pressured)) {
             cold_win = std::max<uint32_t>(cold_win, 3U);
         }
     }

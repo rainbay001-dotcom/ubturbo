@@ -429,7 +429,14 @@ static int mext_pageout_pte_entry(pte_t *ptep, unsigned long addr,
 		return 0;
 
 	ctx->scanned_present++;
-	if (ctx->strict_cold && pte_young(pte)) {
+	if (ctx->strict_cold && pte_young(ptep_get(ptep))) {
+		/*
+		 * Two-Hand Clock Hand 1: clear hardware accessed bit on young
+		 * PTEs without evicting so active working-set pages stay in
+		 * DRAM, while genuinely idle pages become eligible (!pte_young)
+		 * on the next sweep.
+		 */
+		(void)ptep_test_and_clear_young(walk->vma, addr, ptep);
 		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
 			return 1;
 		return 0;
@@ -450,6 +457,8 @@ static int mext_pageout_pte_entry(pte_t *ptep, unsigned long addr,
 
 	if (ctx->strict_cold &&
 	    (folio_test_referenced(folio) || folio_test_young(folio))) {
+		folio_clear_referenced(folio);
+		folio_test_clear_young(folio);
 		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
 			return 1;
 		return 0;
@@ -610,14 +619,13 @@ static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
 	spin_unlock(&g_pageout_cursor_lock);
 
 	epoch = mext_next_swapout_epoch();
+	/*
+	 * Strictly reclaim only Two-Hand Clock verified cold pages (`!pte_young`
+	 * && `!referenced`). Never fall back to blind eviction of hot young PTEs,
+	 * which causes immediate refault churn inside oversubscribed cgroups.
+	 */
 	reclaimed = mext_pageout_sweep_mm(mm, msg->pid, target, true, epoch,
 					  &cursor);
-	if (reclaimed == 0 && (msg->flags & MEXT_PREFAULT_FLAG_FORCE_AGE)) {
-		u32 fb_target = min_t(u32, target, 256U);
-
-		reclaimed = mext_pageout_sweep_mm(mm, msg->pid, fb_target,
-						  false, epoch, &cursor);
-	}
 
 	spin_lock(&g_pageout_cursor_lock);
 	g_pageout_cursors[slot].pid = msg->pid;

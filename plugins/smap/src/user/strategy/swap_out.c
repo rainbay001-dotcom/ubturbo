@@ -219,6 +219,10 @@ uint64_t ExecuteProactiveSwapBatch(uint64_t target_pages, uint8_t threshold)
         if (score == 0U) {
             continue;
         }
+        /* Skip sandboxes actively swap-faulting right now to prevent refault churn */
+        if (dynamic_reclaim && MextEngineWasPidRecentlyFaulting(proc->pid, 50000000ULL)) {
+            continue;
+        }
 
         uint64_t quota_pages = 0;
         bool has_quota = (proc->swapAccounting.max_swap_kb > 0);

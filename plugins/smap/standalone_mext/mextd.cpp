@@ -398,6 +398,14 @@ public:
                 if (sc == 0U) {
                     continue;
                 }
+                /*
+                 * Do not proactively evict from a sandbox that took a swap-in
+                 * fault within the last 50 ms — its cgroup is actively paging in
+                 * hot working-set pages; target idle/cooling cgroups instead!
+                 */
+                if (eng_->WasPidRecentlyFaulting(pid, 50'000'000ULL)) {
+                    continue;
+                }
                 if (active.size() < 256U) {
                     active.push_back({ pid, sc });
                     total_score += sc;
@@ -715,6 +723,8 @@ int main(int argc, char **argv)
     MextDefaultConfig(&mcfg);
     if (use_zram) {
         MextApplyZramPreset(&mcfg);
+    } else {
+        mcfg.fault_trigger_stride = 2U;
     }
     if (!opt.weights_path.empty()) {
         std::snprintf(mcfg.weights_path, sizeof(mcfg.weights_path), "%s", opt.weights_path.c_str());

@@ -69,6 +69,7 @@ static u32 g_pid_live_cnt;
 static u32 g_pid_tomb_cnt;
 static bool g_track_all_pids;
 static bool g_kprobe_registered;
+static bool g_evict_kp_registered;
 static bool g_pressure_kp_registered;
 static bool g_capture_enabled;
 
@@ -289,9 +290,18 @@ static int kp_do_swap_page_pre(struct kprobe *p, struct pt_regs *regs)
 	vma = READ_ONCE(vmf->vma);
 	if (unlikely(!vma))
 		return 0;
+	if (unlikely(READ_ONCE(vma->vm_flags) &
+		     (VM_PFNMAP | VM_IO | VM_SHARED | VM_SPECIAL)))
+		return 0;
 
 	vpn = (u64)(READ_ONCE(vmf->address) >> PAGE_SHIFT);
-	vma_slot = (u64)((READ_ONCE(vma->vm_start) >> 21) & 0x1fULL);
+	/*
+	 * Partition giant hypervisor guest-RAM VMAs (e.g. 2-4 GiB Firecracker
+	 * GPA arenas) into 64 MiB region slots so concurrent guest subsystems
+	 * and vCPUs do not collide in a single vma_start bucket.
+	 */
+	vma_slot = (u64)(((READ_ONCE(vmf->address) >> 26) ^
+			  (READ_ONCE(vma->vm_start) >> 21)) & 0x1fULL);
 
 	if (mext_ring_push(MEXT_EVT_SWAP_FAULT, (u32)tgid, vpn, vma_slot))
 		atomic64_inc(&g_faults_captured);
@@ -303,6 +313,70 @@ static struct kprobe g_swap_fault_kp = {
 	.symbol_name = "do_swap_page",
 	.pre_handler = kp_do_swap_page_pre,
 };
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+/*
+ * Capture kernel/cgroup LRU swap-out unmappings (`try_to_unmap_one`) so
+ * standalone MEXT populates SwapShadowMap (`MEXT_EVT_EVICTED`) even without
+ * SMAP_MIG_SWAP_OUT, unlocking temporal co-eviction prediction across
+ * fragmented Firecracker Guest Physical Addresses (GPA) and MAP_PRIVATE CoW VMAs.
+ */
+static int kp_try_to_unmap_one_pre(struct kprobe *p, struct pt_regs *regs)
+{
+	struct folio *folio;
+	struct vm_area_struct *vma;
+	struct mm_struct *mm;
+	struct task_struct *owner;
+	unsigned long addr;
+	pid_t tgid;
+	u64 epoch;
+
+	if (!READ_ONCE(g_capture_enabled))
+		return 0;
+
+#if defined(CONFIG_ARM64)
+	folio = (struct folio *)regs->regs[0];
+	vma = (struct vm_area_struct *)regs->regs[1];
+	addr = (unsigned long)regs->regs[2];
+#elif defined(CONFIG_X86_64)
+	folio = (struct folio *)regs->di;
+	vma = (struct vm_area_struct *)regs->si;
+	addr = (unsigned long)regs->dx;
+#else
+	folio = (struct folio *)regs_get_kernel_argument(regs, 0);
+	vma = (struct vm_area_struct *)regs_get_kernel_argument(regs, 1);
+	addr = (unsigned long)regs_get_kernel_argument(regs, 2);
+#endif
+	if (unlikely(!folio || !vma || !addr || addr >= TASK_SIZE))
+		return 0;
+	if (!folio_test_anon(folio) || !folio_test_swapcache(folio))
+		return 0;
+
+	mm = READ_ONCE(vma->vm_mm);
+	if (unlikely(!mm))
+		return 0;
+
+	rcu_read_lock();
+	owner = rcu_dereference(mm->owner);
+	tgid = owner ? READ_ONCE(owner->tgid) : 0;
+	rcu_read_unlock();
+
+	if (tgid <= 0 || !mext_is_pid_tracked(tgid))
+		return 0;
+
+	/* ~2.09 ms temporal co-eviction epoch bucket */
+	epoch = ktime_get_ns() >> 21;
+	if (mext_ring_push(MEXT_EVT_EVICTED, (u32)tgid,
+			   (u64)(addr >> PAGE_SHIFT), epoch))
+		atomic64_inc(&g_evicts_captured);
+	return 0;
+}
+
+static struct kprobe g_evict_kp = {
+	.symbol_name = "try_to_unmap_one",
+	.pre_handler = kp_try_to_unmap_one_pre,
+};
+#endif
 
 /*
  * Early zone pressure hook on wakeup_kswapd(zone, gfp_flags, order, ...).
@@ -408,9 +482,18 @@ static int mext_pageout_test_walk(unsigned long addr, unsigned long next,
 {
 	struct vm_area_struct *vma = walk->vma;
 
-	if (!vma || !vma_is_anonymous(vma) || is_vm_hugetlb_page(vma))
+	if (!vma || is_vm_hugetlb_page(vma))
 		return 1;
-	if (vma->vm_flags & (VM_LOCKED | VM_SPECIAL | VM_PFNMAP | VM_SHARED))
+	/*
+	 * Allow private writable VMAs (both pure anonymous `00:00 0` and CoW
+	 * `MAP_PRIVATE` VMAs such as Firecracker `/dev/ublkb2` snapshots, where
+	 * `folio_test_anon` selects only dirty CoW anonymous folios), while
+	 * skipping shared rings (`kvm-vcpu`, `io_uring`, `memfd`), locked, and
+	 * special device mappings.
+	 */
+	if (!(vma->vm_flags & VM_WRITE) ||
+	    (vma->vm_flags &
+	     (VM_LOCKED | VM_SPECIAL | VM_PFNMAP | VM_IO | VM_SHARED)))
 		return 1;
 	return 0;
 }
@@ -429,14 +512,7 @@ static int mext_pageout_pte_entry(pte_t *ptep, unsigned long addr,
 		return 0;
 
 	ctx->scanned_present++;
-	if (ctx->strict_cold && pte_young(ptep_get(ptep))) {
-		/*
-		 * Two-Hand Clock Hand 1: clear hardware accessed bit on young
-		 * PTEs without evicting so active working-set pages stay in
-		 * DRAM, while genuinely idle pages become eligible (!pte_young)
-		 * on the next sweep.
-		 */
-		(void)ptep_test_and_clear_young(walk->vma, addr, ptep);
+	if (ctx->strict_cold && pte_young(pte)) {
 		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
 			return 1;
 		return 0;
@@ -457,8 +533,6 @@ static int mext_pageout_pte_entry(pte_t *ptep, unsigned long addr,
 
 	if (ctx->strict_cold &&
 	    (folio_test_referenced(folio) || folio_test_young(folio))) {
-		folio_clear_referenced(folio);
-		folio_test_clear_young(folio);
 		if (ctx->scanned_present >= MEXT_PAGEOUT_SCAN_LIMIT)
 			return 1;
 		return 0;
@@ -538,8 +612,6 @@ static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
 				folio_put(folio);
 				continue;
 			}
-			folio_clear_referenced(folio);
-			folio_test_clear_young(folio);
 			if (!fp_folio_isolate_lru(folio)) {
 				folio_put(folio);
 				continue;
@@ -555,10 +627,19 @@ static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
 		}
 
 		if (!list_empty(&folio_list)) {
-			unsigned long rec = fp_reclaim_pages(&folio_list, true);
+			/*
+			 * Pass `ignore_references = false` so `shrink_folio_list`
+			 * runs `folio_check_references()` -> `mmu_notifier` on
+			 * KVM Stage-2 page tables (`kvm->arch.mmu.pgt`), aging
+			 * Stage-2 accessed bits and keeping active Firecracker
+			 * guest working-set pages in DRAM!
+			 */
+			unsigned long rec =
+				fp_reclaim_pages(&folio_list, false);
 
 			reclaimed += (u32)rec;
-			if (rec > 0) {
+			if (rec > 0 && !READ_ONCE(g_evict_kp_registered) &&
+			    rec == isolated_cnt) {
 				for (k = 0; k < isolated_cnt; k++)
 					mext_record_eviction(
 						pid, isolated_vpns[k], epoch);
@@ -640,6 +721,21 @@ static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
 	return 0;
 }
 
+static int mext_check_swap_pte_entry(pte_t *ptep, unsigned long addr,
+				     unsigned long next, struct mm_walk *walk)
+{
+	bool *is_swap = walk->private;
+	pte_t pte = ptep_get(ptep);
+
+	if (!pte_present(pte) && is_swap_pte(pte))
+		*is_swap = true;
+	return 1;
+}
+
+static const struct mm_walk_ops mext_check_swap_walk_ops = {
+	.pte_entry = mext_check_swap_pte_entry,
+};
+
 int mext_ioctl_prefault(void __user *argp)
 {
 	struct mext_prefault_msg msg;
@@ -702,6 +798,23 @@ int mext_ioctl_prefault(void __user *argp)
 		 */
 		if (!mmap_read_trylock(mm))
 			break;
+		/*
+		 * Verify target VA currently holds a non-present swap PTE before
+		 * calling get_user_pages_remote: prevents allocating zero pages
+		 * into untouched `pte_none` holes inside sparse 4 GiB Firecracker
+		 * GPA VMAs while cleanly swapping in `/dev/ublkb2` CoW swap PTEs!
+		 */
+		{
+			bool has_swap_pte = false;
+
+			(void)walk_page_range(mm, vaddr, vaddr + PAGE_SIZE,
+					      &mext_check_swap_walk_ops,
+					      &has_swap_pte);
+			if (!has_swap_pte) {
+				mmap_read_unlock(mm);
+				continue;
+			}
+		}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
 		pinned = get_user_pages_remote(mm, vaddr, 1, gup_flags,
 					       &page, &locked);
@@ -744,6 +857,17 @@ static int mext_enable_kprobe_locked(void)
 		}
 		g_kprobe_registered = true;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	if (!g_evict_kp_registered) {
+		ret = register_kprobe(&g_evict_kp);
+		if (ret == 0) {
+			g_evict_kp_registered = true;
+		} else {
+			pr_warn("register_kprobe(try_to_unmap_one) unavailable (%d)\n",
+				ret);
+		}
+	}
+#endif
 	if (!g_pressure_kp_registered) {
 		ret = register_kprobe(&g_pressure_kp);
 		if (ret == 0) {
@@ -860,6 +984,12 @@ void mext_fault_ring_exit(void)
 		unregister_kprobe(&g_pressure_kp);
 		g_pressure_kp_registered = false;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	if (g_evict_kp_registered) {
+		unregister_kprobe(&g_evict_kp);
+		g_evict_kp_registered = false;
+	}
+#endif
 	if (g_kprobe_registered) {
 		unregister_kprobe(&g_swap_fault_kp);
 		g_kprobe_registered = false;

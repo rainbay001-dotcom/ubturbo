@@ -69,6 +69,7 @@ struct DaemonOptions {
     bool track_all_pids = true;
     bool enable_reclaim = false;
     bool record_only = false;
+    bool no_online_adapt = false;
     bool force_zram = false;
     bool force_nvme = false;
     bool tune_page_cluster = true;
@@ -383,7 +384,6 @@ public:
         if (target_pages == 0 || !eng_ || !reclaim_ || dev_fd_ < 0) {
             return 0;
         }
-        bool emergency = (reclaim_->CurrentUrgency() == RECLAIM_EMERGENCY);
 
         struct WeightedPid {
             int32_t pid;
@@ -401,11 +401,11 @@ public:
                     continue;
                 }
                 /*
-                 * Do not proactively evict from a sandbox that took a swap-in
-                 * fault within the last 50 ms — its cgroup is actively paging in
-                 * hot working-set pages; target idle/cooling cgroups instead!
+                 * Do not proactively evict from a VM/sandbox that took a swap-in
+                 * fault within the last 500 ms — its cgroup is actively cycling
+                 * its hot working set; target genuinely idle cgroups only!
                  */
-                if (eng_->WasPidRecentlyFaulting(pid, 50'000'000ULL)) {
+                if (eng_->WasPidRecentlyFaulting(pid, 500'000'000ULL)) {
                     continue;
                 }
                 if (active.size() < 256U) {
@@ -429,8 +429,8 @@ public:
             if (share == 0) {
                 share = 1ULL;
             }
-            share = std::min<uint64_t>(share, std::min<uint64_t>(remaining, MEXT_MAX_PAGEOUT_PAGES));
-            int rec = eng_->PageoutPidCold(dev_fd_, wp.pid, static_cast<uint32_t>(share), emergency);
+            share = std::min<uint64_t>(share, std::min<uint64_t>(remaining, 128ULL));
+            int rec = eng_->PageoutPidCold(dev_fd_, wp.pid, static_cast<uint32_t>(share), false);
             if (rec > 0) {
                 uint64_t urec = static_cast<uint64_t>(rec);
                 reclaimed_total += urec;
@@ -598,6 +598,7 @@ void PrintUsage(const char *prog)
         "  --dump-trace <path>     Dump raw kernel events (32 B/record) for offline training\n"
         "  --record-only           Capture faults/evictions only; never issue prefetch\n"
         "  --weights <path>        Optional TinyTransformer weights file\n"
+        "  --no-online-adapt       Freeze pre-trained output head (disable online SGD updates)\n"
         "  --zram                  Force synchronous zram preset\n"
         "  --nvme                  Force asynchronous NVMe/block swap preset\n"
         "  --keep-page-cluster     Do not set /proc/sys/vm/page-cluster=0\n"
@@ -626,6 +627,8 @@ bool ParseArgs(int argc, char **argv, DaemonOptions *opt)
             opt->enable_reclaim = true;
         } else if (a == "--record-only") {
             opt->record_only = true;
+        } else if (a == "--no-online-adapt") {
+            opt->no_online_adapt = true;
         } else if (a == "--zram") {
             opt->force_zram = true;
         } else if (a == "--nvme") {
@@ -736,6 +739,9 @@ int main(int argc, char **argv)
     }
     if (!opt.weights_path.empty()) {
         std::snprintf(mcfg.weights_path, sizeof(mcfg.weights_path), "%s", opt.weights_path.c_str());
+    }
+    if (opt.no_online_adapt) {
+        mcfg.enable_online_adapt = false;
     }
 
     MextEngine engine;

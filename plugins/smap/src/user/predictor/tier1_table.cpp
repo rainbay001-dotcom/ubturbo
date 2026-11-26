@@ -70,34 +70,22 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
     PidTier1State &st = pids_[pid];
     uint8_t vma_idx = vma_slot & (MEXT_VMA_VOCAB - 1U);
 
-    /* 1. Per-VMA Stream & Prefetch-Frontier Detector */
+    /* 1. Per-VMA / GPA-Region Stream & Prefetch-Frontier Detector */
     VmaStreamState &vs = st.vma_streams[vma_idx];
     if (!vs.initialized) {
         /*
-         * Cold-VMA initial fault: issue a 4-page (16 KiB single NVMe NAND page)
-         * contiguous spatial lookahead (+1..+4) so sequential code/data runs
-         * merge into one NVMe bio without waiting for multiple serial misses.
+         * Do not blind-spray 4 GPA pages on the very first fault of a region:
+         * in Firecracker KVM VMs, Guest Physical Addresses (GPA) are non-linear
+         * (~19% unit-stride locality) and full cgroups penalize false prefetches.
          */
-        vs.seq_window = 4U;
-        if (out_candidates) {
-            for (uint32_t step = 1U; step <= 4U; ++step) {
-                float conf = 0.56f - 0.05f * static_cast<float>(step - 1U);
-                out_candidates->push_back(CandidatePage{ vpn + step, conf });
-            }
-        }
+        vs.seq_window = 0U;
     } else if (vpn != vs.last_vpn) {
         int64_t stride = static_cast<int64_t>(vpn) - static_cast<int64_t>(vs.last_vpn);
         uint64_t fwd_gap = (stride > 0) ? static_cast<uint64_t>(stride) : 0ULL;
-        /*
-         * Prefetch-frontier continuation: when MEXT prefetched [last_vpn+1 .. last_vpn+W],
-         * those hits suppress intermediate faults so the next miss arrives at last_vpn+W+1
-         * (`stride = W+1`, NOT non-unit stride W+1!). Detect confirmed sequential runs via
-         * `shadow.WasRecentlyPrefetched(pid, vpn - 1)` and double `seq_window` up to 16.
-         */
         bool seq_frontier_hit =
             (fwd_gap == 1ULL) ||
-            (vs.seq_window > 0U && fwd_gap >= 2ULL &&
-             fwd_gap <= static_cast<uint64_t>(vs.seq_window + 2U) &&
+            (vs.seq_window >= 2U && vs.streak >= 2U && fwd_gap >= 2ULL &&
+             fwd_gap <= static_cast<uint64_t>(vs.seq_window + 1U) &&
              shadow.WasRecentlyPrefetched(pid, vpn - 1ULL));
 
         if (seq_frontier_hit) {
@@ -105,14 +93,14 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
             if (vs.streak < 64U) {
                 ++vs.streak;
             }
-            uint32_t next_win = (vs.seq_window == 0U)
-                                    ? 4U
-                                    : std::min<uint32_t>(16U, std::max<uint32_t>(6U, vs.seq_window * 2U));
+            uint32_t next_win = (vs.streak == 1U)
+                                    ? 2U
+                                    : std::min<uint32_t>(8U, std::max<uint32_t>(4U, vs.seq_window * 2U));
             vs.seq_window = next_win;
             if (out_candidates) {
-                float base_conf = std::min(0.92f, 0.58f + 0.06f * static_cast<float>(vs.streak));
+                float base_conf = std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
                 for (uint32_t step = 1U; step <= next_win; ++step) {
-                    float conf = std::max(0.32f, base_conf * (1.0f - 0.04f * static_cast<float>(step - 1U)));
+                    float conf = std::max(0.30f, base_conf * (1.0f - 0.06f * static_cast<float>(step - 1U)));
                     out_candidates->push_back(CandidatePage{ vpn + step, conf });
                 }
             }
@@ -127,13 +115,9 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
                 vs.streak = 1U;
             }
 
-            if (out_candidates && (vs.streak >= 2U || (vs.streak == 1U && std::llabs(stride) <= 8))) {
-                uint32_t depth = (vs.streak == 1U)
-                                     ? 2U
-                                     : std::min<uint32_t>(8U, 2U + vs.streak);
-                float base_conf = (vs.streak == 1U)
-                                      ? 0.46f
-                                      : std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
+            if (out_candidates && vs.streak >= 2U) {
+                uint32_t depth = std::min<uint32_t>(8U, 2U + vs.streak);
+                float base_conf = std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
                 for (uint32_t step = 1U; step <= depth; ++step) {
                     int64_t target = static_cast<int64_t>(vpn) + vs.last_stride * static_cast<int64_t>(step);
                     if (target > 0) {
@@ -197,10 +181,10 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
         st.last_evict_epoch = evict_epoch;
 
         if (out_candidates) {
-            uint32_t lookahead = (st.epoch_burst >= 2) ? std::min<uint32_t>(8U, 2U + st.epoch_burst) : 2U;
+            uint32_t lookahead = (st.epoch_burst >= 2) ? std::min<uint32_t>(10U, 3U + st.epoch_burst) : 4U;
             float base_prob = (st.epoch_burst >= 2)
-                                  ? std::min(0.85f, 0.42f + 0.08f * static_cast<float>(st.epoch_burst))
-                                  : 0.30f;
+                                  ? std::min(0.88f, 0.50f + 0.08f * static_cast<float>(st.epoch_burst))
+                                  : 0.42f;
             for (uint32_t k = 1; k <= lookahead; ++k) {
                 uint64_t nbr_vpn = 0;
                 uint64_t nbr_epoch = 0;

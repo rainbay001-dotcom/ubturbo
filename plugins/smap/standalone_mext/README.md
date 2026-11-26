@@ -52,3 +52,23 @@ cat /var/run/smap_mext_stats.json
 sudo kill -TERM "$(cat /var/run/mextd.pid)"
 sudo rmmod mext_drv
 ```
+
+---
+
+## 3. Offline Real-Trace Weight Training (`--dump-trace` + `mext_train`)
+
+```bash
+# Step 1: Record 1 baseline workload round (captures BOTH swap faults AND cgroup evictions)
+sudo insmod kernel/mext_drv.ko
+sudo ./mextd --track-all --record-only --dump-trace /var/tmp/mext_round1.trace \
+    --daemon --pidfile /var/run/mextd.pid
+# ... run 1 round of workload ...
+sudo kill -TERM "$(cat /var/run/mextd.pid)"
+
+# Step 2: Train INT8+FP32 TinyTransformer weights offline (~5-15s on CPU)
+./mext_train --trace /var/tmp/mext_round1.trace --out ./mext_tiny_tf.bin --epochs 8 --horizon 12
+
+# Step 3: Benchmark with pre-trained weights loaded (freezing converged output head)
+sudo ./mextd --track-all --weights ./mext_tiny_tf.bin --no-online-adapt \
+    --daemon --pidfile /var/run/mextd.pid
+```

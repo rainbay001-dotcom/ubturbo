@@ -798,35 +798,29 @@ void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
         return;
     }
 
-    if (item.sync_zram_mode) {
-        if (!item.prefault_vpns.empty()) {
-            mext_prefault_msg pf{};
-            pf.pid = item.pid;
-            pf.nr_pages = static_cast<uint32_t>(
-                std::min<size_t>(item.prefault_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
-            pf.flags = 0U;
-            pf.vpns_ptr = static_cast<uint64_t>(
-                reinterpret_cast<uintptr_t>(item.prefault_vpns.data()));
-            (void)ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf);
-        }
-    } else if (!madv_succeeded) {
+    if (item.sync_zram_mode || !item.prefault_vpns.empty() || !madv_succeeded) {
         /*
-         * Kernel fallback (e.g. Linux 5.10 where process_madvise lacks MADV_WILLNEED):
-         * execute GUP prefault directly on this background shard worker thread so
-         * pages still populate asynchronously relative to the faulting application!
+         * Populate high-confidence `prefault_vpns` (and full fallback when
+         * `process_madvise` is unavailable) via `MEXT_IOCTL_PREFAULT`: in the
+         * kernel, `mext_ioctl_prefault` checks `is_swap_pte` first (never
+         * touching `pte_none` holes in 4 GiB Firecracker GPA arenas) and
+         * cleanly swaps in CoW swap PTEs inside file-backed `MAP_PRIVATE` VMAs
+         * (such as `/dev/ublkb2` snapshots, where `MADV_WILLNEED` is a no-op).
          */
-        std::vector<uint64_t> all_vpns = item.prefault_vpns;
-        all_vpns.insert(all_vpns.end(),
-                        item.prefetch_vpns.begin(),
-                        item.prefetch_vpns.end());
-        if (!all_vpns.empty()) {
+        std::vector<uint64_t> gup_vpns = item.prefault_vpns;
+        if (!item.sync_zram_mode && !madv_succeeded) {
+            gup_vpns.insert(gup_vpns.end(),
+                            item.prefetch_vpns.begin(),
+                            item.prefetch_vpns.end());
+        }
+        if (!gup_vpns.empty()) {
             mext_prefault_msg pf{};
             pf.pid = item.pid;
             pf.nr_pages = static_cast<uint32_t>(
-                std::min<size_t>(all_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
+                std::min<size_t>(gup_vpns.size(), MEXT_MAX_PREFAULT_PAGES));
             pf.flags = 0U;
             pf.vpns_ptr = static_cast<uint64_t>(
-                reinterpret_cast<uintptr_t>(all_vpns.data()));
+                reinterpret_cast<uintptr_t>(gup_vpns.data()));
             (void)ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf);
         }
     }
@@ -891,6 +885,25 @@ void MextEngine::DispatchCandidates(int32_t pid,
     float eff_prefault_th = cfg_.prefault_threshold;
     uint32_t eff_top_k = cfg_.top_k > 0 ? cfg_.top_k : 16U;
 
+    const uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
+    const bool shadow_is_complete = (pid_evicts > 0) &&
+                                    (pst->untracked_faults * 8ULL < pst->fault_count);
+
+    /*
+     * Per-PID closed-loop precision gate: when kernel eviction tracking is
+     * unavailable (`!shadow_is_complete`) inside memory-capped cgroups (e.g.
+     * fragmented Firecracker GPAs on older kernels without `try_to_unmap_one`
+     * kprobe) and MADV_WILLNEED minor-fault hit rate drops below 25%, tighten
+     * threshold and top-k so low-hit guesses never evict live guest pages.
+     */
+    const bool sync_zram_mode =
+        (cfg_.fault_trigger_stride == 1U && cfg_.prefault_threshold <= 0.55f);
+    if (!shadow_is_complete && !sync_zram_mode &&
+        pst->pid_evaluated >= 64ULL && (pst->pid_hits * 4ULL < pst->pid_evaluated)) {
+        eff_prefetch_th = std::max(eff_prefetch_th, 0.52f);
+        eff_top_k = std::min<uint32_t>(eff_top_k, 4U);
+    }
+
     /* PSI guardrail: throttle speculative prefetching under DRAM stall pressure */
     if (cfg_.psi_stall_limit > 0.0 && psi_some_avg10_ > cfg_.psi_stall_limit) {
         eff_prefetch_th = std::min(0.85f, eff_prefetch_th + 0.15f);
@@ -914,9 +927,6 @@ void MextEngine::DispatchCandidates(int32_t pid,
         if (shadow_map_.WasRecentlyPrefetched(pid, cand.vpn)) {
             continue;
         }
-        uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
-        bool shadow_is_complete = (pid_evicts > 0) &&
-                                  (pst->untracked_faults * 8ULL < pst->fault_count);
         if (shadow_is_complete && !shadow_map_.IsSwappedOut(pid, cand.vpn)) {
             continue;
         }
@@ -924,6 +934,7 @@ void MextEngine::DispatchCandidates(int32_t pid,
         shadow_map_.MarkPrefetched(pid, cand.vpn);
         pst->predicted_ring[pst->predicted_cursor & 511U] = cand.vpn;
         ++pst->predicted_cursor;
+        ++pst->pid_evaluated;
         ++predictions_evaluated_;
 
         if (cfg_.enable_prefault && cand.prob >= eff_prefault_th) {
@@ -944,9 +955,6 @@ void MextEngine::DispatchCandidates(int32_t pid,
 
     prefetch_issued_ += prefetch_vpns.size();
     prefault_issued_ += prefault_vpns.size();
-
-    const bool sync_zram_mode =
-        (cfg_.fault_trigger_stride == 1U && cfg_.prefault_threshold <= 0.55f);
 
     PrefetchWorkItem item{};
     item.pid = pid;
@@ -1006,6 +1014,7 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
     for (uint32_t i = 0; i < 512U; ++i) {
         if (pst.predicted_ring[i] == vpn) {
             ++prediction_hits_;
+            ++pst.pid_hits;
             pst.predicted_ring[i] = 0;
             break;
         }

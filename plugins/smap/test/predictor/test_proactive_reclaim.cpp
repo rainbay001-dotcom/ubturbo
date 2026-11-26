@@ -1095,6 +1095,7 @@ void TestSequentialFrontierRampAndActiveFaultGuard()
     MextEngine eng;
     MextConfig mcfg{};
     MextDefaultConfig(&mcfg);
+    mcfg.enable_transformer = false; /* isolate Tier-1 sequential frontier ramp */
 
     std::vector<uint64_t> last_batch;
     eng.SetDispatchCallback([&](int32_t, const std::vector<uint64_t> &pf, const std::vector<uint64_t> &flt) {
@@ -1108,20 +1109,24 @@ void TestSequentialFrontierRampAndActiveFaultGuard()
     const int32_t kPid = 60001;
     REQUIRE(!eng.WasPidRecentlyFaulting(kPid, 50'000'000ULL));
 
-    /* Fault 1 at VPN 1000: cold VMA prefetches 4 contiguous pages (1001..1004) */
+    /* Fault 1 at VPN 1000 & Fault 2 at VPN 1001 confirm unit-stride sequential stream (prefetches 1002..1003) */
     eng.HandleFaultEvent(kPid, 1000ULL, 2U, 1'000'000ULL, true);
-    REQUIRE(last_batch.size() >= 4U);
+    eng.HandleFaultEvent(kPid, 1001ULL, 2U, 1'500'000ULL, true);
+    REQUIRE(last_batch.size() >= 2U);
     REQUIRE(eng.WasPidRecentlyFaulting(kPid, 500'000'000ULL));
 
-    /* Fault 2 at VPN 1005 (1001..1004 hit!): frontier detector ramps to >= 8 pages! */
-    eng.HandleFaultEvent(kPid, 1005ULL, 2U, 2'000'000ULL, true);
-    REQUIRE(last_batch.size() >= 8U);
-    REQUIRE(last_batch.front() == 1006ULL);
+    /* Confirm streak=2 at VPN 1002, then frontier Fault 4 at VPN 1006 ramps to >= 4 fresh pages */
+    eng.HandleFaultEvent(kPid, 1002ULL, 2U, 2'000'000ULL, true);
+    eng.HandleFaultEvent(kPid, 1006ULL, 2U, 2'500'000ULL, true);
+    REQUIRE(last_batch.size() >= 6U);
+    REQUIRE(last_batch.front() == 1007ULL);
 
-    /* Fault 3 at VPN 1014 (1006..1013 hit!): frontier detector ramps to 16 pages! */
-    eng.HandleFaultEvent(kPid, 1014ULL, 2U, 3'000'000ULL, true);
-    REQUIRE(last_batch.size() >= 14U);
-    REQUIRE(last_batch.front() == 1015ULL);
+    /* Next frontier fault after prefetched window ramps to >= 8 forward pages! */
+    uint64_t next_frontier = 1006ULL + 8ULL + 1ULL; /* 1015 (since 1007..1014 were prefetched) */
+    eng.HandleFaultEvent(kPid, next_frontier, 2U, 3'000'000ULL, true);
+    REQUIRE(last_batch.size() >= 8U);
+    REQUIRE(std::find(last_batch.begin(), last_batch.end(), next_frontier + 1ULL) != last_batch.end());
+    REQUIRE(std::find(last_batch.begin(), last_batch.end(), next_frontier + 8ULL) != last_batch.end());
     eng.Stop();
 
     /* Verify 4-shard live async worker pool starts and drains cleanly */

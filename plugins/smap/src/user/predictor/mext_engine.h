@@ -104,6 +104,8 @@ private:
         uint64_t last_steady_ns = 0;
         uint64_t fault_count = 0;
         uint64_t untracked_faults = 0;
+        uint64_t pid_evaluated = 0;
+        uint64_t pid_hits = 0;
         bool has_last_vpn = false;
         bool has_last_evict = false;
 

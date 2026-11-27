@@ -66,6 +66,7 @@ sudo ./mextd --track-all --record-only --dump-trace /var/tmp/mext_round1.trace \
 sudo kill -TERM "$(cat /var/run/mextd.pid)"
 
 # Step 2: Train INT8+FP32 TinyTransformer weights offline (~5-15s on CPU)
+#         (Automatically strips Linux do_swap_page VM_FAULT_RETRY duplicates from existing traces)
 ./mext_train --trace /var/tmp/mext_round1.trace --out ./mext_tiny_tf.bin --epochs 8 --horizon 12
 
 # Step 3: Benchmark with pre-trained weights loaded (freezing converged output head)

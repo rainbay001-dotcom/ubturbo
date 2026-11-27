@@ -44,10 +44,12 @@
 #define MEXT_PAGEOUT_BATCH 64U
 #define MEXT_PAGEOUT_SCAN_LIMIT 32768U
 #define MEXT_PAGEOUT_CURSOR_SLOTS 64U
+#define MEXT_PAGEOUT_MIN_WRAP_NS 8000000000ULL /* min 8s KVM Stage-2 cold dwell */
 
 struct mext_pageout_cursor {
 	pid_t pid;
 	unsigned long next_vaddr;
+	u64 last_wrap_ns;
 };
 
 static DEFINE_SPINLOCK(g_pageout_cursor_lock);
@@ -563,13 +565,18 @@ static const struct mm_walk_ops mext_pageout_walk_ops = {
 
 static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
 				 u32 target_pages, bool strict_cold,
-				 u64 epoch, unsigned long *cursor_inout)
+				 bool allow_wrap, u64 epoch,
+				 unsigned long *cursor_inout,
+				 bool *did_wrap_out)
 {
 	unsigned long initial_addr = *cursor_inout;
 	unsigned long cur_addr = initial_addr;
 	u32 reclaimed = 0;
 	u32 total_scanned = 0;
 	bool wrapped = (initial_addr == 0);
+
+	if (did_wrap_out)
+		*did_wrap_out = false;
 
 	while (reclaimed < target_pages &&
 	       total_scanned < MEXT_PAGEOUT_SCAN_LIMIT) {
@@ -593,16 +600,19 @@ static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
 
 		total_scanned += wctx.scanned_present;
 		if (wctx.batch_count == 0) {
-			if (!wrapped) {
+			if (!wrapped && allow_wrap) {
 				cur_addr = 0;
 				wrapped = true;
+				if (did_wrap_out)
+					*did_wrap_out = true;
 				continue;
 			}
-			cur_addr = 0;
+			cur_addr = TASK_SIZE;
 			break;
 		}
 
-		cur_addr = (wctx.next_vaddr < TASK_SIZE) ? wctx.next_vaddr : 0;
+		cur_addr = (wctx.next_vaddr < TASK_SIZE) ? wctx.next_vaddr :
+							   TASK_SIZE;
 
 		for (k = 0; k < wctx.batch_count; k++) {
 			struct folio *folio = wctx.folios[k];
@@ -648,11 +658,13 @@ static u32 mext_pageout_sweep_mm(struct mm_struct *mm, pid_t pid,
 
 		cond_resched();
 		if (walk_ret == 0) {
-			if (!wrapped) {
+			if (!wrapped && allow_wrap) {
 				cur_addr = 0;
 				wrapped = true;
+				if (did_wrap_out)
+					*did_wrap_out = true;
 			} else {
-				cur_addr = 0;
+				cur_addr = TASK_SIZE;
 				break;
 			}
 		}
@@ -668,8 +680,11 @@ static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
 	struct task_struct *task;
 	struct mm_struct *mm;
 	unsigned long cursor = 0;
+	u64 last_wrap_ns = 0;
+	u64 now_ns;
 	u32 slot, target, reclaimed;
 	u64 epoch;
+	bool force_age, allow_wrap, did_wrap = false;
 
 	if (msg->pid <= 0 || msg->nr_pages == 0)
 		return -EINVAL;
@@ -678,6 +693,38 @@ static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
 		return -ENOSYS;
 
 	target = min_t(u32, msg->nr_pages, MEXT_MAX_PAGEOUT_PAGES);
+	force_age = !!(msg->flags & MEXT_PREFAULT_FLAG_FORCE_AGE);
+	now_ns = ktime_get_ns();
+
+	slot = mext_hash_pid((u32)msg->pid) & (MEXT_PAGEOUT_CURSOR_SLOTS - 1U);
+	spin_lock(&g_pageout_cursor_lock);
+	if (g_pageout_cursors[slot].pid == msg->pid) {
+		cursor = g_pageout_cursors[slot].next_vaddr;
+		last_wrap_ns = g_pageout_cursors[slot].last_wrap_ns;
+	}
+	spin_unlock(&g_pageout_cursor_lock);
+
+	/*
+	 * Enforce an 8-second minimum KVM Stage-2 aging generation between full
+	 * address-space sweeps (unless `MEXT_PREFAULT_FLAG_FORCE_AGE` host
+	 * emergency is set). Pass 1 clears KVM Stage-2 `AF` via `mmu_notifier`;
+	 * parking at `TASK_SIZE` for 8s lets active inter-command VM pages
+	 * re-assert Stage-2 `AF=1` so Pass 2 evicts genuinely dead pages only.
+	 */
+	if (cursor >= TASK_SIZE) {
+		if (!force_age && last_wrap_ns > 0 &&
+		    now_ns > last_wrap_ns &&
+		    (now_ns - last_wrap_ns) < MEXT_PAGEOUT_MIN_WRAP_NS) {
+			msg->nr_succeeded = 0;
+			if (copy_to_user(argp, msg, sizeof(*msg)))
+				return -EFAULT;
+			return 0;
+		}
+		cursor = 0;
+		last_wrap_ns = now_ns;
+	} else if (last_wrap_ns == 0) {
+		last_wrap_ns = now_ns;
+	}
 
 	rcu_read_lock();
 	task = pid_task(find_vpid(msg->pid), PIDTYPE_PID);
@@ -692,25 +739,20 @@ static int mext_ioctl_pageout_cold(struct mext_prefault_msg *msg,
 	if (!mm)
 		return -EINVAL;
 
-	slot = mext_hash_pid((u32)msg->pid) & (MEXT_PAGEOUT_CURSOR_SLOTS - 1U);
-	spin_lock(&g_pageout_cursor_lock);
-	if (g_pageout_cursors[slot].pid == msg->pid &&
-	    g_pageout_cursors[slot].next_vaddr < TASK_SIZE)
-		cursor = g_pageout_cursors[slot].next_vaddr;
-	spin_unlock(&g_pageout_cursor_lock);
-
+	allow_wrap = force_age ||
+		     (now_ns >= last_wrap_ns &&
+		      (now_ns - last_wrap_ns) >= MEXT_PAGEOUT_MIN_WRAP_NS);
 	epoch = mext_next_swapout_epoch();
-	/*
-	 * Strictly reclaim only Two-Hand Clock verified cold pages (`!pte_young`
-	 * && `!referenced`). Never fall back to blind eviction of hot young PTEs,
-	 * which causes immediate refault churn inside oversubscribed cgroups.
-	 */
-	reclaimed = mext_pageout_sweep_mm(mm, msg->pid, target, true, epoch,
-					  &cursor);
+	reclaimed = mext_pageout_sweep_mm(mm, msg->pid, target, true,
+					  allow_wrap, epoch, &cursor,
+					  &did_wrap);
+	if (did_wrap)
+		last_wrap_ns = now_ns;
 
 	spin_lock(&g_pageout_cursor_lock);
 	g_pageout_cursors[slot].pid = msg->pid;
 	g_pageout_cursors[slot].next_vaddr = cursor;
+	g_pageout_cursors[slot].last_wrap_ns = last_wrap_ns;
 	spin_unlock(&g_pageout_cursor_lock);
 
 	mmput(mm);
@@ -918,6 +960,7 @@ int mext_ioctl_ctrl(void __user *argp)
 			if (g_pageout_cursors[cslot].pid == msg.pid) {
 				g_pageout_cursors[cslot].pid = 0;
 				g_pageout_cursors[cslot].next_vaddr = 0;
+				g_pageout_cursors[cslot].last_wrap_ns = 0;
 			}
 			spin_unlock(&g_pageout_cursor_lock);
 		}

@@ -402,10 +402,10 @@ public:
                 }
                 /*
                  * Do not proactively evict from a VM/sandbox that took a swap-in
-                 * fault within the last 500 ms — its cgroup is actively cycling
-                 * its hot working set; target genuinely idle cgroups only!
+                 * fault within the last 2,000 ms — avoids draining hot working sets
+                 * during short inter-command sleeps inside tight cgroups.
                  */
-                if (eng_->WasPidRecentlyFaulting(pid, 500'000'000ULL)) {
+                if (eng_->WasPidRecentlyFaulting(pid, 2'000'000'000ULL)) {
                     continue;
                 }
                 if (active.size() < 256U) {
@@ -419,6 +419,17 @@ public:
             return 0;
         }
 
+        /*
+         * When host-wide RAM is abundant (`!ShouldTrackCold()` on host, e.g.
+         * 300+ GiB MemFree while individual sandboxes run in capped cgroups),
+         * pace fleet-wide cold aging to <= 256 pages/tick (64 pages/sandbox max)
+         * alongside the kernel's 8-second KVM Stage-2 wrap-around dwell guard.
+         */
+        ProactiveReclaimStats rst = reclaim_->GetStatsSnapshot();
+        if (rst.current_free_pages > 2621440ULL) { /* > 10 GiB free on host */
+            target_pages = std::min<uint64_t>(target_pages, 256ULL);
+        }
+
         uint64_t reclaimed_total = 0;
         uint64_t remaining = target_pages;
         for (const auto &wp : active) {
@@ -429,7 +440,7 @@ public:
             if (share == 0) {
                 share = 1ULL;
             }
-            share = std::min<uint64_t>(share, std::min<uint64_t>(remaining, 128ULL));
+            share = std::min<uint64_t>(share, std::min<uint64_t>(remaining, 64ULL));
             int rec = eng_->PageoutPidCold(dev_fd_, wp.pid, static_cast<uint32_t>(share), false);
             if (rec > 0) {
                 uint64_t urec = static_cast<uint64_t>(rec);

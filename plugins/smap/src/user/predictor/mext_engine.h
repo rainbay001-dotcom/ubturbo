@@ -97,6 +97,14 @@ private:
         uint8_t target_mask[MEXT_OUT_DIM] = {};
     };
 
+    static constexpr uint32_t kRecentFaultSlots = 16U;
+    static constexpr uint64_t kRetryDedupWindowNs = 50'000'000ULL; /* 50 ms */
+
+    struct RecentFaultSlot {
+        uint64_t vpn = 0;
+        uint64_t ts_ns = 0;
+    };
+
     struct PidRuntimeState {
         uint64_t last_vpn = 0;
         uint64_t last_evict_seq = 0;
@@ -104,10 +112,16 @@ private:
         uint64_t last_steady_ns = 0;
         uint64_t fault_count = 0;
         uint64_t untracked_faults = 0;
+        uint64_t shadow_matched_faults = 0;
+        double recent_shadow_rate = 0.0;
         uint64_t pid_evaluated = 0;
         uint64_t pid_hits = 0;
         bool has_last_vpn = false;
         bool has_last_evict = false;
+
+        /* 16-slot per-PID window filtering multi-vCPU do_swap_page VM_FAULT_RETRY duplicates */
+        RecentFaultSlot recent_faults[kRecentFaultSlots] = {};
+        uint32_t recent_fault_cursor = 0;
 
         std::deque<PendingSupervision> pending;
         /* Ring of recently predicted VPNs to measure online prediction precision */
@@ -143,17 +157,25 @@ private:
 
     void WorkerLoop();
     void PrefetchShardLoop(uint32_t shard_idx);
+    bool ExecuteAsyncMadvise(PrefetchShard *shard, uint32_t page_shift,
+                             const PrefetchWorkItem &item);
+    void ExecutePrefaultGup(int mig_fd, const PrefetchWorkItem &item, bool madv_succeeded);
     void ExecutePrefetchItem(PrefetchShard *shard, int mig_fd, uint32_t page_shift,
                              const PrefetchWorkItem &item);
     int EnsureShardPidfd(PrefetchShard *shard, int32_t pid);
     void CloseShardPidfd(PrefetchShard *shard, int32_t pid);
     void CloseAllShardPidfds(PrefetchShard *shard);
     bool PopRingEvent(mext_ring_event *out);
+    void HandleEvictionEventLocked(int32_t pid, uint64_t vpn, uint64_t epoch);
+    void HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_slot,
+                                uint64_t timestamp_ns, bool emit_predictions);
     void DispatchCandidates(int32_t pid,
                             PidRuntimeState *pst,
                             const std::vector<CandidatePage> &merged);
-    void RefreshPsiIfNeeded(uint64_t now_ns);
-    void FlushStatsJsonLocked(uint64_t now_ns, bool force);
+    void RefreshPsiOutsideLock(uint64_t now_ns);
+    bool BuildStatsJsonLocked(uint64_t now_ns, bool force,
+                              std::string *out_path, std::string *out_json);
+    void FlushStatsJsonOutsideLock(uint64_t now_ns, bool force);
 
     mutable std::mutex mu_;
     MextConfig cfg_{};
@@ -179,17 +201,20 @@ private:
 
     /* Telemetry counters */
     uint64_t faults_processed_ = 0;
+    uint64_t retry_dups_skipped_ = 0;
+    uint64_t shadow_matched_faults_ = 0;
     uint64_t evicts_tracked_ = 0;
     uint64_t tier1_preds_ = 0;
     uint64_t tf_preds_ = 0;
     uint64_t prefetch_issued_ = 0;
     uint64_t prefault_issued_ = 0;
+    std::atomic<uint64_t> prefault_populated_{ 0 };
     uint64_t prediction_hits_ = 0;
     uint64_t predictions_evaluated_ = 0;
     uint64_t online_train_steps_ = 0;
     double avg_infer_us_ = 0.0;
-    double psi_some_avg10_ = 0.0;
-    uint64_t last_psi_check_ns_ = 0;
+    std::atomic<uint64_t> psi_some_milli_{ 0 };
+    std::atomic<uint64_t> last_psi_check_ns_{ 0 };
     uint64_t last_stats_flush_ns_ = 0;
     std::string stats_json_path_;
     std::FILE *trace_fp_ = nullptr;

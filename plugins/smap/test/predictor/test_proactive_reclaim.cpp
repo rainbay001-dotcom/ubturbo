@@ -1137,7 +1137,42 @@ void TestSequentialFrontierRampAndActiveFaultGuard()
                                   1U, static_cast<uint64_t>(i + 1) * 1'000'000ULL, true);
     }
     live_eng.Stop();
-    std::printf("[PASS] Sequential prefetch-frontier ramp (4->8->16), 4-shard async pool & active-fault guard\n");
+
+    /* Verify dual-vCPU interleaved VM_FAULT_RETRY deduplication preserves SwapShadowMap
+     * completeness (`IsSwappedOut` filtering) and Transformer Head B co-eviction parity! */
+    MextEngine retry_eng;
+    MextConfig r_mcfg{};
+    MextDefaultConfig(&r_mcfg);
+    r_mcfg.fault_trigger_stride = 2U;
+    std::vector<uint64_t> coevict_dispatched;
+    retry_eng.SetDispatchCallback([&](int32_t, const std::vector<uint64_t> &pf, const std::vector<uint64_t> &flt) {
+        coevict_dispatched.insert(coevict_dispatched.end(), pf.begin(), pf.end());
+        coevict_dispatched.insert(coevict_dispatched.end(), flt.begin(), flt.end());
+    });
+    REQUIRE(retry_eng.Start(-1, r_mcfg, false) == 0);
+    const int32_t kVmPid = 62001;
+    for (uint64_t k = 0; k < 40ULL; ++k) {
+        retry_eng.HandleEvictionEvent(kVmPid, 0x900000ULL + k * 37ULL, 55ULL);
+    }
+    /* Simulate 2 vCPUs faulting in pairs where each major fault triggers do_swap_page TWICE (200 us retry) */
+    for (uint64_t pair = 0; pair < 10ULL; ++pair) {
+        uint64_t v0 = 0x900000ULL + (pair * 2ULL) * 37ULL;
+        uint64_t v1 = 0x900000ULL + (pair * 2ULL + 1ULL) * 37ULL;
+        uint64_t t_base = 10'000'000ULL + pair * 5'000'000ULL;
+        retry_eng.HandleFaultEvent(kVmPid, v0, 4U, t_base, true);            /* vCPU 0 Pass 1 */
+        retry_eng.HandleFaultEvent(kVmPid, v1, 4U, t_base + 30'000ULL, true);/* vCPU 1 Pass 1 */
+        retry_eng.HandleFaultEvent(kVmPid, v0, 4U, t_base + 200'000ULL, true);/* vCPU 0 VM_FAULT_RETRY */
+        retry_eng.HandleFaultEvent(kVmPid, v1, 4U, t_base + 230'000ULL, true);/* vCPU 1 VM_FAULT_RETRY */
+    }
+    MextStats rst = retry_eng.GetStatsSnapshot();
+    REQUIRE(rst.faults_processed == 20ULL); /* All 20 retry duplicates cleanly stripped! */
+    /* Resident (never-evicted) neighbor VPNs must NOT be prefetched when shadow_is_complete is true */
+    for (uint64_t dv : coevict_dispatched) {
+        REQUIRE(((dv - 0x900000ULL) % 37ULL) == 0ULL);
+    }
+    retry_eng.Stop();
+
+    std::printf("[PASS] Sequential prefetch-frontier ramp, 4-shard pool & dual-vCPU VM_FAULT_RETRY dedup\n");
 }
 
 } // namespace

@@ -83,6 +83,7 @@ bool BuildWindowsFromTraceFile(const std::string &path,
                                uint32_t horizon,
                                std::vector<WindowSample> *out_windows,
                                uint64_t *fault_cnt_out,
+                               uint64_t *retry_dup_cnt_out,
                                uint64_t *evict_cnt_out,
                                size_t *pid_cnt_out)
 {
@@ -92,18 +93,28 @@ bool BuildWindowsFromTraceFile(const std::string &path,
         return false;
     }
 
+    constexpr uint32_t kRecentFaultSlots = 16U;
+    constexpr uint64_t kRetryDedupWindowNs = 50'000'000ULL; /* 50 ms */
+
     SwapShadowMap shadow;
+    struct RecentFault {
+        uint64_t vpn = 0;
+        uint64_t ts_ns = 0;
+    };
     struct PidStream {
         uint64_t last_vpn = 0;
         uint64_t last_evict_seq = 0;
         uint64_t last_ts = 0;
         bool has_vpn = false;
         bool has_evict = false;
+        RecentFault recent[kRecentFaultSlots] = {};
+        uint32_t recent_cursor = 0;
         std::vector<RawPidFault> faults;
     };
     std::unordered_map<uint32_t, PidStream> streams;
 
     uint64_t n_faults = 0;
+    uint64_t n_retry_dups = 0;
     uint64_t n_evicts = 0;
     std::vector<mext_ring_event> buf(4096);
 
@@ -119,10 +130,43 @@ bool BuildWindowsFromTraceFile(const std::string &path,
             }
             if (ev.type == MEXT_EVT_EVICTED) {
                 (void)shadow.RecordEviction(static_cast<int32_t>(ev.pid), ev.vpn, ev.aux);
+                auto sit = streams.find(ev.pid);
+                if (sit != streams.end()) {
+                    for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+                        if (sit->second.recent[s].vpn == ev.vpn) {
+                            sit->second.recent[s].vpn = 0;
+                        }
+                    }
+                }
                 ++n_evicts;
             } else if (ev.type == MEXT_EVT_SWAP_FAULT) {
-                ++n_faults;
                 PidStream &ps = streams[ev.pid];
+                /*
+                 * Strip Linux `do_swap_page` VM_FAULT_RETRY second-pass duplicates
+                 * (including interleaved dual-vCPU retries within 50 ms where the
+                 * page was not re-evicted in between) so 32-step windows and Head B
+                 * co-eviction labels reflect genuine page-fault transitions only.
+                 */
+                if (!shadow.IsSwappedOut(static_cast<int32_t>(ev.pid), ev.vpn) &&
+                    ev.timestamp > 0) {
+                    bool is_retry_dup = false;
+                    for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+                        if (ps.recent[s].vpn == ev.vpn &&
+                            ev.timestamp >= ps.recent[s].ts_ns &&
+                            (ev.timestamp - ps.recent[s].ts_ns) <= kRetryDedupWindowNs) {
+                            is_retry_dup = true;
+                            break;
+                        }
+                    }
+                    if (is_retry_dup) {
+                        ++n_retry_dups;
+                        continue;
+                    }
+                }
+                ps.recent[ps.recent_cursor & (kRecentFaultSlots - 1U)] = { ev.vpn, ev.timestamp };
+                ++ps.recent_cursor;
+
+                ++n_faults;
                 uint64_t eseq = 0;
                 uint64_t eepoch = 0;
                 bool has_ev = shadow.OnPageFault(static_cast<int32_t>(ev.pid),
@@ -162,6 +206,9 @@ bool BuildWindowsFromTraceFile(const std::string &path,
 
     if (fault_cnt_out) {
         *fault_cnt_out += n_faults;
+    }
+    if (retry_dup_cnt_out) {
+        *retry_dup_cnt_out += n_retry_dups;
     }
     if (evict_cnt_out) {
         *evict_cnt_out += n_evicts;
@@ -290,12 +337,14 @@ int ExecuteTraining(const TrainOptions &opt)
 {
     std::vector<WindowSample> all_windows;
     uint64_t total_faults = 0;
+    uint64_t total_retry_dups = 0;
     uint64_t total_evicts = 0;
     size_t total_pids = 0;
 
     for (const auto &p : opt.trace_paths) {
         if (!BuildWindowsFromTraceFile(p, opt.horizon, &all_windows,
-                                       &total_faults, &total_evicts, &total_pids)) {
+                                       &total_faults, &total_retry_dups,
+                                       &total_evicts, &total_pids)) {
             return 1;
         }
     }
@@ -344,11 +393,13 @@ int ExecuteTraining(const TrainOptions &opt)
     std::mt19937 rng(20261126U);
 
     std::printf("=== MEXT Offline Real-Trace TinyTransformer Trainer ===\n"
-                "Traces loaded  : %zu file(s) | faults=%llu | evictions=%llu | pids=%zu\n"
+                "Traces loaded  : %zu file(s) | unique_faults=%llu (stripped %llu VM_FAULT_RETRY dups) | "
+                "evictions=%llu | pids=%zu\n"
                 "Context windows: %zu total (%zu train / %zu held-out validation, L=%u, H=%u)\n"
                 "Pre-train Val  : Top-8 Step Recall = %.2f%% | Top-8 Action Precision = %.2f%%\n",
                 opt.trace_paths.size(),
                 static_cast<unsigned long long>(total_faults),
+                static_cast<unsigned long long>(total_retry_dups),
                 static_cast<unsigned long long>(total_evicts),
                 total_pids,
                 all_windows.size(), split_idx, val_end - val_begin,
@@ -437,7 +488,8 @@ int RunSelfTest()
         ev.timestamp = (i + 1ULL) * 10000ULL;
         (void)std::fwrite(&ev, sizeof(ev), 1, fp);
     }
-    /* Replay faults following co-eviction order (+3 step in eviction sequence!) */
+    /* Replay faults following co-eviction order (+3 step in eviction sequence),
+     * injecting realistic dual-vCPU VM_FAULT_RETRY second-pass duplicates! */
     for (size_t step = 0; step < 260U; ++step) {
         size_t idx = (step * 3U) % coevicted_gpans.size();
         mext_ring_event ev{};
@@ -446,6 +498,10 @@ int RunSelfTest()
         ev.vpn = coevicted_gpans[idx];
         ev.aux = static_cast<uint64_t>((ev.vpn >> 14) & 0x1fULL);
         ev.timestamp = 5'000'000ULL + step * 50000ULL;
+        (void)std::fwrite(&ev, sizeof(ev), 1, fp);
+
+        /* Simulated VM_FAULT_RETRY duplicate 180 ns later on the same swap PTE */
+        ev.timestamp += 180ULL;
         (void)std::fwrite(&ev, sizeof(ev), 1, fp);
     }
     std::fclose(fp);

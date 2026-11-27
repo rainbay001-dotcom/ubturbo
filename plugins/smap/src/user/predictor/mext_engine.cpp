@@ -270,9 +270,9 @@ void MextEngine::Stop()
         CloseAllShardPidfds(&prefetch_shards_[s]);
     }
 
+    FlushStatsJsonOutsideLock(SteadyNowNs(), true);
     std::lock_guard<std::mutex> lk(mu_);
     async_pool_active_ = false;
-    FlushStatsJsonLocked(SteadyNowNs(), true);
     if (mig_fd_ >= 0) {
         mext_ctrl_msg ctrl{};
         ctrl.op = MEXT_CTRL_DISABLE;
@@ -423,8 +423,7 @@ void MextEngine::SetRecordOnly(bool on)
 
 void MextEngine::FlushStatsJson()
 {
-    std::lock_guard<std::mutex> lk(mu_);
-    FlushStatsJsonLocked(SteadyNowNs(), true);
+    FlushStatsJsonOutsideLock(SteadyNowNs(), true);
 }
 
 bool MextEngine::PopRingEvent(mext_ring_event *out)
@@ -448,8 +447,10 @@ bool MextEngine::PopRingEvent(mext_ring_event *out)
 size_t MextEngine::ProcessRingOnce(size_t max_events)
 {
     std::vector<mext_ring_event> batch;
-    batch.reserve(std::min<size_t>(max_events, 64));
+    batch.reserve(std::min<size_t>(max_events, 256U));
     PressureCallback pressure_cb;
+    std::vector<uint8_t> skip_retry_dup;
+    std::unordered_map<uint32_t, size_t> last_fault_idx;
 
     {
         std::lock_guard<std::mutex> lk(mu_);
@@ -462,39 +463,129 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
             std::fwrite(batch.data(), sizeof(mext_ring_event), batch.size(), trace_fp_);
             trace_events_written_ += batch.size();
         }
-    }
+        if (batch.empty()) {
+            return 0;
+        }
 
-    if (batch.empty()) {
-        return 0;
-    }
+        /*
+         * Pre-identify Linux `do_swap_page` VM_FAULT_RETRY second-pass duplicates
+         * BEFORE Frontier Coalescing so a trailing retry duplicate never steals
+         * `is_frontier = true` from the preceding genuine swap fault.
+         */
+        skip_retry_dup.assign(batch.size(), 0U);
+        struct TempRecent {
+            RecentFaultSlot slots[kRecentFaultSlots] = {};
+            uint32_t cursor = 0;
+        };
+        std::unordered_map<uint32_t, TempRecent> temp_recent;
+        std::unordered_map<uint32_t, std::vector<uint64_t>> batch_evicted;
 
-    /*
-     * Frontier Coalescing: when fast synchronous swap backends (like zram) burst
-     * multiple faults before the worker wakes up, fast-forward intermediate faults
-     * through state tracking only and emit predictions/prefaults exclusively from
-     * each PID's newest frontier fault so the helper thread never chases stale VAs.
-     */
-    std::unordered_map<uint32_t, size_t> last_fault_idx;
-    for (size_t i = 0; i < batch.size(); ++i) {
-        if (batch[i].type == MEXT_EVT_SWAP_FAULT) {
-            last_fault_idx[batch[i].pid] = i;
+        for (size_t i = 0; i < batch.size(); ++i) {
+            const auto &b_ev = batch[i];
+            if (b_ev.pid == 0 || b_ev.vpn == 0) {
+                continue;
+            }
+            if (b_ev.type == MEXT_EVT_EVICTED) {
+                batch_evicted[b_ev.pid].push_back(b_ev.vpn);
+                auto tr_it = temp_recent.find(b_ev.pid);
+                if (tr_it != temp_recent.end()) {
+                    for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+                        if (tr_it->second.slots[s].vpn == b_ev.vpn) {
+                            tr_it->second.slots[s].vpn = 0;
+                        }
+                    }
+                }
+            } else if (b_ev.type == MEXT_EVT_SWAP_FAULT) {
+                auto [tr_it, inserted] = temp_recent.emplace(b_ev.pid, TempRecent{});
+                if (inserted) {
+                    auto pst_it = pid_states_.find(static_cast<int32_t>(b_ev.pid));
+                    if (pst_it != pid_states_.end()) {
+                        std::memcpy(tr_it->second.slots, pst_it->second.recent_faults,
+                                    sizeof(tr_it->second.slots));
+                        tr_it->second.cursor = pst_it->second.recent_fault_cursor;
+                    }
+                }
+                bool re_evicted = shadow_map_.IsSwappedOut(static_cast<int32_t>(b_ev.pid), b_ev.vpn);
+                if (!re_evicted) {
+                    auto bev_it = batch_evicted.find(b_ev.pid);
+                    if (bev_it != batch_evicted.end()) {
+                        re_evicted = (std::find(bev_it->second.begin(),
+                                                bev_it->second.end(),
+                                                b_ev.vpn) != bev_it->second.end());
+                    }
+                }
+                uint64_t f_ts = b_ev.timestamp;
+                bool is_dup = false;
+                if (!re_evicted && f_ts > 0) {
+                    for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+                        if (tr_it->second.slots[s].vpn == b_ev.vpn &&
+                            f_ts >= tr_it->second.slots[s].ts_ns &&
+                            (f_ts - tr_it->second.slots[s].ts_ns) <= kRetryDedupWindowNs) {
+                            is_dup = true;
+                            break;
+                        }
+                    }
+                }
+                if (is_dup) {
+                    skip_retry_dup[i] = 1U;
+                    ++retry_dups_skipped_;
+                } else {
+                    auto bev_it = batch_evicted.find(b_ev.pid);
+                    if (bev_it != batch_evicted.end()) {
+                        bev_it->second.erase(
+                            std::remove(bev_it->second.begin(), bev_it->second.end(), b_ev.vpn),
+                            bev_it->second.end());
+                    }
+                    tr_it->second.slots[tr_it->second.cursor & (kRecentFaultSlots - 1U)] =
+                        { b_ev.vpn, f_ts };
+                    ++tr_it->second.cursor;
+                    last_fault_idx[b_ev.pid] = i;
+                }
+            }
         }
     }
 
-    for (size_t i = 0; i < batch.size(); ++i) {
-        const auto &ev = batch[i];
-        if (ev.type == MEXT_EVT_EVICTED) {
-            HandleEvictionEvent(static_cast<int32_t>(ev.pid), ev.vpn, ev.aux);
-        } else if (ev.type == MEXT_EVT_SWAP_FAULT) {
-            bool is_frontier = (last_fault_idx[ev.pid] == i);
-            HandleFaultEvent(static_cast<int32_t>(ev.pid), ev.vpn,
-                             static_cast<uint8_t>(ev.aux & 0x1fULL), ev.timestamp, is_frontier);
-        } else if (ev.type == MEXT_EVT_MEM_PRESSURE) {
-            if (pressure_cb) {
-                uint64_t wmark_low = ev.aux >> 16;
-                uint16_t order = static_cast<uint16_t>(ev.aux & 0xffffULL);
-                pressure_cb(ev.pid, ev.vpn, wmark_low, order, ev.timestamp);
+    /*
+     * Process in 64-event locked slices so large eviction bursts avoid per-event
+     * mutex ping-pong while keeping lock hold times bounded (< 50 us).
+     */
+    constexpr size_t kSlice = 64U;
+    for (size_t base = 0; base < batch.size(); base += kSlice) {
+        size_t end = std::min(batch.size(), base + kSlice);
+        struct PressureNote {
+            uint32_t nid;
+            uint64_t free_pages;
+            uint64_t wmark_low;
+            uint16_t order;
+            uint64_t ts;
+        };
+        std::vector<PressureNote> p_notes;
+
+        {
+            std::lock_guard<std::mutex> lk(mu_);
+            for (size_t i = base; i < end; ++i) {
+                if (skip_retry_dup[i]) {
+                    continue;
+                }
+                const auto &ev = batch[i];
+                if (ev.type == MEXT_EVT_EVICTED) {
+                    HandleEvictionEventLocked(static_cast<int32_t>(ev.pid), ev.vpn, ev.aux);
+                } else if (ev.type == MEXT_EVT_SWAP_FAULT) {
+                    auto l_it = last_fault_idx.find(ev.pid);
+                    bool is_frontier = (l_it != last_fault_idx.end() && l_it->second == i);
+                    HandleFaultEventLocked(static_cast<int32_t>(ev.pid), ev.vpn,
+                                           static_cast<uint8_t>(ev.aux & 0x1fULL),
+                                           ev.timestamp, is_frontier);
+                } else if (ev.type == MEXT_EVT_MEM_PRESSURE && pressure_cb) {
+                    p_notes.push_back({ ev.pid, ev.vpn, ev.aux >> 16,
+                                        static_cast<uint16_t>(ev.aux & 0xffffULL),
+                                        ev.timestamp });
+                }
             }
+        }
+
+        for (const auto &pn : p_notes) {
+            pressure_cb(pn.nid, pn.free_pages, pn.wmark_low, pn.order, pn.ts);
         }
     }
     return batch.size();
@@ -503,8 +594,14 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
 void MextEngine::WorkerLoop()
 {
     uint32_t idle_spins = 0;
+    uint32_t batches_since_maint = 0;
     while (running_.load(std::memory_order_acquire)) {
-        size_t processed = ProcessRingOnce(256);
+        size_t processed = ProcessRingOnce(1024);
+        if ((++batches_since_maint & 15U) == 0U || processed == 0) {
+            uint64_t now = SteadyNowNs();
+            RefreshPsiOutsideLock(now);
+            FlushStatsJsonOutsideLock(now, false);
+        }
         if (processed > 0) {
             idle_spins = 0;
             continue;
@@ -528,24 +625,40 @@ void MextEngine::WorkerLoop()
     }
 }
 
-void MextEngine::HandleEvictionEvent(int32_t pid, uint64_t vpn, uint64_t epoch)
+void MextEngine::HandleEvictionEventLocked(int32_t pid, uint64_t vpn, uint64_t epoch)
 {
-    std::lock_guard<std::mutex> lk(mu_);
     if (shadow_map_.RecordEviction(pid, vpn, epoch) > 0) {
         ++evicts_tracked_;
     }
+    auto it = pid_states_.find(pid);
+    if (it != pid_states_.end()) {
+        for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+            if (it->second.recent_faults[s].vpn == vpn) {
+                it->second.recent_faults[s].vpn = 0;
+            }
+        }
+    }
 }
 
-void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
+void MextEngine::HandleEvictionEvent(int32_t pid, uint64_t vpn, uint64_t epoch)
+{
+    std::lock_guard<std::mutex> lk(mu_);
+    HandleEvictionEventLocked(pid, vpn, epoch);
+}
+
+bool MextEngine::BuildStatsJsonLocked(uint64_t now_ns,
+                                      bool force,
+                                      std::string *out_path,
+                                      std::string *out_json)
 {
     if (trace_fp_) {
         std::fflush(trace_fp_);
     }
-    if (stats_json_path_.empty()) {
-        return;
+    if (stats_json_path_.empty() || !out_path || !out_json) {
+        return false;
     }
     if (!force && (now_ns - last_stats_flush_ns_ < 1000000000ULL)) {
-        return;
+        return false;
     }
     last_stats_flush_ns_ = now_ns;
 
@@ -558,53 +671,88 @@ void MextEngine::FlushStatsJsonLocked(uint64_t now_ns, bool force)
                                   static_cast<double>(faults_processed_ + prediction_hits_))
                                : 0.0;
     uint64_t total_prefetched = prefetch_issued_ + prefault_issued_;
+    uint64_t ring_dropped = mmap_ring_ ? mmap_ring_->hdr.dropped : 0ULL;
+    uint64_t pflt_pop = prefault_populated_.load(std::memory_order_relaxed);
+    double psi_avg10 = static_cast<double>(
+                           psi_some_milli_.load(std::memory_order_relaxed)) /
+                       1000.0;
 
-    std::string tmp_path = stats_json_path_ + ".tmp";
+    char buf[1280];
+    int n = std::snprintf(
+        buf, sizeof(buf),
+        "{\n"
+        "  \"faults_processed\": %llu,\n"
+        "  \"retry_dups_skipped\": %llu,\n"
+        "  \"shadow_matched_faults\": %llu,\n"
+        "  \"evicts_tracked\": %llu,\n"
+        "  \"tier1_predictions\": %llu,\n"
+        "  \"transformer_predictions\": %llu,\n"
+        "  \"prefetch_issued\": %llu,\n"
+        "  \"prefault_issued\": %llu,\n"
+        "  \"prefault_populated\": %llu,\n"
+        "  \"total_prefetched_pages\": %llu,\n"
+        "  \"prediction_hits\": %llu,\n"
+        "  \"predictions_evaluated\": %llu,\n"
+        "  \"hit_rate\": %.6f,\n"
+        "  \"coverage_rate\": %.6f,\n"
+        "  \"ring_dropped\": %llu,\n"
+        "  \"avg_infer_us\": %.3f,\n"
+        "  \"trace_events_written\": %llu,\n"
+        "  \"psi_some_avg10\": %.3f\n"
+        "}\n",
+        static_cast<unsigned long long>(faults_processed_),
+        static_cast<unsigned long long>(retry_dups_skipped_),
+        static_cast<unsigned long long>(shadow_matched_faults_),
+        static_cast<unsigned long long>(evicts_tracked_),
+        static_cast<unsigned long long>(tier1_preds_),
+        static_cast<unsigned long long>(tf_preds_),
+        static_cast<unsigned long long>(prefetch_issued_),
+        static_cast<unsigned long long>(prefault_issued_),
+        static_cast<unsigned long long>(pflt_pop),
+        static_cast<unsigned long long>(total_prefetched),
+        static_cast<unsigned long long>(prediction_hits_),
+        static_cast<unsigned long long>(predictions_evaluated_),
+        hit_rate, coverage_rate,
+        static_cast<unsigned long long>(ring_dropped),
+        avg_infer_us_,
+        static_cast<unsigned long long>(trace_events_written_),
+        psi_avg10);
+    if (n <= 0) {
+        return false;
+    }
+    *out_path = stats_json_path_;
+    out_json->assign(buf, static_cast<size_t>(std::min<int>(n, static_cast<int>(sizeof(buf) - 1))));
+    return true;
+}
+
+void MextEngine::FlushStatsJsonOutsideLock(uint64_t now_ns, bool force)
+{
+    std::string target_path;
+    std::string payload;
+    {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (!BuildStatsJsonLocked(now_ns, force, &target_path, &payload)) {
+            return;
+        }
+    }
+    std::string tmp_path = target_path + ".tmp";
     FILE *fp = std::fopen(tmp_path.c_str(), "w");
     if (!fp) {
         return;
     }
-    std::fprintf(fp,
-                 "{\n"
-                 "  \"faults_processed\": %llu,\n"
-                 "  \"evicts_tracked\": %llu,\n"
-                 "  \"tier1_predictions\": %llu,\n"
-                 "  \"transformer_predictions\": %llu,\n"
-                 "  \"prefetch_issued\": %llu,\n"
-                 "  \"prefault_issued\": %llu,\n"
-                 "  \"total_prefetched_pages\": %llu,\n"
-                 "  \"prediction_hits\": %llu,\n"
-                 "  \"predictions_evaluated\": %llu,\n"
-                 "  \"hit_rate\": %.6f,\n"
-                 "  \"coverage_rate\": %.6f,\n"
-                 "  \"avg_infer_us\": %.3f,\n"
-                 "  \"trace_events_written\": %llu,\n"
-                 "  \"psi_some_avg10\": %.3f\n"
-                 "}\n",
-                 static_cast<unsigned long long>(faults_processed_),
-                 static_cast<unsigned long long>(evicts_tracked_),
-                 static_cast<unsigned long long>(tier1_preds_),
-                 static_cast<unsigned long long>(tf_preds_),
-                 static_cast<unsigned long long>(prefetch_issued_),
-                 static_cast<unsigned long long>(prefault_issued_),
-                 static_cast<unsigned long long>(total_prefetched),
-                 static_cast<unsigned long long>(prediction_hits_),
-                 static_cast<unsigned long long>(predictions_evaluated_),
-                 hit_rate, coverage_rate, avg_infer_us_,
-                 static_cast<unsigned long long>(trace_events_written_),
-                 psi_some_avg10_);
+    (void)std::fwrite(payload.data(), 1U, payload.size(), fp);
     std::fclose(fp);
-    (void)std::rename(tmp_path.c_str(), stats_json_path_.c_str());
+    (void)std::rename(tmp_path.c_str(), target_path.c_str());
 }
 
-void MextEngine::RefreshPsiIfNeeded(uint64_t now_ns)
+void MextEngine::RefreshPsiOutsideLock(uint64_t now_ns)
 {
-    FlushStatsJsonLocked(now_ns, false);
 #ifdef __linux__
-    if (now_ns - last_psi_check_ns_ < 100000000ULL) { /* 100 ms */
+    uint64_t prev = last_psi_check_ns_.load(std::memory_order_relaxed);
+    if (now_ns >= prev && (now_ns - prev) < 100000000ULL) { /* 100 ms */
         return;
     }
-    last_psi_check_ns_ = now_ns;
+    last_psi_check_ns_.store(now_ns, std::memory_order_relaxed);
     FILE *f = std::fopen("/proc/pressure/memory", "r");
     if (!f) {
         return;
@@ -612,14 +760,14 @@ void MextEngine::RefreshPsiIfNeeded(uint64_t now_ns)
     char line[256];
     if (std::fgets(line, sizeof(line), f)) {
         double avg10 = 0.0;
-        if (std::sscanf(line, "some avg10=%lf", &avg10) == 1) {
-            psi_some_avg10_ = avg10;
+        if (std::sscanf(line, "some avg10=%lf", &avg10) == 1 && avg10 >= 0.0) {
+            psi_some_milli_.store(static_cast<uint64_t>(avg10 * 1000.0 + 0.5),
+                                  std::memory_order_relaxed);
         }
     }
     std::fclose(f);
 #else
     (void)now_ns;
-    (void)last_psi_check_ns_;
 #endif
 }
 
@@ -736,8 +884,7 @@ int MextEngine::PageoutPidCold(int mig_fd, int32_t pid, uint32_t nr_pages, bool 
     return static_cast<int>(pf.nr_succeeded);
 }
 
-void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
-                                     int mig_fd,
+bool MextEngine::ExecuteAsyncMadvise(PrefetchShard *shard,
                                      uint32_t page_shift,
                                      const PrefetchWorkItem &item)
 {
@@ -792,12 +939,18 @@ void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
 #else
     (void)shard;
     (void)page_shift;
+    (void)item;
 #endif
+    return madv_succeeded;
+}
 
+void MextEngine::ExecutePrefaultGup(int mig_fd,
+                                    const PrefetchWorkItem &item,
+                                    bool madv_succeeded)
+{
     if (mig_fd < 0) {
         return;
     }
-
     if (item.sync_zram_mode || !item.prefault_vpns.empty() || !madv_succeeded) {
         /*
          * Populate high-confidence `prefault_vpns` (and full fallback when
@@ -821,18 +974,28 @@ void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
             pf.flags = 0U;
             pf.vpns_ptr = static_cast<uint64_t>(
                 reinterpret_cast<uintptr_t>(gup_vpns.data()));
-            (void)ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf);
+            if (ioctl(mig_fd, MEXT_IOCTL_PREFAULT, &pf) == 0 && pf.nr_succeeded > 0U) {
+                prefault_populated_.fetch_add(pf.nr_succeeded, std::memory_order_relaxed);
+            }
         }
     }
+}
+
+void MextEngine::ExecutePrefetchItem(PrefetchShard *shard,
+                                     int mig_fd,
+                                     uint32_t page_shift,
+                                     const PrefetchWorkItem &item)
+{
+    bool madv_ok = ExecuteAsyncMadvise(shard, page_shift, item);
+    ExecutePrefaultGup(mig_fd, item, madv_ok);
 }
 
 void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
 {
     PrefetchShard &shard = prefetch_shards_[shard_idx];
     while (running_.load(std::memory_order_acquire)) {
-        PrefetchWorkItem item{};
+        std::vector<PrefetchWorkItem> batch_items;
         std::vector<int32_t> to_close;
-        bool has_item = false;
 
         {
             std::unique_lock<std::mutex> slk(shard.mu);
@@ -844,10 +1007,9 @@ void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
             if (!shard.pending_close_pids.empty()) {
                 to_close.swap(shard.pending_close_pids);
             }
-            if (!shard.queue.empty()) {
-                item = std::move(shard.queue.front());
+            while (!shard.queue.empty() && batch_items.size() < 8U) {
+                batch_items.push_back(std::move(shard.queue.front()));
                 shard.queue.pop_front();
-                has_item = true;
             }
         }
 
@@ -857,7 +1019,7 @@ void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
         if (!running_.load(std::memory_order_acquire)) {
             break;
         }
-        if (has_item) {
+        if (!batch_items.empty()) {
             int fd = -1;
             uint32_t ps = 12;
             {
@@ -865,7 +1027,18 @@ void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
                 fd = mig_fd_;
                 ps = page_shift_;
             }
-            ExecutePrefetchItem(&shard, fd, ps, item);
+            /*
+             * Two-phase dispatch: submit non-blocking `process_madvise(MADV_WILLNEED)`
+             * across all queued sandboxes FIRST so NVMe bios enter the block queue
+             * with zero head-of-line delay behind another sandbox's GUP!
+             */
+            std::vector<uint8_t> madv_ok(batch_items.size(), 0U);
+            for (size_t k = 0; k < batch_items.size(); ++k) {
+                madv_ok[k] = ExecuteAsyncMadvise(&shard, ps, batch_items[k]) ? 1U : 0U;
+            }
+            for (size_t k = 0; k < batch_items.size(); ++k) {
+                ExecutePrefaultGup(fd, batch_items[k], madv_ok[k] != 0U);
+            }
         }
     }
 }
@@ -886,8 +1059,10 @@ void MextEngine::DispatchCandidates(int32_t pid,
     uint32_t eff_top_k = cfg_.top_k > 0 ? cfg_.top_k : 16U;
 
     const uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
-    const bool shadow_is_complete = (pid_evicts > 0) &&
-                                    (pst->untracked_faults * 8ULL < pst->fault_count);
+    const bool shadow_is_complete =
+        (pid_evicts > 0) &&
+        ((pst->recent_shadow_rate >= 0.45) ||
+         (pst->shadow_matched_faults * 2ULL >= pst->fault_count));
 
     /*
      * Per-PID closed-loop precision gate: when kernel eviction tracking is
@@ -905,7 +1080,10 @@ void MextEngine::DispatchCandidates(int32_t pid,
     }
 
     /* PSI guardrail: throttle speculative prefetching under DRAM stall pressure */
-    if (cfg_.psi_stall_limit > 0.0 && psi_some_avg10_ > cfg_.psi_stall_limit) {
+    const double cur_psi = static_cast<double>(
+                               psi_some_milli_.load(std::memory_order_relaxed)) /
+                           1000.0;
+    if (cfg_.psi_stall_limit > 0.0 && cur_psi > cfg_.psi_stall_limit) {
         eff_prefetch_th = std::min(0.85f, eff_prefetch_th + 0.15f);
         eff_prefault_th = std::min(0.95f, eff_prefault_th + 0.10f);
         eff_top_k = std::max(2U, eff_top_k / 2U);
@@ -991,23 +1169,36 @@ void MextEngine::DispatchCandidates(int32_t pid,
     }
 }
 
-void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
-                                  uint64_t timestamp_ns, bool emit_predictions)
+void MextEngine::HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_slot,
+                                        uint64_t timestamp_ns, bool emit_predictions)
 {
-    if (pid <= 0 || vpn == 0) {
+    if (pid <= 0 || vpn == 0 || !cfg_.enabled) {
         return;
     }
 
-    std::lock_guard<std::mutex> lk(mu_);
-    if (!cfg_.enabled) {
-        return;
+    uint64_t now_ns = (timestamp_ns > 0) ? timestamp_ns : SteadyNowNs();
+    PidRuntimeState &pst = pid_states_[pid];
+
+    /*
+     * Filter Linux `do_swap_page` VM_FAULT_RETRY second-pass duplicates (even
+     * across 2-16 interleaved vCPUs within 50 ms when the page was not evicted
+     * again in between). Prevents polluting `untracked_faults`, KV cache tokens,
+     * and odd/even `fault_trigger_stride` parity for Transformer Head B.
+     */
+    if (!shadow_map_.IsSwappedOut(pid, vpn) && now_ns > 0) {
+        for (uint32_t s = 0; s < kRecentFaultSlots; ++s) {
+            if (pst.recent_faults[s].vpn == vpn &&
+                now_ns >= pst.recent_faults[s].ts_ns &&
+                (now_ns - pst.recent_faults[s].ts_ns) <= kRetryDedupWindowNs) {
+                ++retry_dups_skipped_;
+                return;
+            }
+        }
     }
+    pst.recent_faults[pst.recent_fault_cursor & (kRecentFaultSlots - 1U)] = { vpn, now_ns };
+    ++pst.recent_fault_cursor;
 
     ++faults_processed_;
-    uint64_t now_ns = (timestamp_ns > 0) ? timestamp_ns : SteadyNowNs();
-    RefreshPsiIfNeeded(now_ns);
-
-    PidRuntimeState &pst = pid_states_[pid];
     ++pst.fault_count;
 
     /* Check whether this access matches a previously predicted page */
@@ -1024,8 +1215,15 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
     uint64_t evict_seq = 0;
     uint64_t evict_epoch = 0;
     bool has_evict = shadow_map_.OnPageFault(pid, vpn, &evict_seq, &evict_epoch);
-    if (!has_evict) {
+    if (has_evict) {
+        ++pst.shadow_matched_faults;
+        ++shadow_matched_faults_;
+        pst.recent_shadow_rate = (pst.fault_count == 1ULL)
+                                     ? 1.0
+                                     : (0.95 * pst.recent_shadow_rate + 0.05);
+    } else {
         ++pst.untracked_faults;
+        pst.recent_shadow_rate = 0.95 * pst.recent_shadow_rate;
     }
 
     /* Update delayed self-supervised labels for online output-head adaptation */
@@ -1160,6 +1358,16 @@ void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
     DispatchCandidates(pid, &pst, merged);
 }
 
+void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
+                                  uint64_t timestamp_ns, bool emit_predictions)
+{
+    if (pid <= 0 || vpn == 0) {
+        return;
+    }
+    std::lock_guard<std::mutex> lk(mu_);
+    HandleFaultEventLocked(pid, vpn, vma_slot, timestamp_ns, emit_predictions);
+}
+
 MextStats MextEngine::GetStatsSnapshot()
 {
     std::lock_guard<std::mutex> lk(mu_);
@@ -1178,7 +1386,9 @@ MextStats MextEngine::GetStatsSnapshot()
     st.hit_rate = (predictions_evaluated_ > 0)
                       ? (static_cast<double>(prediction_hits_) / static_cast<double>(predictions_evaluated_))
                       : 0.0;
-    st.psi_some_avg10 = psi_some_avg10_;
+    st.psi_some_avg10 = static_cast<double>(
+                            psi_some_milli_.load(std::memory_order_relaxed)) /
+                        1000.0;
     return st;
 }
 

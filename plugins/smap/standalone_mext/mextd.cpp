@@ -72,7 +72,8 @@ struct DaemonOptions {
     bool no_online_adapt = false;
     bool force_zram = false;
     bool force_nvme = false;
-    bool tune_page_cluster = true;
+    bool zero_page_cluster = false;
+    bool keep_page_cluster = false;
     bool daemonize = false;
     bool verbose = false;
     bool self_test = false;
@@ -116,9 +117,10 @@ SwapBackendKind DetectSystemSwapBackend(std::string *first_dev_out)
 
 class PageClusterGuard {
 public:
-    explicit PageClusterGuard(bool enable)
+    /* target_cluster < 0: keep system setting; >= 0: set /proc/sys/vm/page-cluster and restore on exit */
+    explicit PageClusterGuard(int target_cluster)
     {
-        if (!enable) {
+        if (target_cluster < 0) {
             return;
         }
         FILE *fr = std::fopen("/proc/sys/vm/page-cluster", "r");
@@ -132,7 +134,7 @@ public:
         }
         FILE *fw = std::fopen("/proc/sys/vm/page-cluster", "w");
         if (fw) {
-            std::fputs("0\n", fw);
+            std::fprintf(fw, "%d\n", target_cluster);
             std::fclose(fw);
             modified_ = true;
         }
@@ -610,9 +612,10 @@ void PrintUsage(const char *prog)
         "  --record-only           Capture faults/evictions only; never issue prefetch\n"
         "  --weights <path>        Optional TinyTransformer weights file\n"
         "  --no-online-adapt       Freeze pre-trained output head (disable online SGD updates)\n"
-        "  --zram                  Force synchronous zram preset\n"
-        "  --nvme                  Force asynchronous NVMe/block swap preset\n"
-        "  --keep-page-cluster     Do not set /proc/sys/vm/page-cluster=0\n"
+        "  --zram                  Force synchronous zram preset (page-cluster=0)\n"
+        "  --nvme                  Force hybrid NVMe/block preset (4-page kernel RA + MEXT lookahead)\n"
+        "  --zero-page-cluster     Force /proc/sys/vm/page-cluster=0 even on NVMe\n"
+        "  --keep-page-cluster     Leave host /proc/sys/vm/page-cluster untouched\n"
         "  --daemon                Fork into background after initialization\n"
         "  --pidfile <path>        Write daemon PID file\n"
         "  --verbose               Print periodic 5s telemetry summary to stdout\n"
@@ -644,8 +647,10 @@ bool ParseArgs(int argc, char **argv, DaemonOptions *opt)
             opt->force_zram = true;
         } else if (a == "--nvme") {
             opt->force_nvme = true;
+        } else if (a == "--zero-page-cluster") {
+            opt->zero_page_cluster = true;
         } else if (a == "--keep-page-cluster") {
-            opt->tune_page_cluster = false;
+            opt->keep_page_cluster = true;
         } else if (a == "--daemon") {
             opt->daemonize = true;
         } else if (a == "--verbose") {
@@ -735,11 +740,31 @@ int main(int argc, char **argv)
     std::signal(SIGINT, SignalHandler);
     std::signal(SIGTERM, SignalHandler);
 
-    PageClusterGuard pc_guard(opt.tune_page_cluster);
-
     std::string detected_swap;
     SwapBackendKind swap_kind = DetectSystemSwapBackend(&detected_swap);
     bool use_zram = opt.force_zram || (!opt.force_nvme && swap_kind == SwapBackendKind::kZram);
+
+    /*
+     * Synergistic Hybrid Readahead Architecture:
+     *   - zram (`SWP_SYNCHRONOUS_IO`): `page-cluster=0`, `kernel_ra_win=0` (direct PTE prefault).
+     *   - NVMe/Block (default): `page-cluster=2` (adaptive 4-page in-kernel `swap_vma_readahead`
+     *     satisfies immediate +1..+4 PTE neighbors inside the t=0ns demand-fault bio before
+     *     unthrottled vCPUs fault again) paired with `kernel_ra_win=4` so MEXT dedicates 100%
+     *     of `top_k` to `+5..+64` lookahead, non-unit strides, Markov jumps, and Co-Eviction!
+     */
+    int target_page_cluster = -1;
+    uint32_t kernel_ra_win = 0U;
+    if (opt.keep_page_cluster) {
+        target_page_cluster = -1;
+        kernel_ra_win = use_zram ? 0U : 4U;
+    } else if (use_zram || opt.zero_page_cluster) {
+        target_page_cluster = 0;
+        kernel_ra_win = 0U;
+    } else {
+        target_page_cluster = 2; /* 2^2 = 4 pages immediate kernel swap_vma_readahead */
+        kernel_ra_win = 4U;
+    }
+    PageClusterGuard pc_guard(target_page_cluster);
 
     MextConfig mcfg{};
     MextDefaultConfig(&mcfg);
@@ -756,6 +781,7 @@ int main(int argc, char **argv)
     }
 
     MextEngine engine;
+    engine.SetKernelReadaheadWindow(kernel_ra_win);
     if (!opt.stats_json_path.empty()) {
         if (opt.stats_json_path == "/var/run/smap_mext_stats.json" && access("/var/run", W_OK) != 0) {
             opt.stats_json_path = "/tmp/smap_mext_stats.json";
@@ -822,10 +848,13 @@ int main(int argc, char **argv)
         cg_roots.push_back(opt.watch_cgroup);
     }
 
-    std::printf("mextd started on %s | backend=%s (%s) | track_all=%s | reclaim=%s | stats=%s\n",
+    std::printf("mextd started on %s | backend=%s (%s) | page_cluster=%d (ra_win=%u) | "
+                "track_all=%s | reclaim=%s | stats=%s\n",
                 opt.device_path.c_str(),
                 use_zram ? "zram" : "nvme/block",
                 detected_swap.empty() ? "no-active-swap-yet" : detected_swap.c_str(),
+                target_page_cluster,
+                kernel_ra_win,
                 opt.track_all_pids ? "on" : "off",
                 opt.enable_reclaim ? "on" : "off",
                 opt.stats_json_path.c_str());

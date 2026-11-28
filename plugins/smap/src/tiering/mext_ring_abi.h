@@ -26,8 +26,8 @@ extern "C" {
 
 #define MEXT_RING_MAGIC          0x4D455854U /* "MEXT" */
 #define MEXT_RING_VERSION        1U
-#define MEXT_RING_CAPACITY_SHIFT 14U
-#define MEXT_RING_CAPACITY       (1U << MEXT_RING_CAPACITY_SHIFT) /* 16384 slots */
+#define MEXT_RING_CAPACITY_SHIFT 16U
+#define MEXT_RING_CAPACITY       (1U << MEXT_RING_CAPACITY_SHIFT) /* 65536 slots (2 MiB) */
 #define MEXT_RING_MASK           (MEXT_RING_CAPACITY - 1U)
 
 #define MEXT_MAX_PREFAULT_PAGES          512U

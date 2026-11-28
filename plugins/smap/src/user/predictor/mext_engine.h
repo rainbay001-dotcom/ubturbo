@@ -69,6 +69,8 @@ public:
     void SetTraceDumpPath(const std::string &path);
     /* Capture faults/evictions only, without issuing any prefetch (baseline recording) */
     void SetRecordOnly(bool on);
+    /* Coordinate with in-kernel swap_vma_readahead (skipping +1..+pages immediate window) */
+    void SetKernelReadaheadWindow(uint32_t pages);
     void FlushStatsJson();
 
     /* Drain up to `max_events` from the shared ring buffer; returns events processed */
@@ -168,8 +170,10 @@ private:
     bool PopRingEvent(mext_ring_event *out);
     void HandleEvictionEventLocked(int32_t pid, uint64_t vpn, uint64_t epoch);
     void HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_slot,
-                                uint64_t timestamp_ns, bool emit_predictions);
+                                uint64_t timestamp_ns, bool emit_predictions,
+                                bool heavy_backlog = false);
     void DispatchCandidates(int32_t pid,
+                            uint64_t fault_vpn,
                             PidRuntimeState *pst,
                             const std::vector<CandidatePage> &merged);
     void RefreshPsiOutsideLock(uint64_t now_ns);
@@ -181,6 +185,8 @@ private:
     MextConfig cfg_{};
     int mig_fd_ = -1;
     uint32_t page_shift_ = 12;
+    uint32_t ring_mask_ = MEXT_RING_MASK;
+    std::atomic<uint32_t> kernel_ra_pages_{ 0 };
     bool async_pool_active_ = false;
     std::atomic<uint32_t> total_open_pidfds_{ 0 };
     PrefetchShard prefetch_shards_[kPrefetchShards];

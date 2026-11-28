@@ -61,7 +61,8 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
                                    uint64_t evict_seq,
                                    uint64_t evict_epoch,
                                    const SwapShadowMap &shadow,
-                                   std::vector<CandidatePage> *out_candidates)
+                                   std::vector<CandidatePage> *out_candidates,
+                                   uint32_t kernel_ra_pages)
 {
     if (pid <= 0 || vpn == 0) {
         return;
@@ -82,11 +83,14 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
     } else if (vpn != vs.last_vpn) {
         int64_t stride = static_cast<int64_t>(vpn) - static_cast<int64_t>(vs.last_vpn);
         uint64_t fwd_gap = (stride > 0) ? static_cast<uint64_t>(stride) : 0ULL;
-        bool seq_frontier_hit =
-            (fwd_gap == 1ULL) ||
+        bool kernel_cluster_hit =
+            (kernel_ra_pages > 0U && fwd_gap >= 2ULL &&
+             fwd_gap <= static_cast<uint64_t>(kernel_ra_pages + 1U));
+        bool mext_frontier_hit =
             (vs.seq_window >= 2U && vs.streak >= 2U && fwd_gap >= 2ULL &&
-             fwd_gap <= static_cast<uint64_t>(vs.seq_window + 1U) &&
+             fwd_gap <= static_cast<uint64_t>(kernel_ra_pages + vs.seq_window + 1U) &&
              shadow.WasRecentlyPrefetched(pid, vpn - 1ULL));
+        bool seq_frontier_hit = (fwd_gap == 1ULL) || kernel_cluster_hit || mext_frontier_hit;
 
         if (seq_frontier_hit) {
             vs.last_stride = 1;
@@ -94,14 +98,15 @@ void Tier1Table::ObserveAndPredict(int32_t pid,
                 ++vs.streak;
             }
             uint32_t next_win = (vs.streak == 1U)
-                                    ? 2U
+                                    ? ((kernel_ra_pages > 0U) ? 4U : 2U)
                                     : std::min<uint32_t>(8U, std::max<uint32_t>(4U, vs.seq_window * 2U));
             vs.seq_window = next_win;
             if (out_candidates) {
                 float base_conf = std::min(0.90f, 0.48f + 0.08f * static_cast<float>(vs.streak));
                 for (uint32_t step = 1U; step <= next_win; ++step) {
                     float conf = std::max(0.30f, base_conf * (1.0f - 0.06f * static_cast<float>(step - 1U)));
-                    out_candidates->push_back(CandidatePage{ vpn + step, conf });
+                    out_candidates->push_back(
+                        CandidatePage{ vpn + static_cast<uint64_t>(kernel_ra_pages + step), conf });
                 }
             }
         } else {

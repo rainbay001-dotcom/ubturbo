@@ -72,6 +72,7 @@ static u32 g_pid_tomb_cnt;
 static bool g_track_all_pids;
 static bool g_kprobe_registered;
 static bool g_evict_kp_registered;
+static bool g_evict_pvmw_registered;
 static bool g_pressure_kp_registered;
 static bool g_capture_enabled;
 
@@ -377,6 +378,78 @@ static int kp_try_to_unmap_one_pre(struct kprobe *p, struct pt_regs *regs)
 static struct kprobe g_evict_kp = {
 	.symbol_name = "try_to_unmap_one",
 	.pre_handler = kp_try_to_unmap_one_pre,
+};
+
+/*
+ * Cross-TU fallback eviction hook on `page_vma_mapped_walk` (`mm/page_vma_mapped.c`,
+ * non-static global symbol that GCC `-O2` never inlines across `mm/rmap.o`).
+ * Fires only on the initial entry (`!pvmw->pte && !pvmw->pmd`) for an isolated,
+ * locked anonymous swapcache folio undergoing `shrink_folio_list -> try_to_unmap`.
+ */
+static int kp_page_vma_mapped_walk_pre(struct kprobe *p, struct pt_regs *regs)
+{
+	struct page_vma_mapped_walk *pvmw;
+	struct vm_area_struct *vma;
+	struct mm_struct *mm;
+	struct task_struct *owner;
+	struct page *page;
+	struct folio *folio;
+	unsigned long pfn, addr;
+	pid_t tgid;
+	u64 epoch;
+
+	if (!READ_ONCE(g_capture_enabled))
+		return 0;
+
+#if defined(CONFIG_ARM64)
+	pvmw = (struct page_vma_mapped_walk *)regs->regs[0];
+#elif defined(CONFIG_X86_64)
+	pvmw = (struct page_vma_mapped_walk *)regs->di;
+#else
+	pvmw = (struct page_vma_mapped_walk *)regs_get_kernel_argument(regs, 0);
+#endif
+	if (unlikely(!pvmw))
+		return 0;
+	if (READ_ONCE(pvmw->pte) || READ_ONCE(pvmw->pmd))
+		return 0;
+
+	vma = READ_ONCE(pvmw->vma);
+	addr = READ_ONCE(pvmw->address);
+	pfn = READ_ONCE(pvmw->pfn);
+	if (unlikely(!vma || !addr || addr >= TASK_SIZE || !pfn_valid(pfn)))
+		return 0;
+
+	page = pfn_to_online_page(pfn);
+	if (unlikely(!page || PageTail(page)))
+		return 0;
+
+	folio = page_folio(page);
+	if (!folio_test_anon(folio) || !folio_test_swapcache(folio) ||
+	    !folio_test_locked(folio) || folio_test_lru(folio))
+		return 0;
+
+	mm = READ_ONCE(vma->vm_mm);
+	if (unlikely(!mm))
+		return 0;
+
+	rcu_read_lock();
+	owner = rcu_dereference(mm->owner);
+	tgid = owner ? READ_ONCE(owner->tgid) : 0;
+	rcu_read_unlock();
+
+	if (tgid <= 0 || !mext_is_pid_tracked(tgid))
+		return 0;
+
+	epoch = ktime_get_ns() >> 21;
+	if (mext_ring_push(MEXT_EVT_EVICTED, (u32)tgid,
+			   (u64)(addr >> PAGE_SHIFT), epoch))
+		atomic64_inc(&g_evicts_captured);
+	return 0;
+}
+
+static struct kprobe g_evict_pvmw_kp = {
+	.symbol_name = "page_vma_mapped_walk",
+	.pre_handler = kp_page_vma_mapped_walk_pre,
 };
 #endif
 
@@ -900,13 +973,21 @@ static int mext_enable_kprobe_locked(void)
 		g_kprobe_registered = true;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
-	if (!g_evict_kp_registered) {
+	if (!g_evict_kp_registered && !g_evict_pvmw_registered) {
 		ret = register_kprobe(&g_evict_kp);
 		if (ret == 0) {
 			g_evict_kp_registered = true;
+			pr_info("MEXT cgroup eviction hook active via try_to_unmap_one\n");
 		} else {
-			pr_warn("register_kprobe(try_to_unmap_one) unavailable (%d)\n",
-				ret);
+			ret = register_kprobe(&g_evict_pvmw_kp);
+			if (ret == 0) {
+				g_evict_pvmw_registered = true;
+				g_evict_kp_registered = true;
+				pr_info("MEXT cgroup eviction hook active via page_vma_mapped_walk fallback\n");
+			} else {
+				pr_warn("MEXT eviction kprobes unavailable (ttu=%d, pvmw=%d)\n",
+					-ENOENT, ret);
+			}
 		}
 	}
 #endif
@@ -1028,7 +1109,11 @@ void mext_fault_ring_exit(void)
 		g_pressure_kp_registered = false;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
-	if (g_evict_kp_registered) {
+	if (g_evict_pvmw_registered) {
+		unregister_kprobe(&g_evict_pvmw_kp);
+		g_evict_pvmw_registered = false;
+		g_evict_kp_registered = false;
+	} else if (g_evict_kp_registered) {
 		unregister_kprobe(&g_evict_kp);
 		g_evict_kp_registered = false;
 	}

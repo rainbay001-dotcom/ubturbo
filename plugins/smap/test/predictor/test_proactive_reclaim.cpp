@@ -1172,7 +1172,26 @@ void TestSequentialFrontierRampAndActiveFaultGuard()
     }
     retry_eng.Stop();
 
-    std::printf("[PASS] Sequential prefetch-frontier ramp, 4-shard pool & dual-vCPU VM_FAULT_RETRY dedup\n");
+    /* Verify Hybrid Kernel-Readahead + MEXT Lookahead Synergy (`SetKernelReadaheadWindow(4)`):
+     * MEXT skips `+1..+4` (handled at t=0ns by kernel swap_vma_readahead) and projects `+5..+8+`! */
+    MextEngine hyb_eng;
+    hyb_eng.SetKernelReadaheadWindow(4U);
+    std::vector<uint64_t> hyb_batch;
+    hyb_eng.SetDispatchCallback([&](int32_t, const std::vector<uint64_t> &pf, const std::vector<uint64_t> &flt) {
+        hyb_batch.clear();
+        hyb_batch.insert(hyb_batch.end(), pf.begin(), pf.end());
+        hyb_batch.insert(hyb_batch.end(), flt.begin(), flt.end());
+        std::sort(hyb_batch.begin(), hyb_batch.end());
+    });
+    REQUIRE(hyb_eng.Start(-1, mcfg, false) == 0);
+    hyb_eng.HandleFaultEvent(63001, 2000ULL, 3U, 1'000'000ULL, true);
+    /* Boundary fault at 2005 after kernel swap_vma_readahead satisfied 2001..2004 */
+    hyb_eng.HandleFaultEvent(63001, 2005ULL, 3U, 1'500'000ULL, true);
+    REQUIRE(hyb_batch.size() >= 4U);
+    REQUIRE(hyb_batch.front() == 2010ULL); /* Projects +5..+8 ahead, zero duplicate on 2006..2009! */
+    hyb_eng.Stop();
+
+    std::printf("[PASS] Sequential prefetch-frontier ramp, hybrid readahead synergy & VM_FAULT_RETRY dedup\n");
 }
 
 } // namespace

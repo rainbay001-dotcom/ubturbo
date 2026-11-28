@@ -28,8 +28,9 @@ rmmod smap_tiering smap_access_tracking smap_histogram_tracking smap_tracking_co
 sudo insmod kernel/mext_drv.ko
 
 # 3. Start mextd in zero-RPC global fault-capture mode
-#    - Automatically sets vm.page-cluster=0 (restored on exit)
-#    - Automatically selects zram vs NVMe preset from /proc/swaps
+#    - Hybrid NVMe default: sets vm.page-cluster=2 (4-page t=0ns kernel swap_vma_readahead,
+#      restored on exit) while MEXT projects +5..+64 lookahead, strides & cross-GPA Co-Eviction
+#      (pass --zero-page-cluster for page-cluster=0 ablation, or --zram on zram swap)
 #    - Exports /var/run/smap_mext_stats.json every second
 sudo ./mextd --track-all --daemon --pidfile /var/run/mextd.pid
 ```

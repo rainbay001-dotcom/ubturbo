@@ -37,7 +37,8 @@ public:
                            uint64_t evict_seq,
                            uint64_t evict_epoch,
                            const SwapShadowMap &shadow,
-                           std::vector<CandidatePage> *out_candidates);
+                           std::vector<CandidatePage> *out_candidates,
+                           uint32_t kernel_ra_pages = 0U);
 
     void RemovePid(int32_t pid);
     void Clear();

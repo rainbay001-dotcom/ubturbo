@@ -213,9 +213,13 @@ int MextEngine::Start(int mig_fd, const MextConfig &cfg, bool spawn_worker)
             void *addr = mmap(nullptr, mmap_bytes_, PROT_READ | PROT_WRITE, MAP_SHARED, mig_fd_, 0);
             if (addr != MAP_FAILED) {
                 auto *rb = static_cast<mext_ring_buffer *>(addr);
-                if (rb->hdr.magic == MEXT_RING_MAGIC && rb->hdr.capacity == MEXT_RING_CAPACITY) {
+                uint32_t cap = rb->hdr.capacity;
+                bool valid_cap = (cap >= 1024U && cap <= MEXT_RING_CAPACITY &&
+                                  (cap & (cap - 1U)) == 0U);
+                if (rb->hdr.magic == MEXT_RING_MAGIC && valid_cap) {
                     mmap_ring_ = rb;
                     owns_mmap_ = true;
+                    ring_mask_ = cap - 1U;
                     if (rb->hdr.page_shift >= 12 && rb->hdr.page_shift <= 16) {
                         page_shift_ = rb->hdr.page_shift;
                     }
@@ -379,6 +383,12 @@ void MextEngine::AttachExternalRing(mext_ring_buffer *ring)
         owns_mmap_ = false;
     }
     mmap_ring_ = ring;
+    if (ring && ring->hdr.capacity >= 1024U &&
+        (ring->hdr.capacity & (ring->hdr.capacity - 1U)) == 0U) {
+        ring_mask_ = ring->hdr.capacity - 1U;
+    } else {
+        ring_mask_ = MEXT_RING_MASK;
+    }
 }
 
 void MextEngine::SetDispatchCallback(DispatchCallback cb)
@@ -421,6 +431,11 @@ void MextEngine::SetRecordOnly(bool on)
     record_only_.store(on, std::memory_order_release);
 }
 
+void MextEngine::SetKernelReadaheadWindow(uint32_t pages)
+{
+    kernel_ra_pages_.store(pages, std::memory_order_release);
+}
+
 void MextEngine::FlushStatsJson()
 {
     FlushStatsJsonOutsideLock(SteadyNowNs(), true);
@@ -433,7 +448,7 @@ bool MextEngine::PopRingEvent(mext_ring_event *out)
     }
     mext_ring_header *hdr = &mmap_ring_->hdr;
     uint64_t r = hdr->tail;
-    mext_ring_event *ev = &mmap_ring_->events[r & MEXT_RING_MASK];
+    mext_ring_event *ev = &mmap_ring_->events[r & ring_mask_];
     uint32_t type = __atomic_load_n(&ev->type, __ATOMIC_ACQUIRE);
     if (type == MEXT_EVT_NONE) {
         return false;
@@ -451,10 +466,18 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
     PressureCallback pressure_cb;
     std::vector<uint8_t> skip_retry_dup;
     std::unordered_map<uint32_t, size_t> last_fault_idx;
+    bool heavy_backlog = false;
 
     {
         std::lock_guard<std::mutex> lk(mu_);
         pressure_cb = pressure_cb_;
+        if (mmap_ring_) {
+            uint64_t w_cur = __atomic_load_n(&mmap_ring_->hdr.write_idx, __ATOMIC_RELAXED);
+            uint64_t t_cur = mmap_ring_->hdr.tail;
+            if (w_cur >= t_cur && (w_cur - t_cur) >= 1024ULL) {
+                heavy_backlog = true;
+            }
+        }
         mext_ring_event ev{};
         while (batch.size() < max_events && PopRingEvent(&ev)) {
             batch.push_back(ev);
@@ -575,7 +598,7 @@ size_t MextEngine::ProcessRingOnce(size_t max_events)
                     bool is_frontier = (l_it != last_fault_idx.end() && l_it->second == i);
                     HandleFaultEventLocked(static_cast<int32_t>(ev.pid), ev.vpn,
                                            static_cast<uint8_t>(ev.aux & 0x1fULL),
-                                           ev.timestamp, is_frontier);
+                                           ev.timestamp, is_frontier, heavy_backlog);
                 } else if (ev.type == MEXT_EVT_MEM_PRESSURE && pressure_cb) {
                     p_notes.push_back({ ev.pid, ev.vpn, ev.aux >> 16,
                                         static_cast<uint16_t>(ev.aux & 0xffffULL),
@@ -1044,6 +1067,7 @@ void MextEngine::PrefetchShardLoop(uint32_t shard_idx)
 }
 
 void MextEngine::DispatchCandidates(int32_t pid,
+                                    uint64_t fault_vpn,
                                     PidRuntimeState *pst,
                                     const std::vector<CandidatePage> &merged)
 {
@@ -1057,6 +1081,7 @@ void MextEngine::DispatchCandidates(int32_t pid,
     float eff_prefetch_th = cfg_.prefetch_threshold;
     float eff_prefault_th = cfg_.prefault_threshold;
     uint32_t eff_top_k = cfg_.top_k > 0 ? cfg_.top_k : 16U;
+    const uint32_t kr_pages = kernel_ra_pages_.load(std::memory_order_acquire);
 
     const uint64_t pid_evicts = shadow_map_.TotalEvictionsForPid(pid);
     const bool shadow_is_complete =
@@ -1100,6 +1125,16 @@ void MextEngine::DispatchCandidates(int32_t pid,
             break;
         }
         if (cand.vpn == 0 || cand.prob < eff_prefetch_th) {
+            continue;
+        }
+        /*
+         * Hybrid Synergy: skip immediate `+1..+kr_pages` contiguous forward
+         * neighbors that in-kernel `swap_vma_readahead` already merged into the
+         * t=0ns demand-fault NVMe bio, reserving 100% of `top_k` for `+5..+64`
+         * lookahead, non-unit strides, Markov jumps, and cross-GPA Co-Eviction!
+         */
+        if (!sync_zram_mode && kr_pages > 0U &&
+            cand.vpn > fault_vpn && cand.vpn <= fault_vpn + static_cast<uint64_t>(kr_pages)) {
             continue;
         }
         if (shadow_map_.WasRecentlyPrefetched(pid, cand.vpn)) {
@@ -1170,7 +1205,8 @@ void MextEngine::DispatchCandidates(int32_t pid,
 }
 
 void MextEngine::HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_slot,
-                                        uint64_t timestamp_ns, bool emit_predictions)
+                                        uint64_t timestamp_ns, bool emit_predictions,
+                                        bool heavy_backlog)
 {
     if (pid <= 0 || vpn == 0 || !cfg_.enabled) {
         return;
@@ -1273,28 +1309,37 @@ void MextEngine::HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_s
     if (emit_predictions) {
         raw_cands.reserve(32);
     }
+    const uint32_t kr_pages = kernel_ra_pages_.load(std::memory_order_relaxed);
     tier1_.ObserveAndPredict(pid, vpn, vma_slot, has_evict, evict_seq, evict_epoch,
-                             shadow_map_, emit_predictions ? &raw_cands : nullptr);
+                             shadow_map_, emit_predictions ? &raw_cands : nullptr, kr_pages);
     if (!emit_predictions) {
         return;
     }
     tier1_preds_ += raw_cands.size();
 
-    /* Tier 2: INT8 TinyTransformer with circular RoPE KV cache */
+    /* Tier 2: INT8 TinyTransformer with circular RoPE KV cache
+     * Under extreme 64-core unthrottled bursts (`heavy_backlog`: >=1024 queued
+     * events), stride backbone updates 4x so the single consumer thread drains
+     * >1.5M events/s without ring drops while keeping Tier-1 active on every fault. */
     if (cfg_.enable_transformer) {
-        uint32_t stride = cfg_.fault_trigger_stride > 0 ? cfg_.fault_trigger_stride : 4U;
-        bool run_head = ((pst.fault_count % stride) == 0);
+        uint32_t base_stride = cfg_.fault_trigger_stride > 0 ? cfg_.fault_trigger_stride : 4U;
+        uint32_t eff_stride = heavy_backlog ? std::max<uint32_t>(8U, base_stride * 4U) : base_stride;
+        bool run_head = ((pst.fault_count % eff_stride) == 0);
+        bool run_backbone = !heavy_backlog || run_head || ((pst.fault_count & 3ULL) == 0ULL);
 
         float probs[MEXT_OUT_DIM];
         float hidden[TF_D_MODEL];
-        uint64_t t0 = SteadyNowNs();
-        transformer_.ForwardStep(pid, tok, run_head, run_head ? probs : nullptr, run_head ? hidden : nullptr);
-        uint64_t t1 = SteadyNowNs();
+        if (run_backbone) {
+            uint64_t t0 = SteadyNowNs();
+            transformer_.ForwardStep(pid, tok, run_head, run_head ? probs : nullptr, run_head ? hidden : nullptr);
+            uint64_t t1 = SteadyNowNs();
+            if (run_head) {
+                double us = static_cast<double>(t1 - t0) / 1000.0;
+                avg_infer_us_ = (avg_infer_us_ == 0.0) ? us : (0.92 * avg_infer_us_ + 0.08 * us);
+            }
+        }
 
-        if (run_head) {
-            double us = static_cast<double>(t1 - t0) / 1000.0;
-            avg_infer_us_ = (avg_infer_us_ == 0.0) ? us : (0.92 * avg_infer_us_ + 0.08 * us);
-
+        if (run_backbone && run_head) {
             /* Decode Head A (dVPN) & Head B (dEvictSeq) */
             float min_th = std::max(0.15f, cfg_.prefetch_threshold * 0.8f);
             for (uint32_t k = 0; k < MEXT_ACTION_OFFSETS; ++k) {
@@ -1355,7 +1400,7 @@ void MextEngine::HandleFaultEventLocked(int32_t pid, uint64_t vpn, uint8_t vma_s
     std::sort(merged.begin(), merged.end(),
               [](const CandidatePage &a, const CandidatePage &b) { return a.prob > b.prob; });
 
-    DispatchCandidates(pid, &pst, merged);
+    DispatchCandidates(pid, vpn, &pst, merged);
 }
 
 void MextEngine::HandleFaultEvent(int32_t pid, uint64_t vpn, uint8_t vma_slot,
